@@ -4,7 +4,7 @@
 
 # Install & Config
 
-`git clone https://github.com/crowdsecurity/cs-lua-lib.git`
+`git clone https://github.com/crowdsecurity/lua-cs-bouncer.git`
 
 ## Install script
 
@@ -34,14 +34,14 @@ sudo make install
 mkdir -p /usr/local/lua/crowdsec/
 ```
 
-- Copy the `cs-lua-lib/lib/*.lua` into `/usr/local/lua/crowdsec/`:
+- Copy the `lua-cs-bouncer/lib/*.lua` into `/usr/local/lua/crowdsec/`:
 ```
-cp ./cs-lua-lib/lib/*.lua /usr/local/lua/crowdsec
+cp ./lua-cs-bouncer/lib/*.lua /usr/local/lua/crowdsec
 ```
 
-- Copy the `cs-lua-lib/template.conf` into `/usr/local/lua/crowdsec/crowdsec.conf`:
+- Copy the `lua-cs-bouncer/template.conf` into `/usr/local/lua/crowdsec/crowdsec.conf`:
 ```
-cp ./cs-lua-lib/template.conf /usr/local/lua/crowdsec/crowdsec.conf
+cp ./lua-cs-bouncer/template.conf /usr/local/lua/crowdsec/crowdsec.conf
 ```
 
 ## Configuration
