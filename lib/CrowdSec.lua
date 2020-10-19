@@ -50,7 +50,7 @@ function csmod.allowIp(ip)
   end
   local resp = runtime.cache:get(ip)
   if resp == nil then -- not in cache
-    local link = runtime.conf["API_URL"] .. "/" .. "decisions?value=" .. ip .. "&scope=ip"
+    local link = runtime.conf["API_URL"] .. "/v1/decisions?value=" .. ip .. "&scope=ip"
     local resp = {}
     if link:find("https://") == 1 then
       one, code, headers, status = https.request{
