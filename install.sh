@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 LIB_PATH="/usr/local/lua/crowdsec/"
-CROWDSEC_CONF="crowdsec.conf"
 
 LAST_LUA_VERSION="5.3"
 LUA_VERSIONS=(
@@ -58,7 +57,6 @@ check_package_dependency() {
 install_lib() {
    	mkdir -p ${LIB_PATH}
 	cp lib/*.lua ${LIB_PATH}
-	cp template.conf ${LIB_PATH}/${CROWDSEC_CONF} 
 }
 
 
