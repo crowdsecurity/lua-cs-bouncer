@@ -21,7 +21,7 @@ check_lua() {
         which "lua${v}" > /dev/null && found="true"
     done
 
-    if [[ found == "false" ]]; then
+    if [[ "$found" = "false" ]]; then
         echo "lua not found, do you want to install it (Y/n)? "
         read answer
         if [[ ${answer} == "" ]]; then
