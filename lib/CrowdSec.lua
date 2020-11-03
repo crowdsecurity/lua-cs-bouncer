@@ -25,7 +25,7 @@ end
 local csmod = {}
 
 -- init function
-function csmod.init(configFile)
+function csmod.init(configFile, userAgent)
   local conf, err = config.loadConfig(configFile)
   if conf == nil then
     return nil, err
@@ -34,7 +34,7 @@ function csmod.init(configFile)
 
   local logger = log_file(conf["LOG_FILE"])
   runtime.logger = logger
-
+  runtime.userAgent = userAgent
   local c, err = lrucache.new(conf["CACHE_SIZE"])
   if not c then
     error("failed to create the cache: " .. (err or "unknown"))
@@ -57,7 +57,8 @@ function csmod.allowIp(ip)
                                             url = link,
                                             headers = { 
                                               ['Connection'] = 'close',
-                                              ['X-Api-Key'] = runtime.conf["API_KEY"]
+                                              ['X-Api-Key'] = runtime.conf["API_KEY"],
+                                              ['User-Agent'] = runtime.userAgent
                                             },    
                                             content_type = 'application/json',    
                                             sink = ltn12.sink.table(resp),
