@@ -71,7 +71,8 @@ function csmod.allowIp(ip)
                                     url = link,
                                     headers = { 
                                       ['Connection'] = 'close',
-                                      ['X-Api-Key'] = runtime.conf["API_KEY"]
+                                      ['X-Api-Key'] = runtime.conf["API_KEY"],
+                                      ['User-Agent'] = runtime.userAgent
                                     },    
                                     content_type = 'application/json',    
                                     sink = ltn12.sink.table(resp)
