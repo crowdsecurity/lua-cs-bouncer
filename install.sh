@@ -28,7 +28,7 @@ check_lua() {
             answer="y"
         fi
         if [ "$answer" != "${answer#[Yy]}" ] ;then
-            apt-get install -y -qq "lua${LAST_LUA_VERION}" > /dev/null && echo "lua${LAST_LUA_VERSION} successfully installed"
+            apt-get install -y -qq "lua${LAST_LUA_VERSION}" > /dev/null && echo "lua${LAST_LUA_VERSION} successfully installed"
         else
             echo "unable to continue without lua. Exiting" && exit 1
         fi      
