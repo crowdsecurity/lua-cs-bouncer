@@ -49,10 +49,16 @@ function csmod.allowIp(ip)
     return nil, "Configuration is bad, cannot run properly"
   end
   local resp = runtime.cache:get(ip)
-  if resp == nil then -- not in cache
-    local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
-    local resp = {}
-    if link:find("https://") == 1 then
+
+  if resp ~= nil then -- we have it in cache
+    runtime.logger:debug("'" .. ip .. "' is in cache")
+    return resp, nil
+  end
+
+  -- not in cache
+  local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
+  local resp = {}
+  if link:find("https://") == 1 then
       one, code, headers, status = https.request{
                                             url = link,
                                             headers = { 
@@ -66,7 +72,7 @@ function csmod.allowIp(ip)
                                             options = "all",
                                             verify = "none",
                                             }
-    else
+  else
       body, code, headers = http.request{
                                     url = link,
                                     headers = { 
@@ -77,27 +83,22 @@ function csmod.allowIp(ip)
                                     content_type = 'application/json',    
                                     sink = ltn12.sink.table(resp)
                                     }
-    end
-    resp = table.concat(resp)
-    if code~=200 then 
-      print(code)
-      print("Error(code:" .. code .. ") ".. (resp or '') ) -- API error, don't block IP
-      return true, nil 
-    end
-    if resp == "null" then -- no result from API, no decision for this IP
-      -- set ip in cache and DON'T block it
-      runtime.cache:set(ip, false,runtime.conf["CACHE_EXPIRATION"])
-      return true, nil
-    end
-
-    -- set ip in cache and block it
-    runtime.cache:set(ip, true,runtime.conf["CACHE_EXPIRATION"])
-    return false, nil
-
   end
-  runtime.logger:debug("'" .. ip .. "' is in cache")
-  return resp == true, nil
-
+  
+  resp = table.concat(resp)
+  if code~=200 then 
+    print(code)
+    print("Error(code:" .. code .. ") ".. (resp or '') ) -- API error, don't block IP
+    return true, nil 
+  end
+  if resp == "null" then -- no result from API, no decision for this IP
+    -- set ip in cache and DON'T block it
+    runtime.cache:set(ip, true,runtime.conf["CACHE_EXPIRATION"])
+    return true, nil
+  end
+  -- set ip in cache and block it
+  runtime.cache:set(ip, false,runtime.conf["CACHE_EXPIRATION"])
+  return false, nil
 end
 
 
