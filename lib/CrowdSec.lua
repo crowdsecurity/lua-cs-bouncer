@@ -87,8 +87,8 @@ function csmod.allowIp(ip)
   
   resp = table.concat(resp)
   if code~=200 then 
-    print(code)
-    print("Error(code:" .. code .. ") ".. (resp or '') ) -- API error, don't block IP
+    ngx.log(ngx.ERR, "[Crowdsec] Http error " .. code .. " while talking to LAPI (" .. link .. ")") -- API error, don't block IP
+    runtime.logger:error("Http error " .. code .. " while talking to LAPI (" .. link .. ")")
     return true, nil 
   end
   if resp == "null" then -- no result from API, no decision for this IP
