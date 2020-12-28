@@ -59,7 +59,7 @@ function csmod.allowIp(ip)
   local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
   local resp = {}
   if link:find("https://") == 1 then
-      one, code, headers, status = https.request{
+      local one, code, headers, status = https.request{
                                             url = link,
                                             headers = { 
                                               ['Connection'] = 'close',
@@ -73,7 +73,7 @@ function csmod.allowIp(ip)
                                             verify = "none",
                                             }
   else
-      body, code, headers = http.request{
+      local body, code, headers = http.request{
                                     url = link,
                                     headers = { 
                                       ['Connection'] = 'close',
