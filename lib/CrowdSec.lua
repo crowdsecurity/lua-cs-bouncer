@@ -11,12 +11,46 @@ local https = require("ssl.https")
 -- contain runtime = {}
 local runtime = {}
 
+function ipv6toInt ( str )
+    local o1,o2,o3,o4,o5,o5,o6,o7,o8 = str:match("(%w+):(%w+):(%w+):(%w+):(%w+):(%w+):(%w+):(%w+)" )
+    print (o1)
+    local num = 0
+    if o1 ~= nil then
+        num=num+2^56*tonumber(o1,16)
+    end
+    if o2 ~= nil then
+        num=num+2^48*tonumber(o2,16)
+    end
+    if o3 ~= nil then
+        num=num+2^40*tonumber(o3,16)
+    end
+    if o4 ~= nil then
+        num=num+2^32*tonumber(o4,16)
+    end
+    if o5 ~= nil then
+        num=num+2^24*tonumber(o5,16)
+    end
+    if o6 ~= nil then
+        num=num+2^16*tonumber(o6,16)
+    end
+    if o7 ~= nil then
+        num=num+2^8*tonumber(o7,16)
+    end
+    if o8 ~= nil then
+        num=num+tonumber(o8,16)
+    end
+    return num
+end
 
 function ipToInt( str )
 	local num = 0
 	if str and type(str)=="string" then
-		local o1,o2,o3,o4 = str:match("(%d+)%.(%d+)%.(%d+)%.(%d+)" )
-		num = 2^24*o1 + 2^16*o2 + 2^8*o3 + o4
+                if str:find(".", 4,true) then
+		            local o1,o2,o3,o4 = str:match("(%d+)%.(%d+)%.(%d+)%.(%d+)" )
+		            num = 2^24*o1 + 2^16*o2 + 2^8*o3 + o4
+                else
+                    num = ipv6toInt (str)
+                end
 	end
     return num
 end
