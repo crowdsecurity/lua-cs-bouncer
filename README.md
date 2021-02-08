@@ -54,4 +54,5 @@ API_KEY=                                      <-- the API Key generated with `cs
 LOG_FILE=/tmp/lua_mod.log                     <-- path to log file
 CACHE_EXPIRATION=1                            <-- in seconds
 CACHE_SIZE=1000                               <-- cache size
+REQUEST_TIMEOUT=0.2                           <-- Maximum duration in seconds for a request to LAPI
 ```
