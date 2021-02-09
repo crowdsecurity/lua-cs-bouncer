@@ -4,6 +4,7 @@ local config = require "config"
 local lrucache = require "lrucache"
 local logging = require "logging"
 local log_file = require "logging.file"
+local socket = require "socket"
 local http = require("socket.http")
 local https = require("ssl.https")
 
@@ -71,6 +72,11 @@ function csmod.allowIp(ip)
                                             protocol = "tlsv1",
                                             options = "all",
                                             verify = "none",
+                                            create = function()
+                                              local req_sock = socket.tcp()
+                                              req_sock:settimeout(runtime.conf['REQUEST_TIMEOUT'], 't')
+                                              return req_sock
+                                            end
                                             }
   else
       local body, code, headers = http.request{
@@ -81,7 +87,12 @@ function csmod.allowIp(ip)
                                       ['User-Agent'] = runtime.userAgent
                                     },    
                                     content_type = 'application/json',    
-                                    sink = ltn12.sink.table(resp)
+                                    sink = ltn12.sink.table(resp),
+                                    create = function()
+                                      local req_sock = socket.tcp()
+                                      req_sock:settimeout(runtime.conf['REQUEST_TIMEOUT'], 't')
+                                      return req_sock
+                                    end
                                     }
   end
   

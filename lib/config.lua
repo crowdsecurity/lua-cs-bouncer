@@ -32,11 +32,14 @@ end
 
 function config.loadConfig(file)
     if not config.file_exists(file) then
-        return nil, "File".. file .." doesn't exist"
+        return nil, "File ".. file .." doesn't exist"
     end
     local conf = {}
     local valid_params = {'API_URL', 'API_KEY', 'LOG_FILE'}
-    local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE'}
+    local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT'}
+    local default_values = {
+        ['REQUEST_TIMEOUT'] = 0.2
+    }
     for line in io.lines(file) do
         local isOk = false
         if starts_with(line, "#") then
@@ -55,8 +58,14 @@ function config.loadConfig(file)
                     break
                 else
                     print("unsupported configuration '" .. v .. "'")
+                    break
                 end
             end
+        end
+    end
+    for k, v in pairs(default_values) do
+        if conf[k] == nil then
+            conf[k] = v
         end
     end
     return conf, nil
