@@ -59,8 +59,10 @@ function csmod.allowIp(ip)
   -- not in cache
   local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
   local resp = {}
+  local one, body, code, headers, status
+
   if link:find("https://") == 1 then
-      local one, code, headers, status = https.request{
+      one, code, headers, status = https.request{
                                             url = link,
                                             headers = { 
                                               ['Connection'] = 'close',
@@ -79,7 +81,7 @@ function csmod.allowIp(ip)
                                             end
                                             }
   else
-      local body, code, headers = http.request{
+      body, code, headers = http.request{
                                     url = link,
                                     headers = { 
                                       ['Connection'] = 'close',
