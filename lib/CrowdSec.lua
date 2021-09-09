@@ -26,20 +26,20 @@ end
 local csmod = {}
 
 function getLogLevel( level )
-  if level and type(level)=="string"
-    if level == "INFO"
+  if level and type(level)=="string" then
+    if level:upper() == "INFO" then
       return logging.INFO
     end
-    if level == "WARN"
+    if level:upper() == "WARN" then
       return logging.WARN
     end
-    if level == "DEBUG"
+    if level:upper() == "DEBUG" then
       return logging.DEBUG
     end
-    if level == "ERROR"
+    if level:upper() == "ERROR" then
       return logging.ERROR
     end
-    if level == "FATAL"
+    if level:upper() == "FATAL" then
       return logging.FATAL
     end
   end
