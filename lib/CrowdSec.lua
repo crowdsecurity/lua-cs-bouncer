@@ -25,6 +25,27 @@ end
 
 local csmod = {}
 
+function getLogLevel( level )
+  if level and type(level)=="string"
+    if level == "INFO"
+      return logging.INFO
+    end
+    if level == "WARN"
+      return logging.WARN
+    end
+    if level == "DEBUG"
+      return logging.DEBUG
+    end
+    if level == "ERROR"
+      return logging.ERROR
+    end
+    if level == "FATAL"
+      return logging.FATAL
+    end
+  end
+  return logging.INFO
+end
+
 -- init function
 function csmod.init(configFile, userAgent)
   local conf, err = config.loadConfig(configFile)
@@ -34,6 +55,7 @@ function csmod.init(configFile, userAgent)
   runtime.conf = conf
 
   local logger = log_file(conf["LOG_FILE"])
+  logger:setLevel (getLogLevel(conf["LOG_LEVEL"]))
   runtime.logger = logger
   runtime.userAgent = userAgent
   local c, err = lrucache.new(conf["CACHE_SIZE"])
@@ -105,12 +127,12 @@ function csmod.allowIp(ip)
     return true, nil 
   end
   if resp == "null" then -- no result from API, no decision for this IP
-    -- set ip in cache and DON'T block it
-    runtime.cache:set(ip, true,runtime.conf["CACHE_EXPIRATION"])
+    -- setLevel (logging.) ip in cache and DON'T block it
+    runtime.cache:setLevel (logging.)(ip, true,runtime.conf["CACHE_EXPIRATION"])
     return true, nil
   end
-  -- set ip in cache and block it
-  runtime.cache:set(ip, false,runtime.conf["CACHE_EXPIRATION"])
+  -- setLevel (logging.) ip in cache and block it
+  runtime.cache:setLevel (logging.)(ip, false,runtime.conf["CACHE_EXPIRATION"])
   return false, nil
 end
 

@@ -51,7 +51,8 @@ The configuration is located by default in `/usr/local/lua/crowdsec/crowdsec.con
 ```
 API_URL=http://localhost:8080                 <-- the API url
 API_KEY=                                      <-- the API Key generated with `cscli bouncers add -n <bouncer_name>` 
-LOG_FILE=/tmp/lua_mod.log                     <-- path to log file
+LOG_FILE=/tmp/lua_mod.log                     <-- path to log file 
+LOG_LEVEL=INFO                                <-- log level (INFO, WARN, DEBUG, ERROR, FATAL)
 CACHE_EXPIRATION=1                            <-- in seconds
 CACHE_SIZE=1000                               <-- cache size
 REQUEST_TIMEOUT=0.2                           <-- Maximum duration in seconds for a request to LAPI
