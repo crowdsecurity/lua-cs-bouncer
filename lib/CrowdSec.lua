@@ -25,6 +25,27 @@ end
 
 local csmod = {}
 
+function getLogLevel( level )
+  if level and type(level)=="string" then
+    if level:upper() == "INFO" then
+      return logging.INFO
+    end
+    if level:upper() == "WARN" then
+      return logging.WARN
+    end
+    if level:upper() == "DEBUG" then
+      return logging.DEBUG
+    end
+    if level:upper() == "ERROR" then
+      return logging.ERROR
+    end
+    if level:upper() == "FATAL" then
+      return logging.FATAL
+    end
+  end
+  return logging.INFO
+end
+
 -- init function
 function csmod.init(configFile, userAgent)
   local conf, err = config.loadConfig(configFile)
@@ -34,6 +55,7 @@ function csmod.init(configFile, userAgent)
   runtime.conf = conf
 
   local logger = log_file(conf["LOG_FILE"])
+  logger:setLevel (getLogLevel(conf["LOG_LEVEL"]))
   runtime.logger = logger
   runtime.userAgent = userAgent
   local c, err = lrucache.new(conf["CACHE_SIZE"])

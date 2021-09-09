@@ -35,10 +35,12 @@ function config.loadConfig(file)
         return nil, "File ".. file .." doesn't exist"
     end
     local conf = {}
-    local valid_params = {'API_URL', 'API_KEY', 'LOG_FILE'}
+    local valid_params = {'API_URL', 'API_KEY', 'LOG_FILE', 'LOG_LEVEL'}
     local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT'}
     local default_values = {
-        ['REQUEST_TIMEOUT'] = 0.2
+        ['REQUEST_TIMEOUT'] = 0.2,
+        ['LOG_FILE'] = "/var/log/crowdsec_lua_bouncer.log",
+        ['LOG_LEVEL'] = "INFO"
     }
     for line in io.lines(file) do
         local isOk = false
