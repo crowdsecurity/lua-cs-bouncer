@@ -127,12 +127,12 @@ function csmod.allowIp(ip)
     return true, nil 
   end
   if resp == "null" then -- no result from API, no decision for this IP
-    -- setLevel (logging.) ip in cache and DON'T block it
-    runtime.cache:setLevel (logging.)(ip, true,runtime.conf["CACHE_EXPIRATION"])
+    -- set ip in cache and DON'T block it
+    runtime.cache:set(ip, true,runtime.conf["CACHE_EXPIRATION"])
     return true, nil
   end
-  -- setLevel (logging.) ip in cache and block it
-  runtime.cache:setLevel (logging.)(ip, false,runtime.conf["CACHE_EXPIRATION"])
+  -- set ip in cache and block it
+  runtime.cache:set(ip, false,runtime.conf["CACHE_EXPIRATION"])
   return false, nil
 end
 
