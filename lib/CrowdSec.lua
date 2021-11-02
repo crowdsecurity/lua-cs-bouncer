@@ -84,6 +84,7 @@ function csmod.allowIp(ip)
   local one, body, code, headers, status
 
   if link:find("https://") == 1 then
+      https.TIMEOUT = runtime.conf['REQUEST_TIMEOUT']
       one, code, headers, status = https.request{
                                             url = link,
                                             headers = { 
@@ -95,12 +96,7 @@ function csmod.allowIp(ip)
                                             sink = ltn12.sink.table(resp),
                                             protocol = "tlsv1",
                                             options = "all",
-                                            verify = "none",
-                                            create = function()
-                                              local req_sock = socket.tcp()
-                                              req_sock:settimeout(runtime.conf['REQUEST_TIMEOUT'], 't')
-                                              return req_sock
-                                            end
+                                            verify = "none"
                                             }
   else
       body, code, headers = http.request{
