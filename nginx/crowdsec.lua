@@ -30,7 +30,7 @@ function csmod.init(configFile, userAgent)
   end
   runtime.conf = conf
   runtime.userAgent = userAgent
-  runtime.cache = ngx.shared.crowdsec
+  runtime.cache = ngx.shared.crowdsec_cache
 
   -- if stream mode, add callback to stream_query and start timer
   if runtime.conf["MODE"] == "stream" then
