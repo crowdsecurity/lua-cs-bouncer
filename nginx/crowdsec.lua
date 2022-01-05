@@ -63,15 +63,15 @@ function parse_duration(duration)
       return ttl, err
     end
   end
-  if match["hours"] ~= nil then
+  if match["hours"] ~= nil and match["hours"] ~= false then
     local hours = tonumber(match["hours"])
     ttl = ttl + (hours * 3600)
   end
-  if match["minutes"] ~= nil then
+  if match["minutes"] ~= nil and match["minutes"] ~= false then
     local minutes = tonumber(match["minutes"])
     ttl = ttl + (minutes * 60)
   end
-  if match["seconds"] ~= nil then
+  if match["seconds"] ~= nil and match["seconds"] ~= false then
     local seconds = tonumber(match["seconds"])
     ttl = ttl + seconds
   end
