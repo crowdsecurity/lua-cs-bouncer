@@ -38,7 +38,6 @@ function csmod.init(configFile, userAgent)
     runtime.cache:set("first_run", true)
   end
 
-  runtime.cache:set("init", true)
   return true, nil
 end
 
