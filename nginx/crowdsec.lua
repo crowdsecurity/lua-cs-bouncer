@@ -173,7 +173,7 @@ function csmod.allowIp(ip)
   -- if it stream mode and startup start timer
   if runtime.cache:get("first_run") == true then
     if ngx.timer.every == nil then
-      stream_query()
+      ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     else
       ngx.timer.every(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     end
