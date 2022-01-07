@@ -85,12 +85,24 @@ function stream_query()
   local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(runtime.cache:get("startup"))
   local res, err = http_request(link)
   if not res then
+    if ngx.timer.every == nil then
+      local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+      if not ok then
+        error("Failed to create the timer: " .. (err or "unknown"))
+      end
+    end    
     error("request failed: ".. err)
   end
 
   local status = res.status
   local body = res.body
   if status~=200 then
+    if ngx.timer.every == nil then
+      local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+      if not ok then
+        error("Failed to create the timer: " .. (err or "unknown"))
+      end
+    end
     error("Http error " .. status .. " with message (" .. tostring(body) .. ")")
   end
 
