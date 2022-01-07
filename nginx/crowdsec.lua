@@ -38,6 +38,7 @@ function csmod.init(configFile, userAgent)
     runtime.cache:set("first_run", true)
   end
 
+  runtime.cache:set("init", true)
   return true, nil
 end
 
@@ -126,10 +127,12 @@ function stream_query()
   -- not startup anymore after first callback
   runtime.cache:set("startup", false)
   
-  -- re-occuring timer
-  local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
-  if not ok then
-    error("Failed to create the timer: " .. (err or "unknown"))
+  -- re-occuring timer if there is no timer.every available
+  if ngx.timer.every == nil then
+    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+    if not ok then
+      error("Failed to create the timer: " .. (err or "unknown"))
+    end
   end
   return nil
 end
@@ -169,8 +172,12 @@ function csmod.allowIp(ip)
   end
 
   -- if it stream mode and startup start timer
-  if runtime.cache:get("first_run") == true then 
-    stream_query()
+  if runtime.cache:get("first_run") == true then
+    if ngx.timer.every == nil then
+      stream_query()
+    else
+      ngx.timer.every(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+    end
     runtime.cache:set("first_run", false)
     ngx.log(ngx.DEBUG, "Timer launched")
   end
