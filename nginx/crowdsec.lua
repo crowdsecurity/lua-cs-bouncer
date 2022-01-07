@@ -172,10 +172,15 @@ function csmod.allowIp(ip)
 
   -- if it stream mode and startup start timer
   if runtime.cache:get("first_run") == true then
+    local ok, err
     if ngx.timer.every == nil then
-      ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+      ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     else
-      ngx.timer.every(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+      ok, err = ngx.timer.every(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+    end
+    if not ok then
+      runtime.cache:set("first_run", true)
+      return true, "Failed to create the timer: " .. (err or "unknown")
     end
     runtime.cache:set("first_run", false)
     ngx.log(ngx.DEBUG, "Timer launched")
