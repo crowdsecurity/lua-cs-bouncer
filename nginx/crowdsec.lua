@@ -1,13 +1,20 @@
 package.path = package.path .. ";./?.lua"
 
 local config = require "plugins.crowdsec.config"
+local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
 local cjson = require "cjson"
+local cidr = require "libcidr-ffi"
+local ipmatcher = require "resty.ipmatcher"
+local bit = require 'bitop.funcs'
 cjson.decode_array_with_array_mt(true)
 
 
 -- contain runtime = {}
 local runtime = {}
+runtime.remediations = {}
+runtime.remediations["1"] = "ban"
+runtime.remediations["2"] = "captcha"
 
 
 function ipToInt( str )
@@ -56,7 +63,7 @@ function http_request(link)
 end
 
 function parse_duration(duration)
-  local match, err = ngx.re.match(duration, "((?<hours>[0-9]+)h)?((?<minutes>[0-9]+)m)?(?<seconds>[0-9]+)")
+  local match, err = ngx.re.match(duration, "^((?<hours>[0-9]+)h)?((?<minutes>[0-9]+)m)?(?<seconds>[0-9]+)")
   local ttl = 0
   if not match then
     if err then
@@ -78,11 +85,52 @@ function parse_duration(duration)
   return ttl, nil
 end
 
+function get_remediation_id(remediation)
+  for key, value in pairs(runtime.remediations) do
+    if value == remediation then
+      return tonumber(key)
+    end
+  end
+  return nil
+end
+
+function item_to_string(item)
+  local ip, err = cidr.from_str(item)
+  if ip == nil then
+    return "normal_"..item
+  end
+
+  local ip_version, ip_netmask, ip_network_address
+  local res = ipmatcher.parse_ipv4(cidr.to_str(ip, cidr.flags.ONLYADDR))
+  if res ~= false then
+    ip_version = "ipv4"
+    ip_network_address = res
+  end
+  local res = ipmatcher.parse_ipv6(cidr.to_str(ip, cidr.flags.ONLYADDR))
+  if res ~= false then
+    ip_version = "ipv6"
+    ip_network_address = res
+  end
+
+  local netmask_str = cidr.to_str(ip, cidr.flags.NETMASK)
+  for i in netmask_str.gmatch(netmask_str, "([^\\/]+)") do
+    netmask_str = i
+  end
+  if ip_version == "ipv4" then
+    ip_netmask = ipmatcher.parse_ipv4(netmask_str)
+  else
+    ip_netmask = ipmatcher.parse_ipv6(netmask_str)
+  end
+
+  return ip_version.."_"..ip_netmask.."_"..ip_network_address
+end
+
 function stream_query()
   -- As this function is running inside coroutine (with ngx.timer.every), 
   -- we need to raise error instead of returning them
-  ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(runtime.cache:get("startup")))
-  local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(runtime.cache:get("startup"))
+  local is_startup = runtime.cache:get("startup")
+  ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
+  local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
   local res, err = http_request(link)
   if not res then
     error("request failed: ".. err)
@@ -97,9 +145,12 @@ function stream_query()
   local decisions = cjson.decode(body)
   -- process deleted decisions
   if type(decisions.deleted) == "table" then
-    for i, decision in pairs(decisions.deleted) do
-      runtime.cache:delete(decision.value)
-      ngx.log(ngx.DEBUG, "Deleting '" .. decision.value .. "'")
+    if not is_startup then
+      for i, decision in pairs(decisions.deleted) do
+        local key = item_to_string(decision.value)
+        runtime.cache:delete(key)
+        ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
+      end
     end
   end
 
@@ -111,14 +162,19 @@ function stream_query()
         if err ~= nil then
           ngx.log(ngx.ERR, "[Crowdsec] failed to parse ban duration '" .. decision.duration .. "' : " .. err)
         end
-        local succ, err, forcible = runtime.cache:set(decision.value, false, ttl)
+        local remediation_id = get_remediation_id(decision.type)
+        if remediation_id == nil then
+          remediation_id = 1
+        end
+        local key = item_to_string(decision.value)
+        local succ, err, forcible = runtime.cache:set(key, false, ttl, remediation_id)
         if not succ then
           ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
         end
         if forcible then
           ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
         end
-        ngx.log(ngx.DEBUG, "Adding '" .. decision.value .. "' in cache for '" .. ttl .. "' seconds")
+        ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. ttl .. "' seconds")
       end
     end
   end
@@ -167,7 +223,7 @@ end
 
 function csmod.allowIp(ip)
   if runtime.conf == nil then
-    return true, "Configuration is bad, cannot run properly"
+    return true, runtime.conf["BOUNCING_ON_TYPE"], "Configuration is bad, cannot run properly"
   end
 
   -- if it stream mode and startup start timer
@@ -180,24 +236,43 @@ function csmod.allowIp(ip)
     end
     if not ok then
       runtime.cache:set("first_run", true)
-      return true, "Failed to create the timer: " .. (err or "unknown")
+      return true, runtime.conf["BOUNCING_ON_TYPE"], "Failed to create the timer: " .. (err or "unknown")
     end
     runtime.cache:set("first_run", false)
     ngx.log(ngx.DEBUG, "Timer launched")
   end
 
-  local data = runtime.cache:get(ip)
-  if data ~= nil then -- we have it in cache
-    ngx.log(ngx.DEBUG, "'" .. ip .. "' is in cache")
-    return data, nil
+  local key = item_to_string(ip)
+  local key_parts = {}
+  for i in key.gmatch(key, "([^_]+)") do
+    table.insert(key_parts, i)
+  end
+  local key_type = key_parts[1]
+  if key_type == "normal" then
+    local in_cache, remediation_id = runtime.cache:get(key)
+    if in_cache ~= nil then -- we have it in cache
+      ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
+      return in_cache, runtime.remediations[tostring(remediation_id)], nil
+    end
+  end
+  
+  local ip_network_address = tonumber(key_parts[3])
+  local netmasks = iputils.netmasks_by_key_type[key_type]
+  for _, netmask in pairs(netmasks) do
+    local item = key_type.."_"..netmask.."_"..tostring(bit.band(ip_network_address, netmask))
+    in_cache, remediation_id = runtime.cache:get(item)
+    if in_cache ~= nil then -- we have it in cache
+      ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
+      return in_cache, runtime.remediations[tostring(remediation_id)], nil
+    end
   end
 
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
     local ok, err = live_query(ip)
-    return ok, err
+    return ok, runtime.conf["BOUNCING_ON_TYPE"], err
   end
-  return true, nil
+  return true, runtime.conf["BOUNCING_ON_TYPE"], nil
 end
 
 
