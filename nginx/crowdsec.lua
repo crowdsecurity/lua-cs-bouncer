@@ -3,7 +3,6 @@ package.path = package.path .. ";./?.lua"
 local config = require "plugins.crowdsec.config"
 local http = require "resty.http"
 local cjson = require "cjson"
-cjson.decode_array_with_array_mt(true)
 
 
 -- contain runtime = {}
