@@ -7,7 +7,6 @@ local cjson = require "cjson"
 local cidr = require "libcidr-ffi"
 local ipmatcher = require "resty.ipmatcher"
 local bit = require 'bitop.funcs'
-cjson.decode_array_with_array_mt(true)
 
 
 -- contain runtime = {}
@@ -124,12 +123,24 @@ function stream_query()
   local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
   local res, err = http_request(link)
   if not res then
+    if ngx.timer.every == nil then
+      local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+      if not ok then
+        error("Failed to create the timer: " .. (err or "unknown"))
+      end
+    end    
     error("request failed: ".. err)
   end
 
   local status = res.status
   local body = res.body
   if status~=200 then
+    if ngx.timer.every == nil then
+      local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+      if not ok then
+        error("Failed to create the timer: " .. (err or "unknown"))
+      end
+    end
     error("Http error " .. status .. " with message (" .. tostring(body) .. ")")
   end
 
