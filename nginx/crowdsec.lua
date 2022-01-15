@@ -17,16 +17,6 @@ runtime.remediations["1"] = "ban"
 runtime.remediations["2"] = "captcha"
 
 
-function ipToInt( str )
-	local num = 0
-	if str and type(str)=="string" then
-		local o1,o2,o3,o4 = str:match("(%d+)%.(%d+)%.(%d+)%.(%d+)" )
-		num = 2^24*o1 + 2^16*o2 + 2^8*o3 + o4
-	end
-    return num
-end
-
-
 local csmod = {}
 
 -- init function
@@ -109,7 +99,7 @@ function item_to_string(item)
   local res = ipmatcher.parse_ipv6(cidr.to_str(ip, cidr.flags.ONLYADDR))
   if res ~= false then
     ip_version = "ipv6"
-    ip_network_address = res
+    ip_network_address = iputils.concatIPv6(res)
   end
 
   local netmask_str = cidr.to_str(ip, cidr.flags.NETMASK)
@@ -120,6 +110,7 @@ function item_to_string(item)
     ip_netmask = ipmatcher.parse_ipv4(netmask_str)
   else
     ip_netmask = ipmatcher.parse_ipv6(netmask_str)
+    ip_netmask = iputils.concatIPv6(ip_netmask)
   end
 
   return ip_version.."_"..ip_netmask.."_"..ip_network_address

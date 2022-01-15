@@ -58,4 +58,21 @@ netmasks_by_key_type["ipv6"] = ipv6_netmasks
 
 _M.netmasks_by_key_type = netmasks_by_key_type
 
+
+function _M.ipToInt( str )
+	local num = 0
+	if str and type(str)=="string" then
+		local o1,o2,o3,o4 = str:match("(%d+)%.(%d+)%.(%d+)%.(%d+)" )
+		num = 2^24*o1 + 2^16*o2 + 2^8*o3 + o4
+	end
+    return num
+end
+
+function _M.concatIPv6(ip)
+    if type(ip) == "table" and table.getn(ip) == 4 then
+        return ip[1]*2^96 + ip[2]*2^64 + ip[3]*2^32 + ip[4]
+    end
+    return nil
+end
+
 return _M
