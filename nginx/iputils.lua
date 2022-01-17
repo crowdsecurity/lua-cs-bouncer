@@ -58,7 +58,6 @@ netmasks_by_key_type["ipv6"] = ipv6_netmasks
 
 _M.netmasks_by_key_type = netmasks_by_key_type
 
-
 function _M.ipToInt( str )
 	local num = 0
 	if str and type(str)=="string" then
@@ -73,6 +72,32 @@ function _M.concatIPv6(ip)
         return ip[1]*2^96 + ip[2]*2^64 + ip[3]*2^32 + ip[4]
     end
     return nil
+end
+
+function _M.splitRange(range)
+    if range and type(range) == "string" then
+        local ip_address, cidr = range:match("^([^/]+)/(%d+)")
+        return ip_address, tonumber(cidr)
+    end
+    return nil, nil
+end
+
+function _M.cidrToInt(cidr, ip_version)
+    if cidr and type(cidr) ~= "number" and ip_version and type(ip_version) ~= "string" then
+        return nil
+    end
+    local num = 0
+    if ip_version == "ipv4" then
+        for i=32,(cidr-1),-1 do
+            num = num + (2^(i-1))
+        end
+    end
+    if ip_version == "ipv6" then
+        for i=128,(cidr-1),-1 do
+            num = num + (2^(i-1))
+        end
+    end
+    return num
 end
 
 return _M

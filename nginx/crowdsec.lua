@@ -4,7 +4,6 @@ local config = require "plugins.crowdsec.config"
 local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
 local cjson = require "cjson"
-local cidr = require "libcidr-ffi"
 local ipmatcher = require "resty.ipmatcher"
 local bit = require 'bitop.funcs'
 
@@ -83,34 +82,36 @@ function get_remediation_id(remediation)
   return nil
 end
 
-function item_to_string(item)
-  local ip, err = cidr.from_str(item)
-  if ip == nil then
-    return "normal_"..item
+function item_to_string(item, scope)
+  local ip, cidr
+  if scope:lower() == "ip" then
+    ip = item
+  end
+  if scope:lower() == "range" then
+    ip, cidr = iputils.splitRange(item, scope)
   end
 
-  local ip_version, ip_netmask, ip_network_address
-  local res = ipmatcher.parse_ipv4(cidr.to_str(ip, cidr.flags.ONLYADDR))
+  local ip_version, ip_network_address
+  local res = ipmatcher.parse_ipv4(ip)
   if res ~= false then
     ip_version = "ipv4"
     ip_network_address = res
+    if cidr == nil then
+      cidr = 32
+    end
   end
-  local res = ipmatcher.parse_ipv6(cidr.to_str(ip, cidr.flags.ONLYADDR))
+  local res = ipmatcher.parse_ipv6(ip)
   if res ~= false then
     ip_version = "ipv6"
     ip_network_address = iputils.concatIPv6(res)
+    if cidr == nil then
+      cidr = 128
+    end
   end
-
-  local netmask_str = cidr.to_str(ip, cidr.flags.NETMASK)
-  for i in netmask_str.gmatch(netmask_str, "([^\\/]+)") do
-    netmask_str = i
+  if ip_version == nil then
+    return "normal_"..item
   end
-  if ip_version == "ipv4" then
-    ip_netmask = ipmatcher.parse_ipv4(netmask_str)
-  else
-    ip_netmask = ipmatcher.parse_ipv6(netmask_str)
-    ip_netmask = iputils.concatIPv6(ip_netmask)
-  end
+  local ip_netmask = iputils.cidrToInt(cidr, ip_version)
 
   return ip_version.."_"..ip_netmask.."_"..ip_network_address
 end
@@ -149,7 +150,7 @@ function stream_query()
   if type(decisions.deleted) == "table" then
     if not is_startup then
       for i, decision in pairs(decisions.deleted) do
-        local key = item_to_string(decision.value)
+        local key = item_to_string(decision.value, decision.scope)
         runtime.cache:delete(key)
         ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
       end
@@ -168,7 +169,7 @@ function stream_query()
         if remediation_id == nil then
           remediation_id = 1
         end
-        local key = item_to_string(decision.value)
+        local key = item_to_string(decision.value, decision.scope)
         local succ, err, forcible = runtime.cache:set(key, false, ttl, remediation_id)
         if not succ then
           ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
@@ -244,7 +245,7 @@ function csmod.allowIp(ip)
     ngx.log(ngx.DEBUG, "Timer launched")
   end
 
-  local key = item_to_string(ip)
+  local key = item_to_string(ip, "ip")
   local key_parts = {}
   for i in key.gmatch(key, "([^_]+)") do
     table.insert(key_parts, i)
