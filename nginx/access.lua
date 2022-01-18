@@ -1,4 +1,4 @@
-ok, err = require "crowdsec".allowIp(ngx.var.remote_addr)
+local ok, err = require "crowdsec".allowIp(ngx.var.remote_addr)
 if err ~= nil then 
     ngx.log(ngx.ERR, "[Crowdsec] bouncer error: " .. err)
 end
