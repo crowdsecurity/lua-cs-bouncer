@@ -5,7 +5,7 @@ local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
 local cjson = require "cjson"
 local ipmatcher = require "resty.ipmatcher"
-local bit = require 'bitop.funcs'
+local bit = require 'bitop'
 
 
 -- contain runtime = {}
@@ -112,7 +112,6 @@ function item_to_string(item, scope)
     return "normal_"..item
   end
   local ip_netmask = iputils.cidrToInt(cidr, ip_version)
-
   return ip_version.."_"..ip_netmask.."_"..ip_network_address
 end
 
