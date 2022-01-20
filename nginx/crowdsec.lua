@@ -5,7 +5,6 @@ local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
 local cjson = require "cjson"
 local ipmatcher = require "resty.ipmatcher"
-local bit = require 'bitop'
 
 
 -- contain runtime = {}
@@ -103,7 +102,7 @@ function item_to_string(item, scope)
   local res = ipmatcher.parse_ipv6(ip)
   if res ~= false then
     ip_version = "ipv6"
-    ip_network_address = iputils.concatIPv6(res)
+    ip_network_address = table.concat(res, ":")
     if cidr == nil then
       cidr = 128
     end
@@ -249,6 +248,7 @@ function csmod.allowIp(ip)
   for i in key.gmatch(key, "([^_]+)") do
     table.insert(key_parts, i)
   end
+
   local key_type = key_parts[1]
   if key_type == "normal" then
     local in_cache, remediation_id = runtime.cache:get(key)
@@ -258,10 +258,10 @@ function csmod.allowIp(ip)
     end
   end
   
-  local ip_network_address = tonumber(key_parts[3])
+  local ip_network_address = key_parts[3]
   local netmasks = iputils.netmasks_by_key_type[key_type]
-  for _, netmask in pairs(netmasks) do
-    local item = key_type.."_"..netmask.."_"..tostring(bit.band(ip_network_address, netmask))
+  for i, netmask in pairs(netmasks) do
+    local item = key_type.."_"..table.concat(netmask, ":").."_"..iputils.ipv6_band(ip_network_address, netmask)
     in_cache, remediation_id = runtime.cache:get(item)
     if in_cache ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
