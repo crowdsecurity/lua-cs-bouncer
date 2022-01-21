@@ -1,5 +1,25 @@
+-- This code uses some functions from 
+-- https://github.com/libmoon/libmoon/blob/master/lua/utils.lua
+
 local _M = {}
 local bit = require 'bitop'
+local bor, band, rshift, lshift, bswap = bit.bor, bit.band, bit.rshift, bit.lshift, bit.bswap
+
+--- Byte swap for 16 bit integers
+--- @param n 16 bit integer
+--- @return Byte swapped integer
+function bswap16(n)
+    return bor(rshift(n, 8), lshift(band(n, 0xFF), 8))
+end
+
+hton16 = bswap16
+ntoh16 = hton16
+
+_G.bswap = bswap -- export bit.bswap to global namespace to be consistent with bswap16
+hton = bswap
+ntoh = hton
+
+local ffi = require "ffi"
 
 local ipv4_netmasks = {
     4294967295, 4294967294, 4294967292, 4294967288, 4294967280, 4294967264, 4294967232, 4294967168, 4294967040, 4294966784, 
@@ -97,5 +117,95 @@ function _M.cidrToInt(cidr, ip_version)
         return table.concat(ipv6_netmasks[128-cidr+1], ":")
     end
 end
+
+--- Parse a string to an IP address
+--- @return address ip address in ip4_address or ip6_address format or nil if invalid address
+--- @return boolean true if IPv4 address, false otherwise
+function _M.parseIPAddress(ip)
+    ip = tostring(ip)
+    local address = parseIP4Address(ip)
+    if address == nil then
+        return parseIP6Address(ip), false
+    end
+    return address, true
+end
+
+--- Parse a string to an IPv4 address
+--- @param ip address in string format
+--- @return address in uint32 format or nil if invalid address
+function parseIP4Address(ip)
+    ip = tostring(ip)
+    local bytes = {string.match(ip, '(%d+)%.(%d+)%.(%d+)%.(%d+)')}
+    if bytes == nil then
+        return
+    end
+    for i = 1, 4 do
+        if bytes[i] == nil then
+            return 
+        end
+        bytes[i] = tonumber(bytes[i])
+        if  bytes[i] < 0 or bytes[i] > 255 then
+            return
+        end
+    end
+
+    -- build a uint32
+    ip = bytes[1]
+    for i = 2, 4 do
+        ip = bor(lshift(ip, 8), bytes[i])
+    end
+    return ip
+end
+
+ffi.cdef[[
+	union ip6_address {
+		uint8_t 	uint8[16];
+		uint32_t	uint32[4];
+		uint64_t	uint64[2];
+	};
+]]
+
+ffi.cdef[[
+int inet_pton(int af, const char *src, void *dst);
+]]
+
+--- Parse a string to an IPv6 address
+--- @param ip address in string format
+--- @return address in ip6_address format or nil if invalid address
+function parseIP6Address(ip)
+    ip = tostring(ip)
+    local LINUX_AF_INET6 = 10 --preprocessor constant of Linux
+    local tmp_addr = ffi.new("union ip6_address")
+    local res = ffi.C.inet_pton(LINUX_AF_INET6, ip, tmp_addr)
+    if res == 0 then
+        return nil
+    end
+
+    local addr = ffi.new("union ip6_address")
+    addr.uint32[0] = bswap(tmp_addr.uint32[3])
+    addr.uint32[1] = bswap(tmp_addr.uint32[2])
+    addr.uint32[2] = bswap(tmp_addr.uint32[1])
+    addr.uint32[3] = bswap(tmp_addr.uint32[0])
+
+    return addr
+end
+
+--- Merge tables.
+--- @param args Arbitrary amount of tables to get merged.
+function mergeTables(...)
+    local table = {}
+    if select("#", ...) > 0 then
+        table = select(1, ...)
+        for i = 2, select("#", ...) do
+            for k,v in pairs(select(i, ...)) do
+                table[k] = v
+            end
+        end
+    end
+    return table
+end
+
+local band = bit.band
+local sar = bit.arshift
 
 return _M

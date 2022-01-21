@@ -4,7 +4,6 @@ local config = require "plugins.crowdsec.config"
 local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
 local cjson = require "cjson"
-local ipmatcher = require "resty.ipmatcher"
 
 
 -- contain runtime = {}
@@ -82,7 +81,7 @@ function get_remediation_id(remediation)
 end
 
 function item_to_string(item, scope)
-  local ip, cidr
+  local ip, cidr, ip_version
   if scope:lower() == "ip" then
     ip = item
   end
@@ -90,23 +89,20 @@ function item_to_string(item, scope)
     ip, cidr = iputils.splitRange(item, scope)
   end
 
-  local ip_version, ip_network_address
-  local res = ipmatcher.parse_ipv4(ip)
-  if res ~= false then
+  local ip_network_address, isIPv4 = iputils.parseIPAddress(ip)
+  if isIPV4 then
     ip_version = "ipv4"
-    ip_network_address = res
     if cidr == nil then
       cidr = 32
     end
-  end
-  local res = ipmatcher.parse_ipv6(ip)
-  if res ~= false then
+  else
     ip_version = "ipv6"
-    ip_network_address = table.concat(res, ":")
     if cidr == nil then
       cidr = 128
     end
+    ip_network_address = ip_network_address.uint32[3]..":"..ip_network_address.uint32[2]..":"..ip_network_address.uint32[1]..":"..ip_network_address.uint32[0]
   end
+
   if ip_version == nil then
     return "normal_"..item
   end
