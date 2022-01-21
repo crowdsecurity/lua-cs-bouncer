@@ -98,6 +98,10 @@ function _M.ipv6_band(ip, netmask)
     return table.concat(res_table, ":")
 end
 
+function _M.ipv4_band(ip, netmask)
+    return bit.band(ip, netmask)
+end
+
 function _M.splitRange(range)
     if range and type(range) == "string" then
         local ip_address, cidr = range:match("^([^/]+)/(%d+)")
@@ -111,7 +115,7 @@ function _M.cidrToInt(cidr, ip_version)
         return nil
     end
     if ip_version == "ipv4" then
-        return tostring(ipv4_netmasks[32-(cidr+1)])
+        return tostring(ipv4_netmasks[32-cidr+1])
     end
     if ip_version == "ipv6" then
         return table.concat(ipv6_netmasks[128-cidr+1], ":")

@@ -89,18 +89,18 @@ function item_to_string(item, scope)
     ip, cidr = iputils.splitRange(item, scope)
   end
 
-  local ip_network_address, isIPv4 = iputils.parseIPAddress(ip)
-  if isIPV4 then
+  local ip_network_address, is_ipv4 = iputils.parseIPAddress(ip)
+  if is_ipv4 then
     ip_version = "ipv4"
     if cidr == nil then
       cidr = 32
     end
   else
     ip_version = "ipv6"
+    ip_network_address = ip_network_address.uint32[3]..":"..ip_network_address.uint32[2]..":"..ip_network_address.uint32[1]..":"..ip_network_address.uint32[0]
     if cidr == nil then
       cidr = 128
     end
-    ip_network_address = ip_network_address.uint32[3]..":"..ip_network_address.uint32[2]..":"..ip_network_address.uint32[1]..":"..ip_network_address.uint32[0]
   end
 
   if ip_version == nil then
@@ -257,7 +257,13 @@ function csmod.allowIp(ip)
   local ip_network_address = key_parts[3]
   local netmasks = iputils.netmasks_by_key_type[key_type]
   for i, netmask in pairs(netmasks) do
-    local item = key_type.."_"..table.concat(netmask, ":").."_"..iputils.ipv6_band(ip_network_address, netmask)
+    local item
+    if key_type == "ipv4" then
+      item = key_type.."_"..netmask.."_"..iputils.ipv4_band(ip_network_address, netmask)
+    end
+    if key_type == "ipv6" then
+      item = key_type.."_"..table.concat(netmask, ":").."_"..iputils.ipv6_band(ip_network_address, netmask)
+    end
     in_cache, remediation_id = runtime.cache:get(item)
     if in_cache ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
