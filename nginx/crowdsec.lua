@@ -8,6 +8,8 @@ local cjson = require "cjson"
 
 -- contain runtime = {}
 local runtime = {}
+-- remediations are stored in cache as int (shared dict tags)
+-- we need to translate IDs to text with this.
 runtime.remediations = {}
 runtime.remediations["1"] = "ban"
 runtime.remediations["2"] = "captcha"
@@ -224,7 +226,7 @@ function csmod.allowIp(ip)
   end
 
   -- if it stream mode and startup start timer
-  if runtime.cache:get("first_run") == true then
+  if runtime.cache:get("first_run") == true and runtime.conf["MODE"] == "stream" then
     local ok, err
     if ngx.timer.every == nil then
       ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
