@@ -5,5 +5,7 @@ if err ~= nil then
 end
 if not ok then
     ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
-    ngx.exit(ngx.HTTP_FORBIDDEN)
+    if remediation == "ban" then
+        ngx.exit(ngx.HTTP_FORBIDDEN)
+    end
 end
