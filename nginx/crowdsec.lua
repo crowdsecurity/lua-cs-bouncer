@@ -277,7 +277,7 @@ function csmod.allowIp(ip)
     if key_type == "ipv6" then
       item = key_type.."_"..table.concat(netmask, ":").."_"..iputils.ipv6_band(ip_network_address, netmask)
     end
-    in_cache, remediation_id = runtime.cache:get(item)
+    local in_cache, remediation_id = runtime.cache:get(item)
     if in_cache ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
       return in_cache, runtime.remediations[tostring(remediation_id)], nil
