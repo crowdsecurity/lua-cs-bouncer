@@ -35,7 +35,7 @@ function config.loadConfig(file)
         return nil, "File ".. file .." doesn't exist"
     end
     local conf = {}
-    local valid_params = {'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE'}
+    local valid_params = {'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'CAPTCHA_TEMPLATE_PATH'}
     local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY'}
     local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
     local default_values = {
