@@ -195,34 +195,45 @@ function live_query(ip)
   local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
   local res, err = http_request(link)
   if not res then
-    return true, "request failed: ".. err
+    return true, nil, "request failed: ".. err
   end
 
   local status = res.status
   local body = res.body
   if status~=200 then
-    return true, "Http error " .. status .. " while talking to LAPI (" .. link .. ")" 
+    return true, nil, "Http error " .. status .. " while talking to LAPI (" .. link .. ")" 
   end
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
     runtime.cache:set(ip, true,runtime.conf["CACHE_EXPIRATION"])
-    return true, nil
+    return true, nil, nil
   end
   local decision = cjson.decode(body)[1]
 
   if runtime.conf["BOUNCING_ON_TYPE"] == decision.type or runtime.conf["BOUNCING_ON_TYPE"] == "all" then
-    -- set ip in cache and block it
-    runtime.cache:set(ip, false,runtime.conf["CACHE_EXPIRATION"])
-    return false, nil
+    local remediation_id = get_remediation_id(decision.type)
+    if remediation_id == nil then
+      remediation_id = 1
+    end
+    local key = item_to_string(decision.value, decision.scope)
+    local succ, err, forcible = runtime.cache:set(key, false, runtime.conf["CACHE_EXPIRATION"], remediation_id)
+    if not succ then
+      ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
+    end
+    if forcible then
+      ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+    end
+    ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. runtime.conf["CACHE_EXPIRATION"] .. "' seconds")
+    return false, decision.type, nil
   else
-    return true, nil
+    return true, nil, nil
   end
 end
 
 
 function csmod.allowIp(ip)
   if runtime.conf == nil then
-    return true, runtime.conf["BOUNCING_ON_TYPE"], "Configuration is bad, cannot run properly"
+    return true, nil, "Configuration is bad, cannot run properly"
   end
 
   -- if it stream mode and startup start timer
@@ -235,7 +246,7 @@ function csmod.allowIp(ip)
     end
     if not ok then
       runtime.cache:set("first_run", true)
-      return true, runtime.conf["BOUNCING_ON_TYPE"], "Failed to create the timer: " .. (err or "unknown")
+      return true, nil, "Failed to create the timer: " .. (err or "unknown")
     end
     runtime.cache:set("first_run", false)
     ngx.log(ngx.DEBUG, "Timer launched")
@@ -275,10 +286,10 @@ function csmod.allowIp(ip)
 
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
-    local ok, err = live_query(ip)
-    return ok, runtime.conf["BOUNCING_ON_TYPE"], err
+    local ok, remediation, err = live_query(ip)
+    return ok, remediation, err
   end
-  return true, runtime.conf["BOUNCING_ON_TYPE"], nil
+  return true, nil, nil
 end
 
 
