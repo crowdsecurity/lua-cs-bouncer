@@ -4,7 +4,7 @@ local config = require "plugins.crowdsec.config"
 local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
 local cjson = require "cjson"
-
+local template = require "resty.template.safe"
 
 -- contain runtime = {}
 local runtime = {}
@@ -17,6 +17,17 @@ runtime.remediations["2"] = "captcha"
 
 local csmod = {}
 
+
+
+local function read_file(path)
+  local file = io.open(path, "r") -- r read mode and b binary mode
+  if not file then return nil end
+  io.input(file)
+  content = io.read("*a")
+  io.close(file)
+  return content
+end
+
 -- init function
 function csmod.init(configFile, userAgent)
   local conf, err = config.loadConfig(configFile)
@@ -26,6 +37,15 @@ function csmod.init(configFile, userAgent)
   runtime.conf = conf
   runtime.userAgent = userAgent
   runtime.cache = ngx.shared.crowdsec_cache
+
+  captcha_template = read_file(runtime.conf["CAPTCHA_TEMPLATE_PATH"])
+  local view = template.new(captcha_template)
+  view.recaptcha_site_key = runtime.conf["SITE_KEY"]
+
+  runtime.captcha_template_path = tostring(view)
+
+  ngx.log(ngx.ERR, runtime.captcha_template_path)
+
 
   -- if stream mode, add callback to stream_query and start timer
   if runtime.conf["MODE"] == "stream" then
