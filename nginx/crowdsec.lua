@@ -15,6 +15,7 @@ runtime.remediations["1"] = "ban"
 runtime.remediations["2"] = "captcha"
 
 
+local recaptcha_verify_url = "https://www.google.com/recaptcha/api/siteverify"
 local csmod = {}
 
 
@@ -42,10 +43,8 @@ function csmod.init(configFile, userAgent)
   local view = template.new(captcha_template)
   view.recaptcha_site_key = runtime.conf["SITE_KEY"]
 
-  runtime.captcha_template_path = tostring(view)
-
-  ngx.log(ngx.ERR, runtime.captcha_template_path)
-
+  runtime.captcha_template = tostring(view)
+  runtime.recaptcha_secret_key = runtime.conf["SECRET_KEY"]
 
   -- if stream mode, add callback to stream_query and start timer
   if runtime.conf["MODE"] == "stream" then
@@ -56,7 +55,44 @@ function csmod.init(configFile, userAgent)
   return true, nil
 end
 
-function http_request(link)
+
+function csmod.validateCaptcha(g_captcha_res, remote_ip)
+  body = {
+    secret   = runtime.recaptcha_secret_key,
+    response = g_captcha_res,
+    remoteip = remote_ip
+  }
+  res, err = post_http_request(recaptcha_verify_url, table_to_encoded_url(body))
+  if err ~= nil then
+    return true, err
+  end
+  result = cjson.decode(res.body)
+  return result.success, nil
+end
+
+
+function table_to_encoded_url(args)
+  local params = {}
+  for k, v in pairs(args) do table.insert(params, k .. '=' .. v) end
+  return table.concat(params, "&")
+end
+
+
+function post_http_request(link, body)
+  local httpc = http.new()
+  httpc:set_timeout(runtime.conf['REQUEST_TIMEOUT'])
+  local res, err = httpc:request_uri(link, {
+    method = "POST",
+    body = body,
+    headers = {
+        ["Content-Type"] = "application/x-www-form-urlencoded",
+    },
+  })
+  return res, err
+end
+
+
+function get_http_request(link)
   local httpc = http.new()
   httpc:set_timeout(runtime.conf['REQUEST_TIMEOUT'])
   local res, err = httpc:request_uri(link, {
@@ -138,7 +174,7 @@ function stream_query()
   local is_startup = runtime.cache:get("startup")
   ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
   local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
-  local res, err = http_request(link)
+  local res, err = get_http_request(link)
   if not res then
     if ngx.timer.every == nil then
       local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
@@ -213,7 +249,7 @@ end
 
 function live_query(ip)
   local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
-  local res, err = http_request(link)
+  local res, err = get_http_request(link)
   if not res then
     return true, nil, "request failed: ".. err
   end
@@ -248,6 +284,11 @@ function live_query(ip)
   else
     return true, nil, nil
   end
+end
+
+
+function csmod.GetCaptchaTemplate()
+  return runtime.captcha_template
 end
 
 
