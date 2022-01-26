@@ -15,6 +15,14 @@ M.SecretKey = ""
 M.SiteKey = ""
 M.Template = ""
 
+local function read_file(path)
+    local file = io.open(path, "r") -- r read mode and b binary mode
+    if not file then return nil end
+    io.input(file)
+    content = io.read("*a")
+    io.close(file)
+    return content
+  end
 
 function M.New(siteKey, secretKey, TemplateFilePath)
     M.SecretKey = secretKey

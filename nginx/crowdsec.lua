@@ -21,15 +21,6 @@ local csmod = {}
 
 
 
-local function read_file(path)
-  local file = io.open(path, "r") -- r read mode and b binary mode
-  if not file then return nil end
-  io.input(file)
-  content = io.read("*a")
-  io.close(file)
-  return content
-end
-
 -- init function
 function csmod.init(configFile, userAgent)
   local conf, err = config.loadConfig(configFile)
