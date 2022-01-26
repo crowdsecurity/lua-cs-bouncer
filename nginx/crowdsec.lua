@@ -308,6 +308,42 @@ function csmod.allowIp(ip)
 end
 
 
+function csmod.Allow(ip)
+  captcha_status, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
+  if state_id == recaptcha.GetStateID(recaptcha._VERIFY_STATE) then
+      ngx.req.read_body()
+      local recaptcha_res = ngx.req.get_post_args()["g-recaptcha-response"] or 0
+      if recaptcha_res ~= 0 then
+          valid, err = cs.validateCaptcha(recaptcha_res, ngx.var.remote_addr)
+          if valid == true then
+              ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, "/" , 10, recaptcha.GetStateID(recaptcha._VALIDATED_STATE))
+              return
+          else
+              ngx.log(ngx.ALERT, "Invalid captcha from " .. ngx.var.remote_addr)
+          end
+      end
+  end
+  local ok, remediation, err = csmod.allowIp(ip)
+  if err ~= nil then
+    ngx.log(ngx.ERR, "[Crowdsec] bouncer error: " .. err)
+  end
+  if not ok then
+      ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
+      if remediation == "ban" then
+          ngx.exit(ngx.HTTP_FORBIDDEN)
+      end
+      if remediation == "captcha" then
+          captcha_status, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
+          if state_id ~= recaptcha.GetStateID(recaptcha._VALIDATED_STATE) then
+              ngx.header.content_type = "text/html"
+              ngx.say(cs.GetCaptchaTemplate())
+              ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, "/" , 10, recaptcha.GetStateID(recaptcha._VERIFY_STATE))
+          end
+      end
+  end
+end
+
+
 -- Use it if you are able to close at shuttime
 function csmod.close()
 end
