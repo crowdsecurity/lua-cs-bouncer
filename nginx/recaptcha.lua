@@ -72,11 +72,8 @@ function M.Validate(g_captcha_res, remote_ip)
       }
 
       data = table_to_encoded_url(body)
-      ngx.log(ngx.ALERT, "BODY: " .. data)
-      ngx.log(ngx.ALERT, "URL: " .. recaptcha_verify_url)
       local httpc = http.new()
-      httpc:set_timeout(3)
-
+      httpc:set_timeout(1000)
       local res, err = httpc:request_uri(recaptcha_verify_url, {
         method = "POST",
         body = data,
