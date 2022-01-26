@@ -314,6 +314,9 @@ function csmod.Allow(ip)
       local recaptcha_res = ngx.req.get_post_args()["g-recaptcha-response"] or 0
       if recaptcha_res ~= 0 then
           valid, err = cs.validateCaptcha(recaptcha_res, ngx.var.remote_addr)
+          if err ~= nil then
+            ngx.log(ngx.ERR, "Error while validating captcha: " .. err)
+          end
           if valid == true then
               ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, "/" , 10, recaptcha.GetStateID(recaptcha._VALIDATED_STATE))
               ngx.req.set_method(ngx.HTTP_GET)
