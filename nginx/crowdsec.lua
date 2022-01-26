@@ -5,6 +5,7 @@ local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
 local cjson = require "cjson"
 local template = require "resty.template.safe"
+local recaptcha = require "plugins.crowdsec.recaptcha"
 
 -- contain runtime = {}
 local runtime = {}
@@ -38,13 +39,7 @@ function csmod.init(configFile, userAgent)
   runtime.conf = conf
   runtime.userAgent = userAgent
   runtime.cache = ngx.shared.crowdsec_cache
-
-  captcha_template = read_file(runtime.conf["CAPTCHA_TEMPLATE_PATH"])
-  local view = template.new(captcha_template)
-  view.recaptcha_site_key = runtime.conf["SITE_KEY"]
-
-  runtime.captcha_template = tostring(view)
-  runtime.recaptcha_secret_key = runtime.conf["SECRET_KEY"]
+  runtime.recaptcha = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
 
   -- if stream mode, add callback to stream_query and start timer
   if runtime.conf["MODE"] == "stream" then
@@ -57,38 +52,7 @@ end
 
 
 function csmod.validateCaptcha(g_captcha_res, remote_ip)
-  body = {
-    secret   = runtime.recaptcha_secret_key,
-    response = g_captcha_res,
-    remoteip = remote_ip
-  }
-  res, err = post_http_request(recaptcha_verify_url, table_to_encoded_url(body))
-  if err ~= nil then
-    return true, err
-  end
-  result = cjson.decode(res.body)
-  return result.success, nil
-end
-
-
-function table_to_encoded_url(args)
-  local params = {}
-  for k, v in pairs(args) do table.insert(params, k .. '=' .. v) end
-  return table.concat(params, "&")
-end
-
-
-function post_http_request(link, body)
-  local httpc = http.new()
-  httpc:set_timeout(runtime.conf['REQUEST_TIMEOUT'])
-  local res, err = httpc:request_uri(link, {
-    method = "POST",
-    body = body,
-    headers = {
-        ["Content-Type"] = "application/x-www-form-urlencoded",
-    },
-  })
-  return res, err
+  return runtime.recaptcha.Validate(g_captcha_res, remote_ip)
 end
 
 

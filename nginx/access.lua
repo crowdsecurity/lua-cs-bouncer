@@ -8,9 +8,6 @@ if captcha_status == "to_verify" then
     if recaptcha_res ~= 0 then
         valid, err = cs.validateCaptcha(recaptcha_res, ngx.var.remote_addr)
         if valid == true then
-            ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, "validated")
-            headers = ngx.resp.get_headers()["Origin"]
-            ngx.log(ngx.ERR, "ORIG: " .. headers)
             return
         else
             ngx.log(ngx.ALERT, "Invalid captcha from " .. ngx.var.remote_addr)
