@@ -67,6 +67,7 @@ function config.loadConfig(file)
                             ngx.log(ngx.ERR, "unsupported value '" .. s[2] .. "' for variable '" .. v .. "'. Using default value 'stream' instead")
                             break
                         end
+                    end
                     if v == "EXCLUDE_LOCATION" then
                         local value = s[2]
                         exclude_location = {}
