@@ -1,4 +1,4 @@
-local template = require "template"
+local template = require "resty.template.safe"
 local http = require "resty.http"
 local cjson = require "cjson"
 
