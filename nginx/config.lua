@@ -77,6 +77,7 @@ function config.loadConfig(file)
                         conf[v] = exclude_location
                         break
                     end
+
                     local n = next(s, k)
                     conf[v] = s[n]
                     break
