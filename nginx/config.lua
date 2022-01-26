@@ -43,7 +43,8 @@ function config.loadConfig(file)
         ['BOUNCING_ON_TYPE'] = "ban",
         ['MODE'] = "stream",
         ['UPDATE_FREQUENCY'] = 10,
-        ['CAPTCHA_EXPIRATION'] = 3600
+        ['CAPTCHA_EXPIRATION'] = 3600,
+        ['REDIRECT_PATH'] = "/"
     }
     for line in io.lines(file) do
         local isOk = false
