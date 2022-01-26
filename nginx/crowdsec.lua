@@ -29,7 +29,7 @@ function csmod.init(configFile, userAgent)
   runtime.conf = conf
   runtime.userAgent = userAgent
   runtime.cache = ngx.shared.crowdsec_cache
-  runtime.recaptcha = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
+  runtime.recaptcha = recaptcha.new(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
 
   -- if stream mode, add callback to stream_query and start timer
   if runtime.conf["MODE"] == "stream" then

@@ -23,7 +23,7 @@ local function read_file(path)
     return content
   end
 
-function M.New(siteKey, secretKey, TemplateFilePath)
+function M:new(siteKey, secretKey, TemplateFilePath)
     M.SecretKey = secretKey
     M.SiteKey = siteKey
 
