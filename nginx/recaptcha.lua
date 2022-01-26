@@ -39,7 +39,12 @@ local function read_file(path)
 
 local function file_exist(path)
   local f = io.open(path, "r")
-  if f ~= nil then io.close(f) return true else return false
+  if f ~= nil then 
+    io.close(f)
+    return true 
+  else 
+    return false
+  end
 end
 
 function M.New(siteKey, secretKey, TemplateFilePath)
