@@ -63,4 +63,4 @@ function M.Validate(g_captcha_res, remote_ip)
 end
 
 
-return recaptcha
+return M
