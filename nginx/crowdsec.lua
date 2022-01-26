@@ -351,6 +351,7 @@ function csmod.Allow(ip)
       if remediation == "ban" then
           ret_code = runtime.conf["RET_CODE"]
           ngx.req.set_header("Location", runtime.conf["REDIRECT_PATH"])
+          ngx.req.uri = runtime.conf["REDIRECT_PATH"]
           ngx.status = utils.HTTP_CODE[ret_code]
           ngx.exit()
           return
