@@ -4,7 +4,6 @@ local config = require "plugins.crowdsec.config"
 local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
 local cjson = require "cjson"
-local template = require "resty.template.safe"
 local recaptcha = require "plugins.crowdsec.recaptcha"
 
 -- contain runtime = {}
@@ -243,7 +242,7 @@ end
 
 
 function csmod.GetCaptchaTemplate()
-  return runtime.captcha_template
+  return runtime.recaptcha.GetTemplate()
 end
 
 
