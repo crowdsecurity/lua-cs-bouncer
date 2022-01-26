@@ -15,7 +15,6 @@ runtime.remediations["1"] = "ban"
 runtime.remediations["2"] = "captcha"
 
 
-local recaptcha_verify_url = "https://www.google.com/recaptcha/api/siteverify"
 local csmod = {}
 
 
@@ -310,6 +309,7 @@ end
 
 function csmod.Allow(ip)
   previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
+  ngx.log(ngx.ERR, "PREVIOUS URI: " .. previous_uri)
   if state_id == recaptcha.GetStateID(recaptcha._VERIFY_STATE) then
       ngx.req.read_body()
       local recaptcha_res = ngx.req.get_post_args()["g-recaptcha-response"] or 0
@@ -318,7 +318,7 @@ function csmod.Allow(ip)
           if valid == true then
               ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, "/" , 10, recaptcha.GetStateID(recaptcha._VALIDATED_STATE))
               ngx.req.set_method(ngx.HTTP_GET)
-              ngx.req.set_uri(previous_uri)
+              ngx.redirect(previous_uri)
               return
           else
               ngx.log(ngx.ALERT, "Invalid captcha from " .. ngx.var.remote_addr)
@@ -339,7 +339,7 @@ function csmod.Allow(ip)
           if state_id ~= recaptcha.GetStateID(recaptcha._VALIDATED_STATE) then
               ngx.header.content_type = "text/html"
               ngx.say(cs.GetCaptchaTemplate())
-              local uri = ""
+              local uri = "/"
               if ngx.req.get_method() == "GET" then
                 uri = ngx.var.uri
               else
@@ -347,8 +347,8 @@ function csmod.Allow(ip)
                 for k, v in pairs(headers) do
                   ngx.log(ngx.ERR, "HEADER: " .. k)
                 end
-                uri = ""
               end
+              ngx.log(ngx.ERR, "PREVIOUS URI SET: " .. uri)
               ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, uri , 10, recaptcha.GetStateID(recaptcha._VERIFY_STATE))
           end
       end
