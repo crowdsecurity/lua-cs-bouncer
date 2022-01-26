@@ -343,7 +343,7 @@ function csmod.Allow(ip)
               if ngx.req.get_method() == "GET" then
                 uri = ngx.var.uri
               else
-                headers, err = ngx.req.headers()
+                headers, err = ngx.req.get_headers()
                 for k, v in pairs(headers) do
                   ngx.log(ngx.ERR, "HEADER: " .. k)
                 end
