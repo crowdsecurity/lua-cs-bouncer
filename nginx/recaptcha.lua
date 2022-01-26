@@ -34,6 +34,11 @@ function M.New(siteKey, secretKey, TemplateFilePath)
 end
 
 
+function M.GetTemplate()
+    return M.Template
+end
+
+
 function table_to_encoded_url(args)
     local params = {}
     for k, v in pairs(args) do table.insert(params, k .. '=' .. v) end
