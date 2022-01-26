@@ -42,7 +42,7 @@ function config.loadConfig(file)
         ['REQUEST_TIMEOUT'] = 0.2,
         ['BOUNCING_ON_TYPE'] = "ban",
         ['MODE'] = "stream",
-        ['UPDATE_FREQUENCY'] = 10
+        ['UPDATE_FREQUENCY'] = 10,
         ['CAPTCHA_EXPIRATION'] = 3600
     }
     for line in io.lines(file) do
