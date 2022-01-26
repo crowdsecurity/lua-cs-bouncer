@@ -10,10 +10,6 @@ M.State = {}
 M.State["1"] = M._VERIFY_STATE
 M.State["2"] = M._VALIDATED_STATE
 
-M.State[_VERIFY_STATE] = 1
-M.State[_VALIDATED_STATE] = 2
-
-
 M.SecretKey = ""
 M.SiteKey = ""
 M.Template = ""
