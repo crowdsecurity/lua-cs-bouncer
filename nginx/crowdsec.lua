@@ -5,6 +5,7 @@ local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
 local cjson = require "cjson"
 local recaptcha = require "plugins.crowdsec.recaptcha"
+local utils = require "plugins.crowdsec.utils"
 
 -- contain runtime = {}
 local runtime = {}
@@ -28,14 +29,15 @@ function csmod.init(configFile, userAgent)
   runtime.conf = conf
   runtime.userAgent = userAgent
   runtime.cache = ngx.shared.crowdsec_cache
-  runtime.captcha_ok = true
+  captcha_ok = true
 
   err = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
 
   if err ~= nil then
     ngx.log(ngx.ERR, "using reCaptcha is not possible: " .. err)
-    runtime.captcha_ok = false
+    captcha_ok = false
   end
+  runtime.cache:set("captcha_ok", captcha_ok)
 
   -- if stream mode, add callback to stream_query and start timer
   if runtime.conf["MODE"] == "stream" then
@@ -315,7 +317,8 @@ end
 
 
 function csmod.Allow(ip)
-  if runtime.captcha_ok then -- if captcha can be use (configuration is valid)
+  captcha_ok = runtime.cache:get("captcha_ok")
+  if captcha_ok then -- if captcha can be use (configuration is valid)
     -- we check if the IP need to validate its captcha before checking it against crowdsec local API
     previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
     if previous_uri ~= nil and state_id == recaptcha.GetStateID(recaptcha._VERIFY_STATE) then
@@ -346,11 +349,12 @@ function csmod.Allow(ip)
   if not ok then
       ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
       if remediation == "ban" then
-          ngx.exit(ngx.HTTP_FORBIDDEN)
+          ret_code = runtime.conf["RET_CODE"]
+          ngx.exit(utils.HTTP_CODE[ret_code])
       end
 
       -- if the remediation is a captcha and captcha is well configured
-      if remediation == "captcha" and runtime.captcha_ok then
+      if remediation == "captcha" and captcha_ok then
           previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
           -- we check if the IP is already in cache for captcha and not yet validated
           if previous_uri == nil or state_id ~= recaptcha.GetStateID(recaptcha._VALIDATED_STATE) then
