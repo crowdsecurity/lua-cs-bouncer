@@ -1,4 +1,5 @@
 local template = require "resty.template.safe"
+local http = require "resty.http"
 
 local M = {_TYPE='module', _NAME='recaptcha.funcs', _VERSION='1.0-0'}
 
