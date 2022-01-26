@@ -42,7 +42,7 @@ end
 
 
 function csmod.validateCaptcha(g_captcha_res, remote_ip)
-  return runtime.recaptcha.Validate(g_captcha_res, remote_ip)
+  return recaptcha.Validate(g_captcha_res, remote_ip)
 end
 
 
