@@ -77,7 +77,7 @@ function M.Validate(g_captcha_res, remote_ip)
 
       local res, err = httpc:request_uri(recaptcha_verify_url, {
         method = "POST",
-        body = body,
+        body = table_to_encoded_url(body),
         headers = {
             ["Content-Type"] = "application/x-www-form-urlencoded",
         },
