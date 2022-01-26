@@ -27,10 +27,16 @@ function M.New(siteKey, secretKey, TemplateFilePath)
     M.SecretKey = secretKey
     M.SiteKey = siteKey
 
-    captcha_template = read_file(TemplateFilePath)
+    local captcha_template = read_file(TemplateFilePath)
+    if captcha_template == nil then
+        return self, "Template file " .. TemplateFilePath .. "not found."
+    end
     local view = template.new(captcha_template)
+    
     view.recaptcha_site_key = siteKey
     M.Template = tostring(view)
+
+    return self, nil
 end
 
 
