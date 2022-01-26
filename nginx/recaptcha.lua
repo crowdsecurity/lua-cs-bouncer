@@ -23,20 +23,20 @@ local function read_file(path)
     return content
   end
 
-function M:new(siteKey, secretKey, TemplateFilePath)
+function M.New(siteKey, secretKey, TemplateFilePath)
     M.SecretKey = secretKey
     M.SiteKey = siteKey
 
     local captcha_template = read_file(TemplateFilePath)
     if captcha_template == nil then
-        return self, "Template file " .. TemplateFilePath .. "not found."
+        return "Template file " .. TemplateFilePath .. "not found."
     end
     local view = template.new(captcha_template)
     
     view.recaptcha_site_key = siteKey
     M.Template = tostring(view)
 
-    return self, nil
+    return nil
 end
 
 
