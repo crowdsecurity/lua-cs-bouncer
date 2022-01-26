@@ -44,7 +44,8 @@ function config.loadConfig(file)
         ['MODE'] = "stream",
         ['UPDATE_FREQUENCY'] = 10,
         ['CAPTCHA_EXPIRATION'] = 3600,
-        ['REDIRECT_PATH'] = "/"
+        ['REDIRECT_PATH'] = "/",
+        ['EXCLUDE_LOCATION'] = {}
     }
     for line in io.lines(file) do
         local isOk = false
@@ -75,6 +76,7 @@ function config.loadConfig(file)
                         for match in (value..","):gmatch("(.-)"..",") do
                             table.insert(exclude_location, match)
                         end
+                        local n = next(s, k)
                         conf[v] = exclude_location
                         break
                     end
@@ -100,5 +102,4 @@ function config.loadConfig(file)
     end
     return conf, nil
 end
-
 return config

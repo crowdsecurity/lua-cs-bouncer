@@ -317,6 +317,12 @@ end
 
 
 function csmod.Allow(ip)
+  for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
+    if ngx.var.uri == v then
+      ngx.log(ngx.ERR,  "whitelisted location: " .. v)
+      return
+    end
+  end
   captcha_ok = runtime.cache:get("captcha_ok")
   if captcha_ok then -- if captcha can be use (configuration is valid)
     -- we check if the IP need to validate its captcha before checking it against crowdsec local API
@@ -331,7 +337,7 @@ function csmod.Allow(ip)
             end
             if valid == true then
                 -- captcha is valid, we redirect the IP to its previous URI but in GET method
-                ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, "/" , 10, recaptcha.GetStateID(recaptcha._VALIDATED_STATE))
+                ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, previous_uri, runtime.conf["CAPTCHA_EXPIRATION"], recaptcha.GetStateID(recaptcha._VALIDATED_STATE))
                 ngx.req.set_method(ngx.HTTP_GET)
                 ngx.redirect(previous_uri)
                 return
@@ -351,7 +357,6 @@ function csmod.Allow(ip)
       if remediation == "ban" then
           ret_code = runtime.conf["RET_CODE"]
           ngx.exit(utils.HTTP_CODE[ret_code])
-          return
       end
 
       -- if the remediation is a captcha and captcha is well configured
@@ -371,7 +376,7 @@ function csmod.Allow(ip)
                   end
                 end
               end
-              ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, uri , 10, recaptcha.GetStateID(recaptcha._VERIFY_STATE))
+              ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, uri , 60, recaptcha.GetStateID(recaptcha._VERIFY_STATE))
           end
       end
   end
