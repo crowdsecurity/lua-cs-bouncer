@@ -73,7 +73,7 @@ function M.Validate(g_captcha_res, remote_ip)
 
       local httpc = http.new()
 
-      httpc:set_timeout(1)
+      httpc:set_timeout(0.2)
 
       local res, err = httpc:request_uri(recaptcha_verify_url, {
         method = "POST",
