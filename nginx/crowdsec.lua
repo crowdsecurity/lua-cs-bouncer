@@ -310,7 +310,6 @@ end
 function csmod.Allow(ip)
   previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
   if previous_uri ~= nil and state_id == recaptcha.GetStateID(recaptcha._VERIFY_STATE) then
-      ngx.log(ngx.ERR, "PREVIOUS URI: " .. previous_uri)
       ngx.req.read_body()
       local recaptcha_res = ngx.req.get_post_args()["g-recaptcha-response"] or 0
       if recaptcha_res ~= 0 then
@@ -336,19 +335,18 @@ function csmod.Allow(ip)
       end
       if remediation == "captcha" then
           previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
-          if state_id ~= recaptcha.GetStateID(recaptcha._VALIDATED_STATE) then
+          if previous_uri == nil or state_id ~= recaptcha.GetStateID(recaptcha._VALIDATED_STATE) then
               ngx.header.content_type = "text/html"
               ngx.say(cs.GetCaptchaTemplate())
-              local uri = "/"
-              if ngx.req.get_method() == "GET" then
-                uri = ngx.var.uri
-              else
+              local uri = ngx.var.uri
+              if ngx.req.get_method() ~= "GET" then
                 headers, err = ngx.req.get_headers()
                 for k, v in pairs(headers) do
-                  ngx.log(ngx.ERR, "HEADER: " .. k)
+                  if k == "referer" then
+                    uri = v
+                  end
                 end
               end
-              ngx.log(ngx.ERR, "PREVIOUS URI SET: " .. uri)
               ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, uri , 10, recaptcha.GetStateID(recaptcha._VERIFY_STATE))
           end
       end
