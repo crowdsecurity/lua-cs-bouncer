@@ -309,8 +309,8 @@ end
 
 function csmod.Allow(ip)
   previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
-  ngx.log(ngx.ERR, "PREVIOUS URI: " .. previous_uri)
-  if state_id == recaptcha.GetStateID(recaptcha._VERIFY_STATE) then
+  if previous_uri ~= nil and state_id == recaptcha.GetStateID(recaptcha._VERIFY_STATE) then
+      ngx.log(ngx.ERR, "PREVIOUS URI: " .. previous_uri)
       ngx.req.read_body()
       local recaptcha_res = ngx.req.get_post_args()["g-recaptcha-response"] or 0
       if recaptcha_res ~= 0 then
