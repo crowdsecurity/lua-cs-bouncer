@@ -20,9 +20,9 @@ function M.New(siteKey, secretKey, TemplateFilePath)
     M.SecretKey = secretKey
     M.SiteKey = siteKey
 
-    captcha_template = read_file(runtime.conf["CAPTCHA_TEMPLATE_PATH"])
+    captcha_template = read_file(TemplateFilePath)
     local view = template.new(captcha_template)
-
+    view.recaptcha_site_key = siteKey
     M.Template = tostring(view)
 end
 
@@ -35,7 +35,7 @@ function table_to_encoded_url(args)
 
 function M.Validate(g_captcha_res, remote_ip)
     body = {
-        secret   = runtime.recaptcha_secret_key,
+        secret   = M.SecretKey,
         response = g_captcha_res,
         remoteip = remote_ip
       }
