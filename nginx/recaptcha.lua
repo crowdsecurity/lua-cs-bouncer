@@ -3,6 +3,8 @@ local http = require "resty.http"
 
 local M = {_TYPE='module', _NAME='recaptcha.funcs', _VERSION='1.0-0'}
 
+local recaptcha_verify_url = "https://www.google.com/recaptcha/api/siteverify"
+
 M._VERIFY_STATE = "to_verify"
 M._VALIDATED_STATE = "validated"
 
@@ -73,15 +75,13 @@ function M.Validate(g_captcha_res, remote_ip)
 
       httpc:set_timeout(1)
 
-      local res, err = httpc:request_uri(link, {
+      local res, err = httpc:request_uri(recaptcha_verify_url, {
         method = "POST",
         body = body,
         headers = {
             ["Content-Type"] = "application/x-www-form-urlencoded",
         },
       })
-
-      res, err = post_http_request(recaptcha_verify_url, table_to_encoded_url(body))
       if err ~= nil then
         return true, err
       end
