@@ -350,7 +350,7 @@ function csmod.Allow(ip)
       ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
       if remediation == "ban" then
           ret_code = runtime.conf["RET_CODE"]
-          ngx.redirect(runtime.conf["REDIRECT_PATH"])
+          ngx.req.set_header("Location", runtime.conf["REDIRECT_PATH"])
           ngx.exit(utils.HTTP_CODE[ret_code])
       end
 
