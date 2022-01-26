@@ -1,4 +1,4 @@
-local template = require "resty.template.safe"
+local template = require "template"
 local http = require "resty.http"
 local cjson = require "cjson"
 
@@ -37,9 +37,27 @@ local function read_file(path)
     return content
   end
 
+local function file_exist(path)
+  local f = io.open(path, "r")
+  if f ~= nil then io.close(f) return true else return false
+end
+
 function M.New(siteKey, secretKey, TemplateFilePath)
-    M.SecretKey = secretKey
+
+    if siteKey == nil or siteKey == "" then
+      return "no recaptcha site key provided, can't use recaptcha"
+    end
     M.SiteKey = siteKey
+
+    if secretKey == nil or secretKey == "" then
+      return "no recaptcha secret key provided, can't use recaptcha"
+    end
+
+    M.SecretKey = secretKey
+
+    if file_exist(TemplateFilePath) == false then
+      return "captcha template file doesn't exist, can't use recaptcha"
+    end
 
     local captcha_template = read_file(TemplateFilePath)
     if captcha_template == nil then

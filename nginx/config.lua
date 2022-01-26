@@ -35,14 +35,15 @@ function config.loadConfig(file)
         return nil, "File ".. file .." doesn't exist"
     end
     local conf = {}
-    local valid_params = {'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'CAPTCHA_TEMPLATE_PATH'}
-    local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY'}
+    local valid_params = {'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_PATH', 'RET_CODE', 'EXCLUDE_LOCATION'}
+    local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION'}
     local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
     local default_values = {
         ['REQUEST_TIMEOUT'] = 0.2,
         ['BOUNCING_ON_TYPE'] = "ban",
         ['MODE'] = "stream",
         ['UPDATE_FREQUENCY'] = 10
+        ['CAPTCHA_EXPIRATION'] = 3600
     }
     for line in io.lines(file) do
         local isOk = false
@@ -66,6 +67,14 @@ function config.loadConfig(file)
                             ngx.log(ngx.ERR, "unsupported value '" .. s[2] .. "' for variable '" .. v .. "'. Using default value 'stream' instead")
                             break
                         end
+                    if v == "EXCLUDE_LOCATION" then
+                        local value = s[2]
+                        exclude_location = {}
+                        for match in (value..","):gmatch("(.-)"..",") do
+                            table.insert(exclude_location, match)
+                        end
+                        conf[v] = exclude_location
+                        break
                     end
                     local n = next(s, k)
                     conf[v] = s[n]
