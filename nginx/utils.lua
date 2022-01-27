@@ -15,4 +15,13 @@ M.HTTP_CODE["404"] = ngx.HTTP_NOT_FOUND
 M.HTTP_CODE["405"] = ngx.HTTP_NOT_ALLOWED
 M.HTTP_CODE["500"] = ngx.HTTP_INTERNAL_SERVER_ERROR
 
+
+function M.startswith(text, prefix)
+    return text:find(prefix, 1, true) == 1
+end
+
+function M.endswith(text, prefix)
+    return text:find(prefix, 1, true) == 1
+end
+
 return M

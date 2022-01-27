@@ -316,6 +316,8 @@ function csmod.allowIp(ip)
 end
 
 
+
+
 function csmod.Allow(ip)
   for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
     if ngx.var.uri == v then
@@ -355,10 +357,18 @@ function csmod.Allow(ip)
   if not ok then
       ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
       if remediation == "ban" then
+        if runtime.conf["REDIRECT_LOCATION"] ~= "" then
+          ngx.redirect(runtime.conf["REDIRECT_LOCATION"])
+        else
           ret_code = runtime.conf["RET_CODE"]
-          ngx.exit(utils.HTTP_CODE[ret_code])
+          if ret_code ~= nil and ret_code ~= 0 then
+            ngx.exit(utils.HTTP_CODE[ret_code])
+          else
+            ngx.exit(ngx.HTTP_FORBIDDEN)
+          end
+        end
+        return
       end
-
       -- if the remediation is a captcha and captcha is well configured
       if remediation == "captcha" and captcha_ok then
           previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
