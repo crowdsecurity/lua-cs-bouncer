@@ -324,6 +324,12 @@ function csmod.Allow(ip)
       ngx.log(ngx.ERR,  "whitelisted location: " .. v)
       return
     end
+    if utils.ends_with(v, "/") == false then
+      uri_to_check = v .. "/"
+    end
+    if utils.starts_with(uri_to_check, uri_to_check) then
+      ngx.log(ngx.ERR,  "whitelisted location: " .. uri_to_check)
+    end
   end
   captcha_ok = runtime.cache:get("captcha_ok")
   if captcha_ok then -- if captcha can be use (configuration is valid)

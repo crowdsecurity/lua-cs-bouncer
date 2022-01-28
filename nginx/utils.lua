@@ -16,12 +16,15 @@ M.HTTP_CODE["405"] = ngx.HTTP_NOT_ALLOWED
 M.HTTP_CODE["500"] = ngx.HTTP_INTERNAL_SERVER_ERROR
 
 
-function M.startswith(text, prefix)
-    return text:find(prefix, 1, true) == 1
-end
 
-function M.endswith(text, prefix)
-    return text:find(prefix, 1, true) == 1
-end
+function M.starts_with(str, start)
+    return str:sub(1, #start) == start
+ end
+ 
+ function M.ends_with(str, ending)
+    return ending == "" or str:sub(-#ending) == ending
+ end
+
+
 
 return M
