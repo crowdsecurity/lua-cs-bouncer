@@ -327,7 +327,7 @@ function csmod.Allow(ip)
     if utils.ends_with(v, "/") == false then
       uri_to_check = v .. "/"
     end
-    if utils.starts_with(uri_to_check, uri_to_check) then
+    if utils.starts_with(ngx.var.uri, uri_to_check) then
       ngx.log(ngx.ERR,  "whitelisted location: " .. uri_to_check)
     end
   end
