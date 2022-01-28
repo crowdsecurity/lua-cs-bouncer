@@ -74,8 +74,10 @@ function config.loadConfig(file)
                     if v == "EXCLUDE_LOCATION" then
                         local value = s[2]
                         exclude_location = {}
-                        for match in (value..","):gmatch("(.-)"..",") do
-                            table.insert(exclude_location, match)
+                        if value ~= "" then
+                            for match in (value..","):gmatch("(.-)"..",") do
+                                table.insert(exclude_location, match)
+                            end
                         end
                         local n = next(s, k)
                         conf[v] = exclude_location

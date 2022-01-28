@@ -382,7 +382,7 @@ function csmod.Allow(ip)
           ngx.redirect(runtime.conf["REDIRECT_LOCATION"])
         else
           ret_code = runtime.conf["RET_CODE"]
-          if ret_code ~= nil and ret_code ~= 0 then
+          if ret_code ~= nil and ret_code ~= "" and ret_code ~= 0 then
             ngx.exit(utils.HTTP_CODE[ret_code])
           else
             ngx.exit(ngx.HTTP_FORBIDDEN)
