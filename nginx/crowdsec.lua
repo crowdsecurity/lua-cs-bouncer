@@ -341,7 +341,7 @@ function csmod.Allow(ip)
   end
 
   if ok == true and remediation == "captcha" then
-    ngx.shared.crowdsec_cache:delete("catpcha_" .. ip)
+    ngx.shared.crowdsec_cache:delete("captcha" .. ip)
   end
 
   captcha_ok = runtime.cache:get("captcha_ok")
