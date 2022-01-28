@@ -164,6 +164,9 @@ function stream_query()
   if type(decisions.deleted) == "table" then
     if not is_startup then
       for i, decision in pairs(decisions.deleted) do
+        if decision.type == "captcha" then
+          runtime.cache:delete("captcha_" .. decision.value)
+        end
         local key = item_to_string(decision.value, decision.scope)
         runtime.cache:delete(key)
         ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
