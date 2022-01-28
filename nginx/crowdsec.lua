@@ -340,8 +340,8 @@ function csmod.Allow(ip)
     ngx.log(ngx.ERR, "[Crowdsec] bouncer error: " .. err)
   end
 
-  if ok == true and remediation == "captcha" then
-    ngx.shared.crowdsec_cache:delete("captcha" .. ip)
+  if ok == true then
+    ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
   end
 
   captcha_ok = runtime.cache:get("captcha_ok")
