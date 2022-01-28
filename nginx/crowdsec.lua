@@ -334,6 +334,16 @@ function csmod.Allow(ip)
       ngx.log(ngx.ERR,  "whitelisted location: " .. uri_to_check)
     end
   end
+
+  local ok, remediation, err = csmod.allowIp(ip)
+  if err ~= nil then
+    ngx.log(ngx.ERR, "[Crowdsec] bouncer error: " .. err)
+  end
+
+  if ok == true and remediation == "captcha" then
+    ngx.shared.crowdsec_cache:delete("catpcha_" .. ip)
+  end
+
   captcha_ok = runtime.cache:get("captcha_ok")
   if captcha_ok then -- if captcha can be use (configuration is valid)
     -- we check if the IP need to validate its captcha before checking it against crowdsec local API
@@ -359,10 +369,6 @@ function csmod.Allow(ip)
     end
   end
 
-  local ok, remediation, err = csmod.allowIp(ip)
-  if err ~= nil then
-    ngx.log(ngx.ERR, "[Crowdsec] bouncer error: " .. err)
-  end
   if not ok then
       ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
       if remediation == "ban" then
