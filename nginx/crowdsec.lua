@@ -33,6 +33,10 @@ function csmod.init(configFile, userAgent)
 
   err = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
 
+  if runtime.conf["REDIRECT_LOCATION"] ~= "" then
+    table.insert(runtime.conf["EXCLUDE_LOCATION"], runtime.conf["REDIRECT_LOCATION"])
+  end
+
   if err ~= nil then
     ngx.log(ngx.ERR, "using reCaptcha is not possible: " .. err)
     captcha_ok = false
@@ -322,16 +326,18 @@ end
 
 
 function csmod.Allow(ip)
-  for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
-    if ngx.var.uri == v then
-      ngx.log(ngx.ERR,  "whitelisted location: " .. v)
-      return
-    end
-    if utils.ends_with(v, "/") == false then
-      uri_to_check = v .. "/"
-    end
-    if utils.starts_with(ngx.var.uri, uri_to_check) then
-      ngx.log(ngx.ERR,  "whitelisted location: " .. uri_to_check)
+  if utils.table_len(EXCLUDE_LOCATION) > 0 then
+    for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
+      if ngx.var.uri == v then
+        ngx.log(ngx.ERR,  "whitelisted location: " .. v)
+        return
+      end
+      if utils.ends_with(v, "/") == false then
+        uri_to_check = v .. "/"
+      end
+      if utils.starts_with(ngx.var.uri, uri_to_check) then
+        ngx.log(ngx.ERR,  "whitelisted location: " .. uri_to_check)
+      end
     end
   end
 

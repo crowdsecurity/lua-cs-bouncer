@@ -25,6 +25,12 @@ function M.starts_with(str, start)
     return ending == "" or str:sub(-#ending) == ending
  end
 
-
+function M.table_len(table)
+   local count = 0
+   for k, v in pairs(table) do
+      count = count + 1
+   end
+   return count
+end
 
 return M

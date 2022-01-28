@@ -44,8 +44,9 @@ function config.loadConfig(file)
         ['MODE'] = "stream",
         ['UPDATE_FREQUENCY'] = 10,
         ['CAPTCHA_EXPIRATION'] = 3600,
-        ['REDIRECT_PATH'] = "/",
-        ['EXCLUDE_LOCATION'] = {}
+        ['REDIRECT_LOCATION'] = "",
+        ['EXCLUDE_LOCATION'] = {},
+        ['RET_CODE'] = 0
     }
     for line in io.lines(file) do
         local isOk = false
