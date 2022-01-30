@@ -1,7 +1,7 @@
---local template = require "resty.template.safe"
 local http = require "resty.http"
 local cjson = require "cjson"
 local template = require "plugins.crowdsec.template"
+local utils = require "plugins.crowdsec.utils"
 
 
 local M = {_TYPE='module', _NAME='recaptcha.funcs', _VERSION='1.0-0'}
@@ -30,24 +30,7 @@ function M.GetStateID(state)
     return nil
 end
 
-local function read_file(path)
-    local file = io.open(path, "r") -- r read mode and b binary mode
-    if not file then return nil end
-    io.input(file)
-    content = io.read("*a")
-    io.close(file)
-    return content
-  end
 
-local function file_exist(path)
-  local f = io.open(path, "r")
-  if f ~= nil then 
-    io.close(f)
-    return true 
-  else 
-    return false
-  end
-end
 
 function M.New(siteKey, secretKey, TemplateFilePath)
 
@@ -62,11 +45,11 @@ function M.New(siteKey, secretKey, TemplateFilePath)
 
     M.SecretKey = secretKey
 
-    if file_exist(TemplateFilePath) == false then
+    if utils.file_exist(TemplateFilePath) == false then
       return "captcha template file doesn't exist, can't use recaptcha"
     end
 
-    local captcha_template = read_file(TemplateFilePath)
+    local captcha_template = utils.read_file(TemplateFilePath)
     if captcha_template == nil then
         return "Template file " .. TemplateFilePath .. "not found."
     end

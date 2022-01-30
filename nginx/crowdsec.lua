@@ -6,6 +6,7 @@ local http = require "resty.http"
 local cjson = require "cjson"
 local recaptcha = require "plugins.crowdsec.recaptcha"
 local utils = require "plugins.crowdsec.utils"
+local ban = require "plugins.crowdsec.ban"
 
 -- contain runtime = {}
 local runtime = {}
@@ -32,6 +33,7 @@ function csmod.init(configFile, userAgent)
   captcha_ok = true
 
   err = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
+  err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"])
 
   if runtime.conf["REDIRECT_LOCATION"] ~= "" then
     table.insert(runtime.conf["EXCLUDE_LOCATION"], runtime.conf["REDIRECT_LOCATION"])
@@ -367,7 +369,7 @@ end
 
 
 function csmod.Allow(ip)
-  if utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
+  if runtime.conf["EXCLUDE_LOCATION"] ~= nil and utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
     for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
       if ngx.var.uri == v then
         ngx.log(ngx.ERR,  "whitelisted location: " .. v)
@@ -426,16 +428,7 @@ function csmod.Allow(ip)
   if not ok then
       ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
       if remediation == "ban" then
-        if runtime.conf["REDIRECT_LOCATION"] ~= "" then
-          ngx.redirect(runtime.conf["REDIRECT_LOCATION"])
-        else
-          ret_code = runtime.conf["RET_CODE"]
-          if ret_code ~= nil and ret_code ~= "" and ret_code ~= 0 then
-            ngx.exit(utils.HTTP_CODE[ret_code])
-          else
-            ngx.exit(ngx.HTTP_FORBIDDEN)
-          end
-        end
+        ban.apply()
         return
       end
       -- if the remediation is a captcha and captcha is well configured
