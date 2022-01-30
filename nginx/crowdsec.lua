@@ -34,6 +34,10 @@ function csmod.init(configFile, userAgent)
 
   err = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
   err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"])
+ 
+  if err ~= nil then
+    ngx.log(ngx.ERR, "Error loading ban plugins: " .. err)
+  end
 
   if runtime.conf["REDIRECT_LOCATION"] ~= "" then
     table.insert(runtime.conf["EXCLUDE_LOCATION"], runtime.conf["REDIRECT_LOCATION"])

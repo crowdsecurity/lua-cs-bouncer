@@ -39,7 +39,6 @@ function M.apply()
         ngx.redirect(M.redirect_location)
         return
     end
-    ngx.log(ngx.ERR, "temaplazdadzaza: " .. M.template_str)
     if M.template_str ~= "" then
         ngx.header.content_type = "text/html"
         ngx.say(M.template_str)
