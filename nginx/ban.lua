@@ -45,7 +45,7 @@ function M.apply()
         ngx.say(template_str)
     end
  
-    ngx.exit(ngx.ret_code)
+    ngx.exit(M.ret_code)
 
     return
 end
