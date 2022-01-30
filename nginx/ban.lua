@@ -39,10 +39,9 @@ function M.apply()
         ngx.redirect(M.redirect_location)
         return
     end
-
-    if template_str ~= "" then
+    if M.template_str ~= "" then
         ngx.header.content_type = "text/html"
-        ngx.say(template_str)
+        ngx.say(M.template_str)
     end
  
     ngx.exit(M.ret_code)
