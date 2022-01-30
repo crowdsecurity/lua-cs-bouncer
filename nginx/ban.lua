@@ -15,7 +15,8 @@ function M.new(template_path, redirect_location, ret_code)
         M.template_str = utils.read_file(template_path)
         if M.template_str == nil then
             return "ban template file doesn't exist, will ban without template"
-        else
+            M.template_str = ""
+        end
     end
     M.REDIRECT_LOCATION = redirect_location
     M.ret_code = ret_code
@@ -34,7 +35,9 @@ function M.apply()
         ngx.header.content_type = "text/html"
         ngx.say(template_str)
     end
+ 
     ngx.exit(ngx.ret_code)
+
     return
 end
 
