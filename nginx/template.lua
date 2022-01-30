@@ -18,7 +18,7 @@ function template.compile(template_str, args)
         template_str = template_str:gsub(var, v)
     end
 
-    return template_str
+    return template.escape(template_str)
 end
 
 return template
