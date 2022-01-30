@@ -11,7 +11,7 @@ function template.escape(data)
   })
 end
 
-function template.new(template_str, args)
+function template.compile(template_str, args)
 
     for k, v in pairs(args) do
         local var = "{{" .. k .. "}}"
