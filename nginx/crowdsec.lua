@@ -369,7 +369,7 @@ end
 
 
 function csmod.Allow(ip)
-  if runtime.conf["EXCLUDE_LOCATION"] ~= nil and utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
+  if utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
     for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
       if ngx.var.uri == v then
         ngx.log(ngx.ERR,  "whitelisted location: " .. v)
