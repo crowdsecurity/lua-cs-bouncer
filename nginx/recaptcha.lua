@@ -71,7 +71,8 @@ function M.New(siteKey, secretKey, TemplateFilePath)
         return "Template file " .. TemplateFilePath .. "not found."
     end
 
-    template_data = {"recaptcha_site_key" : m.SiteKey}
+    template_data = {}
+    template_data["recaptcha_site_key"] =  m.SiteKey
     local view = template.compile(captcha_template, template_data)
     M.Template = view
 
