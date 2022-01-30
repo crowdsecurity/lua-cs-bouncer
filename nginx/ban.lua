@@ -14,10 +14,11 @@ function M.new(template_path, redirect_location, ret_code)
     else
         M.template_str = utils.read_file(template_path)
         if M.template_str == nil then
-            return "ban template file doesn't exist, will ban without template"
             M.template_str = ""
+            return "ban template file doesn't exist, will ban without template"
         end
     end
+
     M.REDIRECT_LOCATION = redirect_location
     M.ret_code = ret_code
 
