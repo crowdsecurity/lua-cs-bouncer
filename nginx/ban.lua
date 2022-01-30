@@ -28,8 +28,6 @@ function M.new(template_path, redirect_location, ret_code)
         end
     end
 
-    M.ret_code = ret_code
-
     return nil
 end
 
