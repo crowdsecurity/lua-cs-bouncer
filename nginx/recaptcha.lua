@@ -1,6 +1,8 @@
-local template = require "resty.template.safe"
+--local template = require "resty.template.safe"
 local http = require "resty.http"
 local cjson = require "cjson"
+local template = require "plugins.crowdsec.template"
+
 
 local M = {_TYPE='module', _NAME='recaptcha.funcs', _VERSION='1.0-0'}
 
@@ -68,10 +70,10 @@ function M.New(siteKey, secretKey, TemplateFilePath)
     if captcha_template == nil then
         return "Template file " .. TemplateFilePath .. "not found."
     end
-    local view = template.new(captcha_template)
-    
-    view.recaptcha_site_key = siteKey
-    M.Template = tostring(view)
+
+    template_data = {"recaptcha_site_key" : m.SiteKey}
+    local view = template.compile(captcha_template, template_data)
+    M.Template = view
 
     return nil
 end
