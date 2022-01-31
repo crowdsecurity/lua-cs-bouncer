@@ -30,6 +30,8 @@ function csmod.init(configFile, userAgent)
   runtime.conf = conf
   runtime.userAgent = userAgent
   runtime.cache = ngx.shared.crowdsec_cache
+  runtime.fallback = runtime.conf["FALLBACK_REMEDIATION"]
+
   captcha_ok = true
 
   if runtime.conf["REDIRECT_LOCATION"] == "/" then
@@ -399,11 +401,25 @@ function csmod.Allow(ip)
     ngx.log(ngx.ERR, "[Crowdsec] bouncer error: " .. err)
   end
 
+  -- if the ip is now allowed, try to delete its captcha state in cache
   if ok == true then
     ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
   end
 
   captcha_ok = runtime.cache:get("captcha_ok")
+
+  if runtime.fallback ~= "" then
+    -- if we can't use recaptcha, fallback
+    if remediation == "captcha" and captcha_ok == false then
+      remediation = runtime.fallback
+    end
+
+    -- if remediation is not supported, fallback
+    if remediation ~= "captcha" and remediation ~= "ban" then
+      remediation = runtime.fallback
+    end
+  end
+
   if captcha_ok then -- if captcha can be use (configuration is valid)
     -- we check if the IP need to validate its captcha before checking it against crowdsec local API
     previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
@@ -436,8 +452,8 @@ function csmod.Allow(ip)
   end
 
   if not ok then
-      ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
       if remediation == "ban" then
+        ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
         ban.apply()
         return
       end
@@ -465,6 +481,7 @@ function csmod.Allow(ip)
               if forcible then
                 ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
               end
+              ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
           end
       end
   end
