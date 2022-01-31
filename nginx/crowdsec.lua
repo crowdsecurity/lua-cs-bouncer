@@ -32,26 +32,15 @@ function csmod.init(configFile, userAgent)
   runtime.cache = ngx.shared.crowdsec_cache
   runtime.fallback = runtime.conf["FALLBACK_REMEDIATION"]
 
-  captcha_ok = true
 
   if runtime.conf["REDIRECT_LOCATION"] == "/" then
     ngx.log(ngx.ERR, "redirect location is set to '/' this will lead into infinite redirection")
   end
 
+  captcha_ok = true
   err = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
-  err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"])
-
-
   if err ~= nil then
-    ngx.log(ngx.ERR, "Error loading ban plugins: " .. err)
-  end
-
-  if runtime.conf["REDIRECT_LOCATION"] ~= "" then
-    table.insert(runtime.conf["EXCLUDE_LOCATION"], runtime.conf["REDIRECT_LOCATION"])
-  end
-
-  if err ~= nil then
-    ngx.log(ngx.ERR, "using reCaptcha is not possible: " .. err)
+    ngx.log(ngx.ERR, "error loading recaptcha plugin: " .. err)
     captcha_ok = false
   end
   local succ, err, forcible = runtime.cache:set("captcha_ok", captcha_ok)
@@ -61,6 +50,18 @@ function csmod.init(configFile, userAgent)
   if forcible then
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
   end
+
+
+  err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"])
+  if err ~= nil then
+    ngx.log(ngx.ERR, "error loading ban plugins: " .. err)
+  end
+
+  if runtime.conf["REDIRECT_LOCATION"] ~= "" then
+    table.insert(runtime.conf["EXCLUDE_LOCATION"], runtime.conf["REDIRECT_LOCATION"])
+  end
+
+
   -- if stream mode, add callback to stream_query and start timer
   if runtime.conf["MODE"] == "stream" then
     local succ, err, forcible = runtime.cache:set("startup", true)
