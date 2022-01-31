@@ -32,9 +32,14 @@ function csmod.init(configFile, userAgent)
   runtime.cache = ngx.shared.crowdsec_cache
   captcha_ok = true
 
+  if runtime.conf["REDIRECT_LOCATION"] == "/" then
+    ngx.log(ngx.WARN, "redirect location is set to '/' this will lead into infinite redirection")
+  end
+
   err = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
   err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"])
- 
+
+
   if err ~= nil then
     ngx.log(ngx.ERR, "Error loading ban plugins: " .. err)
   end
@@ -436,7 +441,7 @@ function csmod.Allow(ip)
         return
       end
       -- if the remediation is a captcha and captcha is well configured
-      if remediation == "captcha" and captcha_ok then
+      if remediation == "captcha" and captcha_ok and ngx.var.uri ~= "/favicon.ico" then
           previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
           -- we check if the IP is already in cache for captcha and not yet validated
           if previous_uri == nil or state_id ~= recaptcha.GetStateID(recaptcha._VALIDATED_STATE) then

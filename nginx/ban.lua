@@ -19,7 +19,7 @@ function M.new(template_path, redirect_location, ret_code)
         end
     end
 
-    M.REDIRECT_LOCATION = redirect_location
+    M.redirect_location = redirect_location
 
     for k, v in pairs(utils.HTTP_CODE) do
         if k == ret_code then
