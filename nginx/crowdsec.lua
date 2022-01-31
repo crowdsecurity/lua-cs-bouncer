@@ -33,7 +33,7 @@ function csmod.init(configFile, userAgent)
   captcha_ok = true
 
   if runtime.conf["REDIRECT_LOCATION"] == "/" then
-    ngx.log(ngx.WARN, "redirect location is set to '/' this will lead into infinite redirection")
+    ngx.log(ngx.ERR, "redirect location is set to '/' this will lead into infinite redirection")
   end
 
   err = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
@@ -384,8 +384,9 @@ function csmod.Allow(ip)
         ngx.log(ngx.ERR,  "whitelisted location: " .. v)
         return
       end
-      if utils.ends_with(v, "/") == false then
-        uri_to_check = v .. "/"
+      uri_to_check = v
+      if utils.ends_with(uri_to_check, "/") == false then
+        uri_to_check = uri_to_check .. "/"
       end
       if utils.starts_with(ngx.var.uri, uri_to_check) then
         ngx.log(ngx.ERR,  "whitelisted location: " .. uri_to_check)
