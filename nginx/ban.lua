@@ -39,7 +39,9 @@ function M.apply()
     end
     if M.template_str ~= "" then
         ngx.header.content_type = "text/html"
+        ngx.status = M.ret_code
         ngx.say(M.template_str)
+        return
     end
  
     ngx.exit(M.ret_code)
