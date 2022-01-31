@@ -101,7 +101,7 @@ function M.Validate(g_captcha_res, remote_ip)
         for k, v in pairs(result["error-codes"]) do
           if v == "invalid-input-secret" then
             ngx.log(ngx.ERR, "reCaptcha secret key is invalid")
-            break
+            return true, nil
           end
         end 
       end
