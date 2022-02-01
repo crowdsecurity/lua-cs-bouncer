@@ -38,7 +38,7 @@ function csmod.init(configFile, userAgent)
   end
 
   local captcha_ok = true
-  err = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
+  local err = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
   if err ~= nil then
     ngx.log(ngx.ERR, "error loading recaptcha plugin: " .. err)
     captcha_ok = false
@@ -52,7 +52,7 @@ function csmod.init(configFile, userAgent)
   end
 
 
-  err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"])
+  local err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"])
   if err ~= nil then
     ngx.log(ngx.ERR, "error loading ban plugins: " .. err)
   end
@@ -428,7 +428,7 @@ function csmod.Allow(ip)
         ngx.req.read_body()
         local recaptcha_res = ngx.req.get_post_args()["g-recaptcha-response"] or 0
         if recaptcha_res ~= 0 then
-            valid, err = csmod.validateCaptcha(recaptcha_res, ngx.var.remote_addr)
+            local valid, err = csmod.validateCaptcha(recaptcha_res, ngx.var.remote_addr)
             if err ~= nil then
               ngx.log(ngx.ERR, "Error while validating captcha: " .. err)
             end
