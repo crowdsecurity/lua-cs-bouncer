@@ -428,7 +428,7 @@ function csmod.Allow(ip)
         ngx.req.read_body()
         local recaptcha_res = ngx.req.get_post_args()["g-recaptcha-response"] or 0
         if recaptcha_res ~= 0 then
-            valid, err = cs.validateCaptcha(recaptcha_res, ngx.var.remote_addr)
+            valid, err = csmod.validateCaptcha(recaptcha_res, ngx.var.remote_addr)
             if err ~= nil then
               ngx.log(ngx.ERR, "Error while validating captcha: " .. err)
             end
@@ -464,7 +464,7 @@ function csmod.Allow(ip)
           -- we check if the IP is already in cache for captcha and not yet validated
           if previous_uri == nil or state_id ~= recaptcha.GetStateID(recaptcha._VALIDATED_STATE) then
               ngx.header.content_type = "text/html"
-              ngx.say(cs.GetCaptchaTemplate())
+              ngx.say(csmod.GetCaptchaTemplate())
               local uri = ngx.var.uri
               -- in case its not a GET request, we prefer to fallback on referer
               if ngx.req.get_method() ~= "GET" then
