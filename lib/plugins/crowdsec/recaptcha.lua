@@ -54,7 +54,7 @@ function M.New(siteKey, secretKey, TemplateFilePath)
         return "Template file " .. TemplateFilePath .. "not found."
     end
 
-    template_data = {}
+    local template_data = {}
     template_data["recaptcha_site_key"] =  M.SiteKey
     local view = template.compile(captcha_template, template_data)
     M.Template = view
@@ -72,41 +72,41 @@ function table_to_encoded_url(args)
     local params = {}
     for k, v in pairs(args) do table.insert(params, k .. '=' .. v) end
     return table.concat(params, "&")
-  end
+end
 
 function M.Validate(g_captcha_res, remote_ip)
-    body = {
+    local body = {
         secret   = M.SecretKey,
         response = g_captcha_res,
         remoteip = remote_ip
-      }
+    }
 
-      data = table_to_encoded_url(body)
-      local httpc = http.new()
-      httpc:set_timeout(1000)
-      local res, err = httpc:request_uri(recaptcha_verify_url, {
-        method = "POST",
-        body = data,
-        headers = {
-            ["Content-Type"] = "application/x-www-form-urlencoded",
-        },
-      })
-      if err ~= nil then
-        return true, err
-      end
+    local data = table_to_encoded_url(body)
+    local httpc = http.new()
+    httpc:set_timeout(1000)
+    local res, err = httpc:request_uri(recaptcha_verify_url, {
+      method = "POST",
+      body = data,
+      headers = {
+          ["Content-Type"] = "application/x-www-form-urlencoded",
+      },
+    })
+    if err ~= nil then
+      return true, err
+    end
 
-      result = cjson.decode(res.body)
+    local result = cjson.decode(res.body)
 
-      if result.success == false then
-        for k, v in pairs(result["error-codes"]) do
-          if v == "invalid-input-secret" then
-            ngx.log(ngx.ERR, "reCaptcha secret key is invalid")
-            return true, nil
-          end
-        end 
-      end
+    if result.success == false then
+      for k, v in pairs(result["error-codes"]) do
+        if v == "invalid-input-secret" then
+          ngx.log(ngx.ERR, "reCaptcha secret key is invalid")
+          return true, nil
+        end
+      end 
+    end
 
-      return result.success, nil
+    return result.success, nil
 end
 
 

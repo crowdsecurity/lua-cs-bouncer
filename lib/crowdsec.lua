@@ -37,7 +37,7 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "redirect location is set to '/' this will lead into infinite redirection")
   end
 
-  captcha_ok = true
+  local captcha_ok = true
   err = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
   if err ~= nil then
     ngx.log(ngx.ERR, "error loading recaptcha plugin: " .. err)
@@ -387,7 +387,7 @@ function csmod.Allow(ip)
         ngx.log(ngx.ERR,  "whitelisted location: " .. v)
         return
       end
-      uri_to_check = v
+      local uri_to_check = v
       if utils.ends_with(uri_to_check, "/") == false then
         uri_to_check = uri_to_check .. "/"
       end
@@ -407,7 +407,7 @@ function csmod.Allow(ip)
     ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
   end
 
-  captcha_ok = runtime.cache:get("captcha_ok")
+  local captcha_ok = runtime.cache:get("captcha_ok")
 
   if runtime.fallback ~= "" then
     -- if we can't use recaptcha, fallback
@@ -423,7 +423,7 @@ function csmod.Allow(ip)
 
   if captcha_ok then -- if captcha can be use (configuration is valid)
     -- we check if the IP need to validate its captcha before checking it against crowdsec local API
-    previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
+    local previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
     if previous_uri ~= nil and state_id == recaptcha.GetStateID(recaptcha._VERIFY_STATE) then
         ngx.req.read_body()
         local recaptcha_res = ngx.req.get_post_args()["g-recaptcha-response"] or 0
@@ -460,7 +460,7 @@ function csmod.Allow(ip)
       end
       -- if the remediation is a captcha and captcha is well configured
       if remediation == "captcha" and captcha_ok and ngx.var.uri ~= "/favicon.ico" then
-          previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
+          local previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
           -- we check if the IP is already in cache for captcha and not yet validated
           if previous_uri == nil or state_id ~= recaptcha.GetStateID(recaptcha._VALIDATED_STATE) then
               ngx.header.content_type = "text/html"
@@ -468,7 +468,7 @@ function csmod.Allow(ip)
               local uri = ngx.var.uri
               -- in case its not a GET request, we prefer to fallback on referer
               if ngx.req.get_method() ~= "GET" then
-                headers, err = ngx.req.get_headers()
+                local headers, err = ngx.req.get_headers()
                 for k, v in pairs(headers) do
                   if k == "referer" then
                     uri = v
