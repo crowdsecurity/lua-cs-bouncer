@@ -4,7 +4,9 @@ local config = require "plugins.crowdsec.config"
 local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
 local cjson = require "cjson"
-
+local recaptcha = require "plugins.crowdsec.recaptcha"
+local utils = require "plugins.crowdsec.utils"
+local ban = require "plugins.crowdsec.ban"
 
 -- contain runtime = {}
 local runtime = {}
@@ -17,6 +19,8 @@ runtime.remediations["2"] = "captcha"
 
 local csmod = {}
 
+
+
 -- init function
 function csmod.init(configFile, userAgent)
   local conf, err = config.loadConfig(configFile)
@@ -26,17 +30,66 @@ function csmod.init(configFile, userAgent)
   runtime.conf = conf
   runtime.userAgent = userAgent
   runtime.cache = ngx.shared.crowdsec_cache
+  runtime.fallback = runtime.conf["FALLBACK_REMEDIATION"]
+
+
+  if runtime.conf["REDIRECT_LOCATION"] == "/" then
+    ngx.log(ngx.ERR, "redirect location is set to '/' this will lead into infinite redirection")
+  end
+
+  local captcha_ok = true
+  err = recaptcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"])
+  if err ~= nil then
+    ngx.log(ngx.ERR, "error loading recaptcha plugin: " .. err)
+    captcha_ok = false
+  end
+  local succ, err, forcible = runtime.cache:set("captcha_ok", captcha_ok)
+  if not succ then
+    ngx.log(ngx.ERR, "failed to add captcha state key in cache: "..err)
+  end
+  if forcible then
+    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+  end
+
+
+  err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"])
+  if err ~= nil then
+    ngx.log(ngx.ERR, "error loading ban plugins: " .. err)
+  end
+
+  if runtime.conf["REDIRECT_LOCATION"] ~= "" then
+    table.insert(runtime.conf["EXCLUDE_LOCATION"], runtime.conf["REDIRECT_LOCATION"])
+  end
+
 
   -- if stream mode, add callback to stream_query and start timer
   if runtime.conf["MODE"] == "stream" then
-    runtime.cache:set("startup", true)
-    runtime.cache:set("first_run", true)
+    local succ, err, forcible = runtime.cache:set("startup", true)
+    if not succ then
+      ngx.log(ngx.ERR, "failed to add startup key in cache: "..err)
+    end
+    if forcible then
+      ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+    end
+    local succ, err, forcible = runtime.cache:set("first_run", true)
+    if not succ then
+      ngx.log(ngx.ERR, "failed to add first_run key in cache: "..err)
+    end
+    if forcible then
+      ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+    end
   end
 
   return true, nil
 end
 
-function http_request(link)
+
+function csmod.validateCaptcha(g_captcha_res, remote_ip)
+  return recaptcha.Validate(g_captcha_res, remote_ip)
+end
+
+
+function get_http_request(link)
   local httpc = http.new()
   httpc:set_timeout(runtime.conf['REQUEST_TIMEOUT'])
   local res, err = httpc:request_uri(link, {
@@ -118,7 +171,7 @@ function stream_query()
   local is_startup = runtime.cache:get("startup")
   ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
   local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
-  local res, err = http_request(link)
+  local res, err = get_http_request(link)
   if not res then
     if ngx.timer.every == nil then
       local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
@@ -146,6 +199,9 @@ function stream_query()
   if type(decisions.deleted) == "table" then
     if not is_startup then
       for i, decision in pairs(decisions.deleted) do
+        if decision.type == "captcha" then
+          runtime.cache:delete("captcha_" .. decision.value)
+        end
         local key = item_to_string(decision.value, decision.scope)
         runtime.cache:delete(key)
         ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
@@ -179,8 +235,14 @@ function stream_query()
   end
 
   -- not startup anymore after first callback
-  runtime.cache:set("startup", false)
-  
+  local succ, err, forcible = runtime.cache:set("startup", false)
+  if not succ then
+    ngx.log(ngx.ERR, "failed to set startup key in cache: "..err)
+  end
+  if forcible then
+    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+  end  
+
   -- re-occuring timer if there is no timer.every available
   if ngx.timer.every == nil then
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
@@ -193,7 +255,7 @@ end
 
 function live_query(ip)
   local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
-  local res, err = http_request(link)
+  local res, err = get_http_request(link)
   if not res then
     return true, nil, "request failed: ".. err
   end
@@ -205,7 +267,13 @@ function live_query(ip)
   end
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
-    runtime.cache:set(ip, true,runtime.conf["CACHE_EXPIRATION"])
+    local succ, err, forcible = runtime.cache:set(ip, true,runtime.conf["CACHE_EXPIRATION"])
+    if not succ then
+      ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: "..err)
+    end
+    if forcible then
+      ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+    end
     return true, nil, nil
   end
   local decision = cjson.decode(body)[1]
@@ -231,6 +299,11 @@ function live_query(ip)
 end
 
 
+function csmod.GetCaptchaTemplate()
+  return recaptcha.GetTemplate()
+end
+
+
 function csmod.allowIp(ip)
   if runtime.conf == nil then
     return true, nil, "Configuration is bad, cannot run properly"
@@ -245,10 +318,22 @@ function csmod.allowIp(ip)
       ok, err = ngx.timer.every(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     end
     if not ok then
-      runtime.cache:set("first_run", true)
+      local succ, err, forcible = runtime.cache:set("first_run", true)
+      if not succ then
+        ngx.log(ngx.ERR, "failed to set startup key in cache: "..err)
+      end
+      if forcible then
+        ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+      end  
       return true, nil, "Failed to create the timer: " .. (err or "unknown")
     end
-    runtime.cache:set("first_run", false)
+    local succ, err, forcible = runtime.cache:set("first_run", false)
+    if not succ then
+      ngx.log(ngx.ERR, "failed to set first_run key in cache: "..err)
+    end
+    if forcible then
+      ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+    end  
     ngx.log(ngx.DEBUG, "Timer launched")
   end
 
@@ -290,6 +375,117 @@ function csmod.allowIp(ip)
     return ok, remediation, err
   end
   return true, nil, nil
+end
+
+
+
+
+function csmod.Allow(ip)
+  if utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
+    for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
+      if ngx.var.uri == v then
+        ngx.log(ngx.ERR,  "whitelisted location: " .. v)
+        return
+      end
+      local uri_to_check = v
+      if utils.ends_with(uri_to_check, "/") == false then
+        uri_to_check = uri_to_check .. "/"
+      end
+      if utils.starts_with(ngx.var.uri, uri_to_check) then
+        ngx.log(ngx.ERR,  "whitelisted location: " .. uri_to_check)
+      end
+    end
+  end
+
+  local ok, remediation, err = csmod.allowIp(ip)
+  if err ~= nil then
+    ngx.log(ngx.ERR, "[Crowdsec] bouncer error: " .. err)
+  end
+
+  -- if the ip is now allowed, try to delete its captcha state in cache
+  if ok == true then
+    ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
+  end
+
+  local captcha_ok = runtime.cache:get("captcha_ok")
+
+  if runtime.fallback ~= "" then
+    -- if we can't use recaptcha, fallback
+    if remediation == "captcha" and captcha_ok == false then
+      remediation = runtime.fallback
+    end
+
+    -- if remediation is not supported, fallback
+    if remediation ~= "captcha" and remediation ~= "ban" then
+      remediation = runtime.fallback
+    end
+  end
+
+  if captcha_ok then -- if captcha can be use (configuration is valid)
+    -- we check if the IP need to validate its captcha before checking it against crowdsec local API
+    local previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
+    if previous_uri ~= nil and state_id == recaptcha.GetStateID(recaptcha._VERIFY_STATE) then
+        ngx.req.read_body()
+        local recaptcha_res = ngx.req.get_post_args()["g-recaptcha-response"] or 0
+        if recaptcha_res ~= 0 then
+            valid, err = csmod.validateCaptcha(recaptcha_res, ngx.var.remote_addr)
+            if err ~= nil then
+              ngx.log(ngx.ERR, "Error while validating captcha: " .. err)
+            end
+            if valid == true then
+                -- captcha is valid, we redirect the IP to its previous URI but in GET method
+                local succ, err, forcible = ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, previous_uri, runtime.conf["CAPTCHA_EXPIRATION"], recaptcha.GetStateID(recaptcha._VALIDATED_STATE))
+                if not succ then
+                  ngx.log(ngx.ERR, "failed to add key about captcha for ip '" .. ngx.var.remote_addr .. "' in cache: "..err)
+                end
+                if forcible then
+                  ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+                end
+                
+                ngx.req.set_method(ngx.HTTP_GET)
+                ngx.redirect(previous_uri)
+                return
+            else
+                ngx.log(ngx.ALERT, "Invalid captcha from " .. ngx.var.remote_addr)
+            end
+        end
+    end
+  end
+
+  if not ok then
+      if remediation == "ban" then
+        ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
+        ban.apply()
+        return
+      end
+      -- if the remediation is a captcha and captcha is well configured
+      if remediation == "captcha" and captcha_ok and ngx.var.uri ~= "/favicon.ico" then
+          local previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
+          -- we check if the IP is already in cache for captcha and not yet validated
+          if previous_uri == nil or state_id ~= recaptcha.GetStateID(recaptcha._VALIDATED_STATE) then
+              ngx.header.content_type = "text/html"
+              ngx.say(csmod.GetCaptchaTemplate())
+              local uri = ngx.var.uri
+              -- in case its not a GET request, we prefer to fallback on referer
+              if ngx.req.get_method() ~= "GET" then
+                local headers, err = ngx.req.get_headers()
+                for k, v in pairs(headers) do
+                  if k == "referer" then
+                    uri = v
+                  end
+                end
+              end
+              local succ, err, forcible = ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, uri , 60, recaptcha.GetStateID(recaptcha._VERIFY_STATE))
+              if not succ then
+                ngx.log(ngx.ERR, "failed to add key about captcha for ip '" .. ngx.var.remote_addr .. "' in cache: "..err)
+              end
+              if forcible then
+                ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+              end
+              ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
+          end
+      end
+  end
 end
 
 
