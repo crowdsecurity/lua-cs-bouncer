@@ -45,6 +45,9 @@ function M.New(siteKey, secretKey, TemplateFilePath)
 
     M.SecretKey = secretKey
 
+    if TemplateFilePath == nil then
+      return "CAPTCHA_TEMPLATE_PATH variable is empty, will ban without template"
+    end
     if utils.file_exist(TemplateFilePath) == false then
       return "captcha template file doesn't exist, can't use recaptcha"
     end
