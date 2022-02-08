@@ -25,6 +25,9 @@ function M.read_file(path)
  end
 
 function M.file_exist(path)
+ if path ~= nil then
+   return false
+ end
  local f = io.open(path, "r")
  if f ~= nil then 
    io.close(f)
