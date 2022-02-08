@@ -10,7 +10,7 @@ M.ret_code = ngx.HTTP_FORBIDDEN
 
 function M.new(template_path, redirect_location, ret_code)
     if template_path == nil then
-        return "ban template file variable is empty, will ban without template"
+        return "BAN_TEMPLATE_PATH variable is empty, will ban without template"
     end
     if utils.file_exist(template_path) == false then
         return "ban template file doesn't exist, will ban without template"
