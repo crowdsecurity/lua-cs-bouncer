@@ -191,7 +191,7 @@ function stream_query()
         error("Failed to create the timer: " .. (err or "unknown"))
       end
     end
-    error("Http error " .. status .. " with message (" .. tostring(body) .. ")")
+    error("HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")")
   end
 
   local decisions = cjson.decode(body)
