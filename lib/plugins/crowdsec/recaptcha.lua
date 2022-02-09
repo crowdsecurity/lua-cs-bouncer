@@ -86,7 +86,7 @@ function M.Validate(g_captcha_res, remote_ip)
 
     local data = table_to_encoded_url(body)
     local httpc = http.new()
-    httpc:set_timeout(1000)
+    httpc:set_timeout(2000)
     local res, err = httpc:request_uri(recaptcha_verify_url, {
       method = "POST",
       body = data,
@@ -94,6 +94,7 @@ function M.Validate(g_captcha_res, remote_ip)
           ["Content-Type"] = "application/x-www-form-urlencoded",
       },
     })
+    httpc:close()
     if err ~= nil then
       return true, err
     end
