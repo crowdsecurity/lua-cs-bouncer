@@ -100,6 +100,7 @@ function get_http_request(link)
       ['User-Agent'] = runtime.userAgent
     },
   })
+  httpc:close()
   return res, err
 end
 
