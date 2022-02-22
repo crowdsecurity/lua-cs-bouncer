@@ -32,6 +32,9 @@ function csmod.init(configFile, userAgent)
   runtime.cache = ngx.shared.crowdsec_cache
   runtime.fallback = runtime.conf["FALLBACK_REMEDIATION"]
 
+  if runtime.conf["ENABLED"] == "false" then
+    return "Disabled", nil
+  end
 
   if runtime.conf["REDIRECT_LOCATION"] == "/" then
     ngx.log(ngx.ERR, "redirect location is set to '/' this will lead into infinite redirection")
@@ -382,6 +385,11 @@ end
 
 
 function csmod.Allow(ip)
+  
+  if runtime.conf["ENABLED"] == "false" then
+    return "Disabled", nil
+  end
+
   if utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
     for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
       if ngx.var.uri == v then
