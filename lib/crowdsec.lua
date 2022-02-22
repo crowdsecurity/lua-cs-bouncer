@@ -268,7 +268,7 @@ function live_query(ip)
   end
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
-    local key = item_to_string(decision.value, "ip")
+    local key = item_to_string(ip, "ip")
     local succ, err, forcible = runtime.cache:set(key, true, runtime.conf["CACHE_EXPIRATION"], 1)
     if not succ then
       ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: "..err)
