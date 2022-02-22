@@ -268,7 +268,8 @@ function live_query(ip)
   end
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
-    local succ, err, forcible = runtime.cache:set(ip, true,runtime.conf["CACHE_EXPIRATION"])
+    local key = item_to_string(decision.value, "ip")
+    local succ, err, forcible = runtime.cache:set(key, true, runtime.conf["CACHE_EXPIRATION"], 1)
     if not succ then
       ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: "..err)
     end
@@ -305,11 +306,7 @@ function csmod.GetCaptchaTemplate()
 end
 
 
-function csmod.allowIp(ip)
-  if runtime.conf == nil then
-    return true, nil, "Configuration is bad, cannot run properly"
-  end
-
+function csmod.SetupStream()
   -- if it stream mode and startup start timer
   if runtime.cache:get("first_run") == true and runtime.conf["MODE"] == "stream" then
     local ok, err
@@ -337,6 +334,14 @@ function csmod.allowIp(ip)
     end  
     ngx.log(ngx.DEBUG, "Timer launched")
   end
+end
+
+function csmod.allowIp(ip)
+  if runtime.conf == nil then
+    return true, nil, "Configuration is bad, cannot run properly"
+  end
+
+  csmod.SetupStream()
 
   local key = item_to_string(ip, "ip")
   local key_parts = {}
@@ -377,9 +382,6 @@ function csmod.allowIp(ip)
   end
   return true, nil, nil
 end
-
-
-
 
 function csmod.Allow(ip)
   if utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
