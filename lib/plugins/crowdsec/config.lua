@@ -38,7 +38,7 @@ function config.loadConfig(file)
     local valid_params = {'ENABLED','API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION'}
     local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION'}
     local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
-	local valid_truefalse_values = {'false', 'true'}
+    local valid_truefalse_values = {'false', 'true'}
     local default_values = {
         ['ENABLED'] = "true",
         ['REQUEST_TIMEOUT'] = 0.2,
@@ -59,7 +59,7 @@ function config.loadConfig(file)
             local s = split(line, "=")
             for k, v in pairs(s) do
                 if has_value(valid_params, v) then
-					if v == "ENABLED" then
+                    if v == "ENABLED" then
                         local value = s[2]
                         if not has_value(valid_truefalse_values, s[2]) then
                             ngx.log(ngx.ERR, "unsupported value '" .. s[2] .. "' for variable '" .. v .. "'. Using default value 'ban' instead")
