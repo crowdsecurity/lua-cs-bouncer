@@ -62,7 +62,7 @@ function config.loadConfig(file)
                     if v == "ENABLED" then
                         local value = s[2]
                         if not has_value(valid_truefalse_values, s[2]) then
-                            ngx.log(ngx.ERR, "unsupported value '" .. s[2] .. "' for variable '" .. v .. "'. Using default value 'ban' instead")
+                            ngx.log(ngx.ERR, "unsupported value '" .. s[2] .. "' for variable '" .. v .. "'. Using default value 'true' instead")
                             break
                         end
                     end
