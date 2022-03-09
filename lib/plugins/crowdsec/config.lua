@@ -92,7 +92,15 @@ function config.loadConfig(file)
                         conf[v] = exclude_location
                         break
                     end
-
+                    if v == "FALLBACK_REMEDIATION" then
+                        local value = s[2]
+                        if not has_value({'captcha', 'ban'}, s[2]) then
+                            ngx.log(ngx.ERR, "unsupported value '" .. s[2] .. "' for variable '" .. v .. "'. Using default value 'ban' instead")
+                            local n = next(s, k)
+                            conf[v] = "ban"
+                            break
+                        end
+                    end
                     local n = next(s, k)
                     conf[v] = s[n]
                     break
