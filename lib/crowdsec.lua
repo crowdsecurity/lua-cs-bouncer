@@ -223,7 +223,7 @@ function stream_query()
         end
         local remediation_id = get_remediation_id(decision.type)
         if remediation_id == nil then
-          remediation_id = 1
+          remediation_id = get_remediation_id(runtime.fallback)
         end
         local key = item_to_string(decision.value, decision.scope)
         local succ, err, forcible = runtime.cache:set(key, false, ttl, remediation_id)
@@ -286,7 +286,7 @@ function live_query(ip)
   if runtime.conf["BOUNCING_ON_TYPE"] == decision.type or runtime.conf["BOUNCING_ON_TYPE"] == "all" then
     local remediation_id = get_remediation_id(decision.type)
     if remediation_id == nil then
-      remediation_id = 1
+      remediation_id = get_remediation_id(runtime.fallback)
     end
     local key = item_to_string(decision.value, decision.scope)
     local succ, err, forcible = runtime.cache:set(key, false, runtime.conf["CACHE_EXPIRATION"], remediation_id)
