@@ -11,13 +11,19 @@ M.ret_code = ngx.HTTP_FORBIDDEN
 function M.new(template_path, redirect_location, ret_code)
     M.redirect_location = redirect_location
 
+    ret_code_ok = false
     if ret_code ~= nil and ret_code ~= 0 then
         for k, v in pairs(utils.HTTP_CODE) do
             if k == ret_code then
                 M.ret_code = utils.HTTP_CODE[ret_code]
+                ret_code_ok = true
                 break
             end
         end
+    end
+
+    if ret_code_ok == false then
+        ngx.log(ngx.ERR, "RET_CODE '" .. ret_code .. "' is not supported")
     end
 
     template_file_ok = false
