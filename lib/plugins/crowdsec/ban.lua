@@ -20,10 +20,9 @@ function M.new(template_path, redirect_location, ret_code)
                 break
             end
         end
-    end
-
-    if ret_code_ok == false and ret_code ~= 0 and ret_code ~= "" then
-        ngx.log(ngx.ERR, "RET_CODE '" .. ret_code .. "' is not supported, using default HTTP code " .. M.ret_code)
+        if ret_code_ok == false then
+            ngx.log(ngx.ERR, "RET_CODE '" .. ret_code .. "' is not supported, using default HTTP code " .. M.ret_code)
+        end
     end
 
     template_file_ok = false
