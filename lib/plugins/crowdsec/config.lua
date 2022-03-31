@@ -30,6 +30,11 @@ local function starts_with(str, start)
     return str:sub(1, #start) == start
 end
 
+local function trim(s)
+    return (string.gsub(s, "^%s*(.-)%s*$", "%1"))
+end
+
+
 function config.loadConfig(file)
     if not config.file_exists(file) then
         return nil, "File ".. file .." doesn't exist"
@@ -53,6 +58,9 @@ function config.loadConfig(file)
     for line in io.lines(file) do
         local isOk = false
         if starts_with(line, "#") then
+            isOk = true
+        end
+        if trim(line) == "" then
             isOk = true
         end
         if not isOk then
