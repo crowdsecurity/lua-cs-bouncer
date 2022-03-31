@@ -12,7 +12,7 @@ function M.new(template_path, redirect_location, ret_code)
     M.redirect_location = redirect_location
 
     ret_code_ok = false
-    if ret_code ~= nil and ret_code ~= 0 then
+    if ret_code ~= nil and ret_code ~= 0 and ret_code ~= "" then
         for k, v in pairs(utils.HTTP_CODE) do
             if k == ret_code then
                 M.ret_code = utils.HTTP_CODE[ret_code]
