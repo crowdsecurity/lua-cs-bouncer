@@ -214,6 +214,8 @@ function stream_query()
         nb_deleted = nb_deleted + 1
       end
     end
+  else
+    ngx.log(ngx.ERR, "No decisions to delete from LAPI.")
   end
 
   -- process new decisions
@@ -242,6 +244,8 @@ function stream_query()
         ngx.log(ngx.ERR, "Bouncing type '" .. decision.type .. "' not supported")
       end
     end
+  else
+    ngx.log(ngx.ERR,"No decisions to add from LAPI.")
   end
 
   ngx.log(ngx.ERR, "Adding '" .. nb_added .. "' decisions. Removing '" .. nb_deleted .. "' decisions.")
@@ -366,7 +370,7 @@ function csmod.allowIp(ip)
   if key_type == "normal" then
     local in_cache, remediation_id = runtime.cache:get(key)
     if in_cache ~= nil then -- we have it in cache
-      ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
+      ngx.log(ngx.ERR, "'" .. key .. "' is in cache")
       return in_cache, runtime.remediations[tostring(remediation_id)], nil
     end
   end
@@ -383,7 +387,7 @@ function csmod.allowIp(ip)
     end
     local in_cache, remediation_id = runtime.cache:get(item)
     if in_cache ~= nil then -- we have it in cache
-      ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
+      ngx.log(ngx.ERR, "'" .. key .. "' is in cache")
       return in_cache, runtime.remediations[tostring(remediation_id)], nil
     end
   end
