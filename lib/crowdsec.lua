@@ -174,6 +174,7 @@ function stream_query()
   -- we need to raise error instead of returning them
   local is_startup = runtime.cache:get("startup")
   ngx.log(ngx.ERR, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
+  ngx.log(ngx.ERR, "Running timer: '" .. ngx.timer.running_count .. "' , Pending timer: " .. ngx.timer.pending_count)
   local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
   local res, err = get_http_request(link)
   if not res then
