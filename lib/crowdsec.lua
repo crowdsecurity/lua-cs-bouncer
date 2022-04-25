@@ -178,6 +178,7 @@ function stream_query()
   local res, err = get_http_request(link)
   if not res then
     if ngx.timer.every == nil then
+      ngx.log(ngx.ERR, "Restarting timer.at()")
       local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
       if not ok then
         error("Failed to create the timer: " .. (err or "unknown"))
@@ -190,6 +191,7 @@ function stream_query()
   local body = res.body
   if status~=200 then
     if ngx.timer.every == nil then
+      ngx.log(ngx.ERR, "Restarting timer.at()")
       local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
       if not ok then
         error("Failed to create the timer: " .. (err or "unknown"))
@@ -261,6 +263,7 @@ function stream_query()
 
   -- re-occuring timer if there is no timer.every available
   if ngx.timer.every == nil then
+    ngx.log(ngx.ERR, "Restarting timer.at()")
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
@@ -326,8 +329,10 @@ function csmod.SetupStream()
   if runtime.cache:get("first_run") == true and runtime.conf["MODE"] == "stream" then
     local ok, err
     if ngx.timer.every == nil then
+      ngx.log(ngx.ERR, "Using 'timer.at()'")
       ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     else
+      ngx.log(ngx.ERR, "Using 'timer.every()'")
       ok, err = ngx.timer.every(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     end
     if not ok then
