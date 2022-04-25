@@ -173,11 +173,13 @@ function stream_query()
   -- As this function is running inside coroutine (with ngx.timer.every), 
   -- we need to raise error instead of returning them
   local is_startup = runtime.cache:get("startup")
-  ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
+  ngx.log(ngx.ERR, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
+  ngx.log(ngx.ERR, "Running timer: '" .. ngx.timer.running_count .. "' , Pending timer: " .. ngx.timer.pending_count)
   local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
   local res, err = get_http_request(link)
   if not res then
     if ngx.timer.every == nil then
+      ngx.log(ngx.ERR, "Restarting timer.at()")
       local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
       if not ok then
         error("Failed to create the timer: " .. (err or "unknown"))
@@ -190,6 +192,7 @@ function stream_query()
   local body = res.body
   if status~=200 then
     if ngx.timer.every == nil then
+      ngx.log(ngx.ERR, "Restarting timer.at()")
       local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
       if not ok then
         error("Failed to create the timer: " .. (err or "unknown"))
@@ -199,6 +202,8 @@ function stream_query()
   end
 
   local decisions = cjson.decode(body)
+  local nb_deleted = 0
+  local nb_added = 0
   -- process deleted decisions
   if type(decisions.deleted) == "table" then
     if not is_startup then
@@ -209,8 +214,11 @@ function stream_query()
         local key = item_to_string(decision.value, decision.scope)
         runtime.cache:delete(key)
         ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
+        nb_deleted = nb_deleted + 1
       end
     end
+  else
+    ngx.log(ngx.ERR, "No decisions to delete from LAPI.")
   end
 
   -- process new decisions
@@ -234,9 +242,16 @@ function stream_query()
           ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
         end
         ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. ttl .. "' seconds")
+        nb_added = nb_added + 1
+      else
+        ngx.log(ngx.ERR, "Bouncing type '" .. decision.type .. "' not supported")
       end
     end
+  else
+    ngx.log(ngx.ERR,"No decisions to add from LAPI.")
   end
+
+  ngx.log(ngx.ERR, "Adding '" .. nb_added .. "' decisions. Removing '" .. nb_deleted .. "' decisions.")
 
   -- not startup anymore after first callback
   local succ, err, forcible = runtime.cache:set("startup", false)
@@ -249,6 +264,7 @@ function stream_query()
 
   -- re-occuring timer if there is no timer.every available
   if ngx.timer.every == nil then
+    ngx.log(ngx.ERR, "Restarting timer.at()")
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
@@ -314,11 +330,14 @@ function csmod.SetupStream()
   if runtime.cache:get("first_run") == true and runtime.conf["MODE"] == "stream" then
     local ok, err
     if ngx.timer.every == nil then
+      ngx.log(ngx.ERR, "Using 'timer.at()'")
       ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     else
+      ngx.log(ngx.ERR, "Using 'timer.every()'")
       ok, err = ngx.timer.every(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     end
     if not ok then
+      ngx.log(ngx.ERR, "Starting timer failed, reseting 'first_run' to true.")
       local succ, err, forcible = runtime.cache:set("first_run", true)
       if not succ then
         ngx.log(ngx.ERR, "failed to set startup key in cache: "..err)
@@ -328,6 +347,7 @@ function csmod.SetupStream()
       end  
       return true, nil, "Failed to create the timer: " .. (err or "unknown")
     end
+
     local succ, err, forcible = runtime.cache:set("first_run", false)
     if not succ then
       ngx.log(ngx.ERR, "failed to set first_run key in cache: "..err)
@@ -356,7 +376,7 @@ function csmod.allowIp(ip)
   if key_type == "normal" then
     local in_cache, remediation_id = runtime.cache:get(key)
     if in_cache ~= nil then -- we have it in cache
-      ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
+      ngx.log(ngx.ERR, "'" .. key .. "' is in cache")
       return in_cache, runtime.remediations[tostring(remediation_id)], nil
     end
   end
@@ -373,7 +393,7 @@ function csmod.allowIp(ip)
     end
     local in_cache, remediation_id = runtime.cache:get(item)
     if in_cache ~= nil then -- we have it in cache
-      ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
+      ngx.log(ngx.ERR, "'" .. key .. "' is in cache")
       return in_cache, runtime.remediations[tostring(remediation_id)], nil
     end
   end
