@@ -197,6 +197,10 @@ local function stream_query(premature)
 
   if refreshing == true then
     ngx.log(ngx.DEBUG, "another worker is refreshing the data, returning")
+    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+    if not ok then
+      error("Failed to create the timer: " .. (err or "unknown"))
+    end
     return
   end
 
@@ -206,6 +210,10 @@ local function stream_query(premature)
       local now = ngx.time()
       if now - last_refresh < runtime.conf["UPDATE_FREQUENCY"] then
         ngx.log(ngx.DEBUG, "last refresh was less than " .. runtime.conf["UPDATE_FREQUENCY"] .. " seconds ago, returning")
+        local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+        if not ok then
+          error("Failed to create the timer: " .. (err or "unknown"))
+        end
         return
       end
   end
