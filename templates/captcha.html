@@ -76,7 +76,7 @@
       }
 
     </style>
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script src="{{captcha_frontend_js}}" async defer></script>
 </head>
 
   <body>
@@ -88,7 +88,7 @@
           </svg>
           <title>CrowdSec ReCaptcha</title>
           <form action="" method="POST">
-            <div class="g-recaptcha" data-sitekey="{{recaptcha_site_key}}"></div>
+            <div class="{{captcha_frontend_key}}" data-sitekey="{{captcha_site_key}}"></div>
             <br/>
             <input type="submit" value="Submit">
           </form>
