@@ -12,9 +12,9 @@ captcha_backend_url["hcaptcha"] = "https://hcaptcha.com/siteverify"
 captcha_backend_url["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
 local captcha_frontend_js = {}
-captcha_backend_url["recaptcha"] = "https://www.google.com/recaptcha/api.js"
-captcha_backend_url["hcaptcha"] = "https://js.hcaptcha.com/1/api.js"
-captcha_backend_url["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/api.js"
+captcha_frontend_js["recaptcha"] = "https://www.google.com/recaptcha/api.js"
+captcha_frontend_js["hcaptcha"] = "https://js.hcaptcha.com/1/api.js"
+captcha_frontend_js["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/api.js"
 
 local captcha_frontend_key = {}
 captcha_frontend_key["recaptcha"] = "g-recaptcha"
