@@ -4,7 +4,7 @@ local config = require "plugins.crowdsec.config"
 local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
 local cjson = require "cjson"
-local captcha = require "plugins.crowdsec.recaptcha"
+local captcha = require "plugins.crowdsec.captcha"
 local utils = require "plugins.crowdsec.utils"
 local ban = require "plugins.crowdsec.ban"
 
