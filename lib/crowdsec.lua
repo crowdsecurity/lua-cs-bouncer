@@ -503,7 +503,7 @@ function csmod.Allow(ip)
                 ngx.redirect(previous_uri)
                 return
             else
-                ngx.log(ngx.ALERT, "Invalidaptcha from " .. ngx.var.remote_addr)
+                ngx.log(ngx.ALERT, "Invalid captcha from " .. ngx.var.remote_addr)
             end
         end
     end
