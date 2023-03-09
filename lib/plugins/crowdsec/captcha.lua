@@ -7,12 +7,12 @@ local utils = require "plugins.crowdsec.utils"
 local M = {_TYPE='module', _NAME='recaptcha.funcs', _VERSION='1.0-0'}
 
 local captcha_backend_url = {}
-captcha_backend_url["recaptcha"] = "https://www.google.com/recaptcha/api/siteverify"
+captcha_backend_url["recaptcha"] = "https://www.recaptcha.net/recaptcha/api/siteverify"
 captcha_backend_url["hcaptcha"] = "https://hcaptcha.com/siteverify"
 captcha_backend_url["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
 local captcha_frontend_js = {}
-captcha_frontend_js["recaptcha"] = "https://www.google.com/recaptcha/api.js"
+captcha_frontend_js["recaptcha"] = "https://www.recaptcha.net/recaptcha/api.js"
 captcha_frontend_js["hcaptcha"] = "https://js.hcaptcha.com/1/api.js"
 captcha_frontend_js["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/api.js"
 
