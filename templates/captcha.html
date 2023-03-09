@@ -94,7 +94,9 @@
       });
     };
     function captchaCallback () {
-      document.querySelector('#captcha-form').submit();
+      setTimeout(() => {
+        document.querySelector('#captcha-form').submit();
+      }, 1000);
     }
   </script>
 </body>
