@@ -225,13 +225,12 @@ local function stream_query(premature)
   local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
   local res, err = get_http_request(link)
   if not res then
-    local ok, err2 = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
-    if not ok then
-      set_refreshing(false)
-      error("Failed to create the timer: " .. (err2 or "unknown"))
-    end
-    set_refreshing(false)
     error("request failed: ".. err)
+    set_refreshing(false)
+    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+    if not ok then
+      error("Failed to create the timer: " .. (err or "unknown"))
+    end
   end
 
   local succ, err, forcible = runtime.cache:set("last_refresh", ngx.time())
