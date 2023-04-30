@@ -225,8 +225,8 @@ local function stream_query(premature)
   local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
   local res, err = get_http_request(link)
   if not res then
-    error("request failed: ".. err)
     set_refreshing(false)
+    error("request failed: ".. err)
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
@@ -247,13 +247,12 @@ local function stream_query(premature)
   ngx.log(ngx.DEBUG, "Response:" .. tostring(status) .. " | " .. tostring(body))
 
   if status~=200 then
-    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
-    if not ok then
-      set_refreshing(false)
-      error("Failed to create the timer: " .. (err or "unknown"))
-    end
     set_refreshing(false)
     error("HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")")
+    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+    if not ok then
+      error("Failed to create the timer: " .. (err or "unknown"))
+    end
   end
 
   local decisions = cjson.decode(body)
