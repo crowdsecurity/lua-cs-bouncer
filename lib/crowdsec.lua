@@ -66,6 +66,14 @@ function csmod.init(configFile, userAgent)
     table.insert(runtime.conf["EXCLUDE_LOCATION"], runtime.conf["REDIRECT_LOCATION"])
   end
 
+  runtime.conf["WAF_ENABLED"] = false
+
+  if runtime.conf["WAF_HOST"] ~= "" then
+    runtime.conf["WAF_ENABLED"] = true
+    runtime.conf["WAF_URL"] = "http://" .. runtime.conf["WAF_HOST"] .. "/"
+    ngx.log(ngx.ERR, "WAF is enabled on '" .. runtime.conf["WAF_HOST"] .. "'")
+  end
+
 
   -- if stream mode, add callback to stream_query and start timer
   if runtime.conf["MODE"] == "stream" then
@@ -84,6 +92,8 @@ function csmod.init(configFile, userAgent)
       ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
     end
   end
+
+
 
   return true, nil
 end
@@ -432,10 +442,52 @@ function csmod.allowIp(ip)
   return true, nil, nil
 end
 
+
+function csmod.WafCheck()
+  local httpc = http.new()
+
+  local uri = ngx.var.uri
+  if ngx.var.is_args ~= nil then
+    uri = uri .. ngx.var.is_args
+  end
+  if ngx.var.args ~= nil then
+    uri = uri .. ngx.var.args
+  end
+
+  headers = ngx.req.get_headers()
+  headers["x-client-ip"] = ngx.var.remote_addr
+  headers["x-client-host"] = ngx.var.http_host
+  headers["x-client-uri"] = uri
+
+  headers["host"] = runtime.conf["WAF_HOST"]
+
+  ngx.req.read_body()
+  body = ngx.req.get_body_data()
+
+  local res, err = httpc:request_uri(runtime.conf["WAF_URL"], {
+    method = ngx.var.request_method,
+    headers = headers,
+    body = body
+  })
+  httpc:close()
+
+  local ok, remediation = false, runtime.remediations["1"]
+
+  if res.status == 200 then
+    ok = true
+  end
+
+  return ok, remediation, err
+
+end
+
 function csmod.Allow(ip)
-  
   if runtime.conf["ENABLED"] == "false" then
     return "Disabled", nil
+  end
+
+  if ngx.req.is_internal() then
+    return
   end
 
   if utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
@@ -460,8 +512,12 @@ function csmod.Allow(ip)
   end
 
   -- if the ip is now allowed, try to delete its captcha state in cache
+  -- if the ip is allowed, check on the WAF (is enabled) if he can request the application
   if ok == true then
     ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
+    if runtime.conf["WAF_ENABLED"] == true then
+      ok, remediation, err = csmod.WafCheck()
+    end
   end
 
   local captcha_ok = runtime.cache:get("captcha_ok")
