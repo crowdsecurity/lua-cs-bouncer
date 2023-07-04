@@ -7,6 +7,7 @@ local cjson = require "cjson"
 local captcha = require "plugins.crowdsec.captcha"
 local utils = require "plugins.crowdsec.utils"
 local ban = require "plugins.crowdsec.ban"
+local url = require "url"
 
 -- contain runtime = {}
 local runtime = {}
@@ -68,9 +69,13 @@ function csmod.init(configFile, userAgent)
 
   runtime.conf["WAF_ENABLED"] = false
 
-  if runtime.conf["WAF_HOST"] ~= "" then
+  if runtime.conf["WAF_URL"] ~= "" then
+    u = url.parse(runtime.conf["WAF_URL"])
     runtime.conf["WAF_ENABLED"] = true
-    runtime.conf["WAF_URL"] = "http://" .. runtime.conf["WAF_HOST"] .. "/"
+    runtime.conf["WAF_HOST"] = u.host
+    if u.port ~= nil then
+      runtime.conf["WAF_HOST"] = runtime.conf["WAF_HOST"] .. ":" .. u.port
+    end
     ngx.log(ngx.ERR, "WAF is enabled on '" .. runtime.conf["WAF_HOST"] .. "'")
   end
 
@@ -471,10 +476,12 @@ function csmod.WafCheck()
   })
   httpc:close()
 
-  local ok, remediation = false, runtime.remediations["1"]
+  response = cjson.decode(res.body)
+  local ok, remediation = true, "allow"
 
-  if res.status == 200 then
-    ok = true
+  if res.status ~= 200 then
+    ok = false
+    remediation = response.action
   end
 
   return ok, remediation, err
