@@ -475,6 +475,9 @@ function csmod.WafCheck()
     body = body
   })
   httpc:close()
+  if err ~= nil then
+    return true, "", err
+  end
 
   response = cjson.decode(res.body)
   local ok, remediation = true, "allow"
@@ -524,6 +527,10 @@ function csmod.Allow(ip)
     ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
     if runtime.conf["WAF_ENABLED"] == true then
       ok, remediation, err = csmod.WafCheck()
+      if err ~= nil then
+        ngx.log(ngx.ERR, "Waf check: " .. err)
+        return
+      end
     end
   end
 
