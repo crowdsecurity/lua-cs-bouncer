@@ -7,7 +7,7 @@ local cjson = require "cjson"
 local captcha = require "plugins.crowdsec.captcha"
 local utils = require "plugins.crowdsec.utils"
 local ban = require "plugins.crowdsec.ban"
-local url = require "url"
+local url = require "plugins.crowdsec.url"
 
 -- contain runtime = {}
 local runtime = {}
