@@ -8,6 +8,8 @@ local captcha = require "plugins.crowdsec.captcha"
 local utils = require "plugins.crowdsec.utils"
 local ban = require "plugins.crowdsec.ban"
 local url = require "plugins.crowdsec.url"
+local bit
+if _VERSION == "Lua 5.1" then bit = require "bit" else bit = require "bit32" end
 
 -- contain runtime = {}
 local runtime = {}
@@ -500,6 +502,8 @@ function csmod.Allow(ip)
     return
   end
 
+  local remediationSource = captcha.BOUNCER_SOURCE
+
   if utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
     for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
       if ngx.var.uri == v then
@@ -525,12 +529,18 @@ function csmod.Allow(ip)
   -- if the ip is allowed, check on the WAF (is enabled) if he can request the application
   if ok == true then
     ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
-    if runtime.conf["WAF_ENABLED"] == true then
-      ok, remediation, err = csmod.WafCheck()
-      if err ~= nil then
-        ngx.log(ngx.ERR, "Waf check: " .. err)
-        return
-      end
+  end
+  if runtime.conf["WAF_ENABLED"] == true then
+    wafOk, wafRemediation, err = csmod.WafCheck()
+    if err ~= nil then
+      ngx.log(ngx.ERR, "Waf check: " .. err)
+      return
+    end
+    ngx.log(ngx.ERR , "WAF RESP: ".. tostring(wafOk))
+    if wafOk == false then
+      ok = false
+      remediationSource = captcha.WAF_SOURCE
+      remediation = wafRemediation
     end
   end
 
@@ -550,8 +560,9 @@ function csmod.Allow(ip)
 
   if captcha_ok then -- if captcha can be use (configuration is valid)
     -- we check if the IP need to validate its captcha before checking it against crowdsec local API
-    local previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
-    if previous_uri ~= nil and state_id == captcha.GetStateID(captcha._VERIFY_STATE) then
+    local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
+    local source, state_id, err = captcha.GetFlags(flags)
+    if previous_uri ~= nil and state_id == captcha.VERIFY_STATE then
         ngx.req.read_body()
         local captcha_res = ngx.req.get_post_args()[csmod.GetCaptchaBackendKey()] or 0
         if captcha_res ~= 0 then
@@ -560,15 +571,18 @@ function csmod.Allow(ip)
               ngx.log(ngx.ERR, "Error while validating captcha: " .. err)
             end
             if valid == true then
+                if source == captcha.WAF_SOURCE then
+                  ngx.shared.crowdsec_cache:delete("captcha_"..ngx.var.remote_addr)
+                else
+                  local succ, err, forcible = ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, previous_uri, runtime.conf["CAPTCHA_EXPIRATION"], bit.bor(captcha.VALIDATED_STATE, source) )
+                  if not succ then
+                    ngx.log(ngx.ERR, "failed to add key about captcha for ip '" .. ngx.var.remote_addr .. "' in cache: "..err)
+                  end
+                  if forcible then
+                    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+                  end
+                end
                 -- captcha is valid, we redirect the IP to its previous URI but in GET method
-                local succ, err, forcible = ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, previous_uri, runtime.conf["CAPTCHA_EXPIRATION"], captcha.GetStateID(captcha._VALIDATED_STATE))
-                if not succ then
-                  ngx.log(ngx.ERR, "failed to add key about captcha for ip '" .. ngx.var.remote_addr .. "' in cache: "..err)
-                end
-                if forcible then
-                  ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-                end
-                
                 ngx.req.set_method(ngx.HTTP_GET)
                 ngx.redirect(previous_uri)
                 return
@@ -578,7 +592,6 @@ function csmod.Allow(ip)
         end
     end
   end
-
   if not ok then
       if remediation == "ban" then
         ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
@@ -587,9 +600,10 @@ function csmod.Allow(ip)
       end
       -- if the remediation is a captcha and captcha is well configured
       if remediation == "captcha" and captcha_ok and ngx.var.uri ~= "/favicon.ico" then
-          local previous_uri, state_id = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
+          local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
+          source, state_id, err = captcha.GetFlags(flags)
           -- we check if the IP is already in cache for captcha and not yet validated
-          if previous_uri == nil or state_id ~= captcha.GetStateID(captcha._VALIDATED_STATE) then
+          if previous_uri == nil or remediationSource == captcha.WAF_SOURCE then
               ngx.header.content_type = "text/html"
               ngx.say(csmod.GetCaptchaTemplate())
               local uri = ngx.var.uri
@@ -602,7 +616,7 @@ function csmod.Allow(ip)
                   end
                 end
               end
-              local succ, err, forcible = ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, uri , 60, captcha.GetStateID(captcha._VERIFY_STATE))
+              local succ, err, forcible = ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, uri , 60, bit.bor(captcha.VERIFY_STATE, remediationSource))
               if not succ then
                 ngx.log(ngx.ERR, "failed to add key about captcha for ip '" .. ngx.var.remote_addr .. "' in cache: "..err)
               end
