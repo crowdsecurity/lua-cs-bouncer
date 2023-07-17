@@ -536,7 +536,6 @@ function csmod.Allow(ip)
       ngx.log(ngx.ERR, "Waf check: " .. err)
       return
     end
-    ngx.log(ngx.ERR , "WAF RESP: ".. tostring(wafOk))
     if wafOk == false then
       ok = false
       remediationSource = captcha.WAF_SOURCE
