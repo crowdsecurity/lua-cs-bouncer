@@ -452,6 +452,7 @@ end
 
 function csmod.WafCheck()
   local httpc = http.new()
+  httpc.set_timeouts(runtime.conf["WAF_CONNECT_TIMEOUT"], runtime.conf["WAF_SEND_TIMEOUT"], runtime.conf["WAF_PROCESS_TIMEOUT"])
 
   local uri = ngx.var.uri
   if ngx.var.is_args ~= nil then
@@ -462,17 +463,21 @@ function csmod.WafCheck()
   end
 
   headers = ngx.req.get_headers()
-  headers["x-client-ip"] = ngx.var.remote_addr
-  headers["x-client-host"] = ngx.var.http_host
-  headers["x-client-uri"] = uri
 
+  -- overwrite headers with crowdsec waf require headers
+  headers["x-crowdsec-waf-ip"] = ngx.var.remote_addr
+  headers["x-crowdsec-waf-host"] = ngx.var.http_host
+  headers["x-crowdsec-waf-verb"] = ngx.var.request_method
+  headers["x-crowdsec-waf-uri"] = uri
+
+  -- set CrowdSec WAF Host
   headers["host"] = runtime.conf["WAF_HOST"]
 
   ngx.req.read_body()
   body = ngx.req.get_body_data()
 
   local res, err = httpc:request_uri(runtime.conf["WAF_URL"], {
-    method = ngx.var.request_method,
+    method = "GET",
     headers = headers,
     body = body
   })
