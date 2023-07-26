@@ -24,6 +24,8 @@ runtime.timer_started = false
 
 local csmod = {}
 
+local PASSTHROUGH = "passthrough"
+local DENY = "deny"
 
 
 -- init function
@@ -452,7 +454,7 @@ end
 
 function csmod.WafCheck()
   local httpc = http.new()
-  httpc.set_timeouts(runtime.conf["WAF_CONNECT_TIMEOUT"], runtime.conf["WAF_SEND_TIMEOUT"], runtime.conf["WAF_PROCESS_TIMEOUT"])
+  httpc:set_timeouts(runtime.conf["WAF_CONNECT_TIMEOUT"], runtime.conf["WAF_SEND_TIMEOUT"], runtime.conf["WAF_PROCESS_TIMEOUT"])
 
   local uri = ngx.var.uri
   if ngx.var.is_args ~= nil then
@@ -476,21 +478,31 @@ function csmod.WafCheck()
   ngx.req.read_body()
   body = ngx.req.get_body_data()
 
+  local ok, remediation = true, "allow"
+  if runtime.conf["WAF_FAILURE_ACTION"] == DENY then
+    ok = false
+    remediation = runtime.conf["FALLBACK_REMEDIATION"]
+  end
+
+
   local res, err = httpc:request_uri(runtime.conf["WAF_URL"], {
     method = "GET",
     headers = headers,
     body = body
   })
   httpc:close()
+
   if err ~= nil then
-    return true, "", err
+    ngx.log(ngx.ERR, "Fallback because of err: " .. tostring(ok))
+    return ok, remediation, err
   end
 
-  response = cjson.decode(res.body)
-  local ok, remediation = true, "allow"
-
-  if res.status ~= 200 then
+  if res.status == 200 then
+    ok = true
+    remediation = "allow"
+  elseif res.status == 403 then
     ok = false
+    response = cjson.decode(res.body)
     remediation = response.action
   end
 
@@ -539,7 +551,6 @@ function csmod.Allow(ip)
     wafOk, wafRemediation, err = csmod.WafCheck()
     if err ~= nil then
       ngx.log(ngx.ERR, "Waf check: " .. err)
-      return
     end
     if wafOk == false then
       ok = false
