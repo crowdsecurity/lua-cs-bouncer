@@ -2,8 +2,8 @@ local config = {}
 
 function config.file_exists(file)
     local f = io.open(file, "rb")
-    if f then 
-        f:close() 
+    if f then
+        f:close()
     end
     return f ~= nil
 end
@@ -33,7 +33,6 @@ end
 local function trim(s)
     return (string.gsub(s, "^%s*(.-)%s*$", "%1"))
 end
-
 
 function config.loadConfig(file)
     if not config.file_exists(file) then
@@ -70,64 +69,51 @@ function config.loadConfig(file)
             isOk = true
         end
         if not isOk then
-            local s = split(line, "=")
-            for k, v in pairs(s) do
-                if has_value(valid_params, v) then
-                    if v == "ENABLED" then
-                        local value = s[2]
-                        if not has_value(valid_truefalse_values, s[2]) then
-                            ngx.log(ngx.ERR, "unsupported value '" .. s[2] .. "' for variable '" .. v .. "'. Using default value 'true' instead")
-                            break
-                        end
-                    end
-                    if v == "BOUNCING_ON_TYPE" then
-                        local value = s[2]
-                        if not has_value(valid_bouncing_on_type_values, s[2]) then
-                            ngx.log(ngx.ERR, "unsupported value '" .. s[2] .. "' for variable '" .. v .. "'. Using default value 'ban' instead")
-                            break
-                        end
-                    end
-                    if v == "MODE" then
-                        local value = s[2]
-                        if not has_value({'stream', 'live'}, s[2]) then
-                            ngx.log(ngx.ERR, "unsupported value '" .. s[2] .. "' for variable '" .. v .. "'. Using default value 'stream' instead")
-                            break
-                        end
-                    end
-                    if v == "EXCLUDE_LOCATION" then
-                        local value = s[2]
-                        exclude_location = {}
-                        if value ~= "" then
-                            for match in (value..","):gmatch("(.-)"..",") do
-                                table.insert(exclude_location, match)
-                            end
-                        end
-                        local n = next(s, k)
-                        conf[v] = exclude_location
-                        break
-                    end
-                    if v == "FALLBACK_REMEDIATION" then
-                        local value = s[2]
-                        if not has_value({'captcha', 'ban'}, s[2]) then
-                            ngx.log(ngx.ERR, "unsupported value '" .. s[2] .. "' for variable '" .. v .. "'. Using default value 'ban' instead")
-                            local n = next(s, k)
-                            conf[v] = "ban"
-                            break
-                        end
-                    end
-                    local n = next(s, k)
-                    conf[v] = s[n]
-                    break
-                elseif has_value(valid_int_params, v) then
-                    local n = next(s, k)
-                    conf[v] = tonumber(s[n])
-                    break
-                else
-                    ngx.log(ngx.ERR, "unsupported configuration '" .. v .. "'")
-                    break
-                end
-            end
-        end
+	    local sep_pos = line:find("=")
+	    if not sep_pos then
+	       ngx.log(ngx.ERR, "invalid configuration line: " .. line)
+	       break
+	    end
+            local key = trim(line:sub(1, sep_pos - 1))
+	    local value = trim(line:sub(sep_pos + 1))
+	    if has_value(valid_params, key) then
+		if key == "ENABLED" then
+		    if not has_value(valid_truefalse_values, value) then
+			ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'true' instead")
+			conf[key] = "true"
+		    end
+		elseif key == "BOUNCING_ON_TYPE" then
+		    if not has_value(valid_bouncing_on_type_values, value) then
+			ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'ban' instead")
+			conf[key] = "ban"
+		    end
+		elseif key == "MODE" then
+		    if not has_value({'stream', 'live'}, value) then
+			ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'stream' instead")
+			conf[key] = "stream"
+		    end
+		elseif key == "EXCLUDE_LOCATION" then
+		    exclude_location = {}
+		    if value ~= "" then
+			for match in (value..","):gmatch("(.-)"..",") do
+			    table.insert(exclude_location, match)
+			end
+		    end
+		    conf[key] = exclude_location
+		elseif key == "FALLBACK_REMEDIATION" then
+		    if not has_value({'captcha', 'ban'}, value) then
+			ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'ban' instead")
+			conf[key] = "ban"
+		    end
+		else
+		    conf[key] = value
+		end
+	    elseif has_value(valid_int_params, key) then
+		conf[key] = tonumber(value)
+	    else
+		ngx.log(ngx.ERR, "unsupported configuration '" .. key .. "'")
+	    end
+	end
     end
     for k, v in pairs(default_values) do
         if conf[k] == nil then
