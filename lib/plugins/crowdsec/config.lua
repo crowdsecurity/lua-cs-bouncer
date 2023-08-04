@@ -8,14 +8,6 @@ function config.file_exists(file)
     return f ~= nil
 end
 
-  function split(s, delimiter)
-    result = {};
-    for match in (s..delimiter):gmatch("(.-)"..delimiter.."(.-)") do
-        table.insert(result, match);
-    end
-    return result;
-end
-
 local function has_value (tab, val)
     for index, value in ipairs(tab) do
         if value == val then
@@ -34,6 +26,16 @@ local function trim(s)
     return (string.gsub(s, "^%s*(.-)%s*$", "%1"))
 end
 
+local function splitOnce(str, delim)
+    local index = string.find(str, delim)
+    if index == nil then
+        return str
+    else
+        local firstPart = string.sub(str, 1, index - 1)
+        local secondPart = string.sub(str, index + 1)
+        return firstPart, secondPart
+    end
+end
 
 function config.loadConfig(file)
     if not config.file_exists(file) then
@@ -65,7 +67,7 @@ function config.loadConfig(file)
             isOk = true
         end
         if not isOk then
-            local s = split(line, "=")
+            local s = splitOnce(line, "=")
             for k, v in pairs(s) do
                 if has_value(valid_params, v) then
                     if v == "ENABLED" then
