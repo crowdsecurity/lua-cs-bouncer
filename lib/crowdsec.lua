@@ -39,9 +39,6 @@ function csmod.init(configFile, userAgent)
   runtime.cache = ngx.shared.crowdsec_cache
   runtime.fallback = runtime.conf["FALLBACK_REMEDIATION"]
 
-  ngx.log(ngx.ERR, "LOAD ENABLED: ".. tostring(runtime.conf["ENABLED"]))
-
-
   if runtime.conf["ENABLED"] == "false" then
     return "Disabled", nil
   end
@@ -73,8 +70,6 @@ function csmod.init(configFile, userAgent)
   if runtime.conf["REDIRECT_LOCATION"] ~= "" then
     table.insert(runtime.conf["EXCLUDE_LOCATION"], runtime.conf["REDIRECT_LOCATION"])
   end
-
-  ngx.log(ngx.ERR, "LOAD VERIFY: ".. tostring(runtime.conf["SSL_VERIFY"]))
 
   if runtime.conf["SSL_VERIFY"] == "false" then
     runtime.conf["SSL_VERIFY"] = false
@@ -494,8 +489,6 @@ function csmod.WafCheck()
     ok = false
     remediation = runtime.conf["FALLBACK_REMEDIATION"]
   end
-
-  ngx.log(ngx.ERR, "VERIFY: ".. tostring(runtime.conf["SSL_VERIFY"]))
 
   local res, err = httpc:request_uri(runtime.conf["WAF_URL"], {
     method = "GET",
