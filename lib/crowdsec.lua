@@ -39,6 +39,9 @@ function csmod.init(configFile, userAgent)
   runtime.cache = ngx.shared.crowdsec_cache
   runtime.fallback = runtime.conf["FALLBACK_REMEDIATION"]
 
+  ngx.log(ngx.ERR, "LOAD ENABLED: ".. tostring(runtime.conf["ENABLED"]))
+
+
   if runtime.conf["ENABLED"] == "false" then
     return "Disabled", nil
   end
@@ -69,6 +72,14 @@ function csmod.init(configFile, userAgent)
 
   if runtime.conf["REDIRECT_LOCATION"] ~= "" then
     table.insert(runtime.conf["EXCLUDE_LOCATION"], runtime.conf["REDIRECT_LOCATION"])
+  end
+
+  ngx.log(ngx.ERR, "LOAD VERIFY: ".. tostring(runtime.conf["SSL_VERIFY"]))
+
+  if runtime.conf["SSL_VERIFY"] == "false" then
+    runtime.conf["SSL_VERIFY"] = false
+  else
+    runtime.conf["SSL_VERIFY"] = true
   end
 
   runtime.conf["WAF_ENABLED"] = false
@@ -484,16 +495,18 @@ function csmod.WafCheck()
     remediation = runtime.conf["FALLBACK_REMEDIATION"]
   end
 
+  ngx.log(ngx.ERR, "VERIFY: ".. tostring(runtime.conf["SSL_VERIFY"]))
 
   local res, err = httpc:request_uri(runtime.conf["WAF_URL"], {
     method = "GET",
     headers = headers,
-    body = body
+    body = body,
+    ssl_verify = runtime.conf["SSL_VERIFY"],
   })
   httpc:close()
 
   if err ~= nil then
-    ngx.log(ngx.ERR, "Fallback because of err: " .. tostring(ok))
+    ngx.log(ngx.ERR, "Fallback because of err: " .. err)
     return ok, remediation, err
   end
 
@@ -504,6 +517,8 @@ function csmod.WafCheck()
     ok = false
     response = cjson.decode(res.body)
     remediation = response.action
+  else
+    ngx.log(ngx.ERR, "Bad request to WAF (" .. res.status .. "): " .. res.body)
   end
 
   return ok, remediation, err

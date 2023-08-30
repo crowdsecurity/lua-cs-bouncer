@@ -39,7 +39,7 @@ function config.loadConfig(file)
         return nil, "File ".. file .." doesn't exist"
     end
     local conf = {}
-    local valid_params = {'ENABLED','API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'WAF_URL', 'WAF_FAILURE_ACTION'}
+    local valid_params = {'ENABLED','API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'WAF_URL', 'WAF_FAILURE_ACTION', 'SSL_VERIFY'}
     local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'WAF_CONNECT_TIMEOUT', 'WAF_SEND_TIMEOUT', 'WAF_PROCESS_TIMEOUT'}
     local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
     local valid_truefalse_values = {'false', 'true'}
@@ -59,6 +59,8 @@ function config.loadConfig(file)
         ['WAF_SEND_TIMEOUT'] = 1000,
         ['WAF_PROCESS_TIMEOUT'] = 2000,
         ['WAF_FAILURE_ACTION'] = "passthrough",
+        ['SSL_VERIFY'] = "true",
+
     }
     for line in io.lines(file) do
         local isOk = false
@@ -77,41 +79,47 @@ function config.loadConfig(file)
             local key = trim(line:sub(1, sep_pos - 1))
 	    local value = trim(line:sub(sep_pos + 1))
 	    if has_value(valid_params, key) then
-		if key == "ENABLED" then
-		    if not has_value(valid_truefalse_values, value) then
-			ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'true' instead")
-			conf[key] = "true"
-		    end
-		elseif key == "BOUNCING_ON_TYPE" then
-		    if not has_value(valid_bouncing_on_type_values, value) then
-			ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'ban' instead")
-			conf[key] = "ban"
-		    end
-		elseif key == "MODE" then
-		    if not has_value({'stream', 'live'}, value) then
-			ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'stream' instead")
-			conf[key] = "stream"
-		    end
-		elseif key == "EXCLUDE_LOCATION" then
-		    exclude_location = {}
-		    if value ~= "" then
-			for match in (value..","):gmatch("(.-)"..",") do
-			    table.insert(exclude_location, match)
-			end
-		    end
-		    conf[key] = exclude_location
-		elseif key == "FALLBACK_REMEDIATION" then
-		    if not has_value({'captcha', 'ban'}, value) then
-			ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'ban' instead")
-			conf[key] = "ban"
-		    end
-		else
-		    conf[key] = value
-		end
-	    elseif has_value(valid_int_params, key) then
-		conf[key] = tonumber(value)
+            if key == "ENABLED" then
+                if not has_value(valid_truefalse_values, value) then
+                    ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'true' instead")
+                    value = "true"
+                end
+            elseif key == "BOUNCING_ON_TYPE" then
+                if not has_value(valid_bouncing_on_type_values, value) then
+                    ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'ban' instead")
+                    value = "ban"
+                end
+            elseif key == "SSL_VERIFY" then
+                if not has_value(valid_truefalse_values, value) then
+                    ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'true' instead")
+                    value = "true"
+                end
+            elseif key == "MODE" then
+                if not has_value({'stream', 'live'}, value) then
+                ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'stream' instead")
+                value = "stream"
+                end
+            elseif key == "EXCLUDE_LOCATION" then
+                exclude_location = {}
+                if value ~= "" then
+                for match in (value..","):gmatch("(.-)"..",") do
+                    table.insert(exclude_location, match)
+                end
+                end
+                value = exclude_location
+            elseif key == "FALLBACK_REMEDIATION" then
+                if not has_value({'captcha', 'ban'}, value) then
+                ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'ban' instead")
+                value = "ban"
+                end
+            end
+            
+            conf[key] = value
+	    
+        elseif has_value(valid_int_params, key) then
+		    conf[key] = tonumber(value)
 	    else
-		ngx.log(ngx.ERR, "unsupported configuration '" .. key .. "'")
+		    ngx.log(ngx.ERR, "unsupported configuration '" .. key .. "'")
 	    end
 	end
     end
