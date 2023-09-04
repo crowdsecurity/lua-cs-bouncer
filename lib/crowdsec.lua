@@ -129,6 +129,7 @@ local function get_http_request(link)
       ['X-Api-Key'] = runtime.conf["API_KEY"],
       ['User-Agent'] = runtime.userAgent
     },
+    ssl_verify = runtime.conf["SSL_VERIFY"]
   })
   httpc:close()
   return res, err
@@ -490,8 +491,13 @@ function csmod.WafCheck()
     remediation = runtime.conf["FALLBACK_REMEDIATION"]
   end
 
+  local method = "GET"
+  if #body > 0 then
+    method = "POST"
+  end
+
   local res, err = httpc:request_uri(runtime.conf["WAF_URL"], {
-    method = "GET",
+    method = method,
     headers = headers,
     body = body,
     ssl_verify = runtime.conf["SSL_VERIFY"],
