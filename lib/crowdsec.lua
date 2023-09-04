@@ -492,8 +492,10 @@ function csmod.WafCheck()
   end
 
   local method = "GET"
-  if #body > 0 then
-    method = "POST"
+  if body ~= nil then
+    if #body > 0 then
+      method = "POST"
+    end
   end
 
   local res, err = httpc:request_uri(runtime.conf["WAF_URL"], {
