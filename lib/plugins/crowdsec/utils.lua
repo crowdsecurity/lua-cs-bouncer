@@ -53,4 +53,19 @@ function M.table_len(table)
    return count
 end
 
+function M.trim(s)
+   return s:gsub("^%s+", ""):gsub("%s+$", "")
+end
+
+function M.split(str, delimiter)
+   local result = {}
+   local pattern = string.format("([^%s]+)", delimiter)
+   
+   str:gsub(pattern, function(item)
+       table.insert(result, item)
+   end)
+   
+   return result
+end
+
 return M
