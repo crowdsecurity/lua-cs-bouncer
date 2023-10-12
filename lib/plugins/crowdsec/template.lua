@@ -44,7 +44,7 @@ function findIfStatements(inputString, args)
                         end
                     end
                 end
-                if comparee == "" then
+                if comparer == "" then
                     if el == "==" or el == "!=" then
                         comparer = el 
                         goto con
