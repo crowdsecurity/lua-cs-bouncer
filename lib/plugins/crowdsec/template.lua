@@ -33,6 +33,9 @@ function findIfStatements(inputString, args)
                 if el == "{{" or el == "if" or el == "}}" or el == "then" then
                     goto con
                 end
+                if comparee ~= "" and comparer ~= "" and against ~= "" then
+                    break
+                end
                 if comparee == "" then
                     for k, v in pairs(args) do
                         if el == k then
