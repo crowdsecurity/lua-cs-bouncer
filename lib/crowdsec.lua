@@ -521,6 +521,7 @@ function csmod.Allow(ip)
           -- we check if the IP is already in cache for captcha and not yet validated
           if previous_uri == nil or state_id ~= captcha.GetStateID(captcha._VALIDATED_STATE) then
               ngx.header.content_type = "text/html"
+              ngx.header.cache_control = "no-cache"
               ngx.say(csmod.GetCaptchaTemplate())
               local uri = ngx.var.uri
               -- in case its not a GET request, we prefer to fallback on referer
