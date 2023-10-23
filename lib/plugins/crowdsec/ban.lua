@@ -49,6 +49,7 @@ function M.apply()
     end
     if M.template_str ~= "" then
         ngx.header.content_type = "text/html"
+        ngx.header.cache_control = "no-cache"
         ngx.status = M.ret_code
         ngx.say(M.template_str)
         ngx.exit(M.ret_code)
