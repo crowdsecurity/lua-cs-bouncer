@@ -151,6 +151,9 @@ local function item_to_string(item, scope)
   end
 
   local ip_network_address, is_ipv4 = iputils.parseIPAddress(ip)
+  if ip_network_address == nil then
+    return nil
+  end 
   if is_ipv4 then
     ip_version = "ipv4"
     if cidr == nil then
@@ -393,6 +396,9 @@ function csmod.allowIp(ip)
   csmod.SetupStream()
 
   local key = item_to_string(ip, "ip")
+  if key == nil then
+    return true, nil, "Check failed '" .. ip .. "' has no valid IP address"
+  end
   local key_parts = {}
   for i in key.gmatch(key, "([^_]+)") do
     table.insert(key_parts, i)
