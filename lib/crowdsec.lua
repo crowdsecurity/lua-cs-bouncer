@@ -27,6 +27,9 @@ local csmod = {}
 local PASSTHROUGH = "passthrough"
 local DENY = "deny"
 
+local WAF_API_KEY_HEADER = "X-Crowdsec-Waf-Api-Key"
+local REMEDIATION_API_KEY_HEADER = 'X-Api-Key'
+
 
 -- init function
 function csmod.init(configFile, userAgent)
@@ -119,14 +122,14 @@ function csmod.validateCaptcha(captcha_res, remote_ip)
 end
 
 
-local function get_http_request(link)
+local function get_remediation_http_request(link)
   local httpc = http.new()
   httpc:set_timeout(runtime.conf['REQUEST_TIMEOUT'])
   local res, err = httpc:request_uri(link, {
     method = "GET",
     headers = {
       ['Connection'] = 'close',
-      ['X-Api-Key'] = runtime.conf["API_KEY"],
+      [REMEDIATION_API_KEY_HEADER] = runtime.conf["API_KEY"],
       ['User-Agent'] = runtime.userAgent
     },
     ssl_verify = runtime.conf["SSL_VERIFY"]
@@ -249,7 +252,7 @@ local function stream_query(premature)
   local is_startup = runtime.cache:get("startup")
   ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup) .. " | premature: " .. tostring(premature))
   local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
-  local res, err = get_http_request(link)
+  local res, err = get_remediation_http_request(link)
   if not res then
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     if not ok then
@@ -344,7 +347,7 @@ end
 
 local function live_query(ip)
   local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
-  local res, err = get_http_request(link)
+  local res, err = get_remediation_http_request(link)
   if not res then
     return true, nil, "request failed: ".. err
   end
@@ -478,6 +481,7 @@ function csmod.WafCheck()
   headers["x-crowdsec-waf-host"] = ngx.var.http_host
   headers["x-crowdsec-waf-verb"] = ngx.var.request_method
   headers["x-crowdsec-waf-uri"] = uri
+  headers[WAF_API_KEY_HEADER] = runtime.conf["API_KEY"]
 
   -- set CrowdSec WAF Host
   headers["host"] = runtime.conf["WAF_HOST"]
@@ -518,6 +522,8 @@ function csmod.WafCheck()
     ok = false
     response = cjson.decode(res.body)
     remediation = response.action
+  elseif res.status == 401 then
+    ngx.log(ngx.ERR, "Unauthenticated request to WAF")
   else
     ngx.log(ngx.ERR, "Bad request to WAF (" .. res.status .. "): " .. res.body)
   end
