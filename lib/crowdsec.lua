@@ -27,7 +27,7 @@ local csmod = {}
 local PASSTHROUGH = "passthrough"
 local DENY = "deny"
 
-local WAF_API_KEY_HEADER = "X-Crowdsec-Waf-Api-Key"
+local WAF_API_KEY_HEADER = "x-crowdsec-waf-api-key"
 local REMEDIATION_API_KEY_HEADER = 'X-Api-Key'
 
 
