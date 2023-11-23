@@ -1,4 +1,5 @@
 local utils = require "plugins.crowdsec.utils"
+local template = require "plugins.crowdsec.template"
 
 
 local M = {_TYPE='module', _NAME='ban.funcs', _VERSION='1.0-0'}
@@ -8,7 +9,7 @@ M.redirect_location = ""
 M.ret_code = ngx.HTTP_FORBIDDEN
 
 
-function M.new(template_path, redirect_location, ret_code)
+function M.new(template_path, redirect_location, ret_code, contact_us_url)
     M.redirect_location = redirect_location
 
     ret_code_ok = false
@@ -27,7 +28,11 @@ function M.new(template_path, redirect_location, ret_code)
 
     template_file_ok = false
     if (template_path ~= nil and template_path ~= "" and utils.file_exist(template_path) == true) then
-        M.template_str = utils.read_file(template_path)
+        local template_data = {}
+        template_data["contact_us_url"] = contact_us_url
+        local ban_template = utils.read_file(template_path)
+        local view = template.compile(ban_template, template_data)
+        M.template_str = view
         if M.template_str ~= nil then
             template_file_ok = true
         end

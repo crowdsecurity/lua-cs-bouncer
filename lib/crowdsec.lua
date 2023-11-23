@@ -57,7 +57,7 @@ function csmod.init(configFile, userAgent)
   end
 
 
-  local err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"])
+  local err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"], runtime.conf["CONTACT_US_URL"])
   if err ~= nil then
     ngx.log(ngx.ERR, "error loading ban plugins: " .. err)
   end
@@ -234,7 +234,9 @@ local function stream_query(premature)
       error("Failed to create the timer: " .. (err or "unknown"))
     end
     set_refreshing(false)
-    error("request failed: ".. err)
+    if err ~= nil then
+      error("request failed: ".. err)
+    end
   end
 
   local succ, err, forcible = runtime.cache:set("last_refresh", ngx.time())
@@ -377,7 +379,7 @@ end
 function csmod.SetupStream()
   -- if it stream mode and startup start timer
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
-  if runtime.timer_started == false and runtime.conf["MODE"] == "stream" then
+  if runtime.timer_started == false then
     local ok, err
     ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     if not ok then
@@ -393,7 +395,9 @@ function csmod.allowIp(ip)
     return true, nil, "Configuration is bad, cannot run properly"
   end
 
-  csmod.SetupStream()
+  if runtime.conf["MODE"] == "stream" then
+    csmod.SetupStream()
+  end
 
   local key = item_to_string(ip, "ip")
   if key == nil then
