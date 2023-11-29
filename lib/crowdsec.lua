@@ -27,7 +27,7 @@ local csmod = {}
 local PASSTHROUGH = "passthrough"
 local DENY = "deny"
 
-local WAF_API_KEY_HEADER = "x-crowdsec-waf-api-key"
+local WAAP_API_KEY_HEADER = "x-crowdsec-waap-api-key"
 local REMEDIATION_API_KEY_HEADER = 'X-Api-Key'
 
 
@@ -80,16 +80,16 @@ function csmod.init(configFile, userAgent)
     runtime.conf["SSL_VERIFY"] = true
   end
 
-  runtime.conf["WAF_ENABLED"] = false
+  runtime.conf["WAAP_ENABLED"] = false
 
-  if runtime.conf["WAF_URL"] ~= "" then
-    u = url.parse(runtime.conf["WAF_URL"])
-    runtime.conf["WAF_ENABLED"] = true
-    runtime.conf["WAF_HOST"] = u.host
+  if runtime.conf["WAAP_URL"] ~= "" then
+    u = url.parse(runtime.conf["WAAP_URL"])
+    runtime.conf["WAAP_ENABLED"] = true
+    runtime.conf["WAAP_HOST"] = u.host
     if u.port ~= nil then
-      runtime.conf["WAF_HOST"] = runtime.conf["WAF_HOST"] .. ":" .. u.port
+      runtime.conf["WAAP_HOST"] = runtime.conf["WAAP_HOST"] .. ":" .. u.port
     end
-    ngx.log(ngx.ERR, "WAF is enabled on '" .. runtime.conf["WAF_HOST"] .. "'")
+    ngx.log(ngx.ERR, "WAAP is enabled on '" .. runtime.conf["WAAP_HOST"] .. "'")
   end
 
 
@@ -462,9 +462,9 @@ function csmod.allowIp(ip)
 end
 
 
-function csmod.WafCheck()
+function csmod.WaapCheck()
   local httpc = http.new()
-  httpc:set_timeouts(runtime.conf["WAF_CONNECT_TIMEOUT"], runtime.conf["WAF_SEND_TIMEOUT"], runtime.conf["WAF_PROCESS_TIMEOUT"])
+  httpc:set_timeouts(runtime.conf["WAAP_CONNECT_TIMEOUT"], runtime.conf["WAAP_SEND_TIMEOUT"], runtime.conf["WAAP_PROCESS_TIMEOUT"])
 
   local uri = ngx.var.uri
   if ngx.var.is_args ~= nil then
@@ -476,21 +476,21 @@ function csmod.WafCheck()
 
   headers = ngx.req.get_headers()
 
-  -- overwrite headers with crowdsec waf require headers
-  headers["x-crowdsec-waf-ip"] = ngx.var.remote_addr
-  headers["x-crowdsec-waf-host"] = ngx.var.http_host
-  headers["x-crowdsec-waf-verb"] = ngx.var.request_method
-  headers["x-crowdsec-waf-uri"] = uri
-  headers[WAF_API_KEY_HEADER] = runtime.conf["API_KEY"]
+  -- overwrite headers with crowdsec waap require headers
+  headers["x-crowdsec-waap-ip"] = ngx.var.remote_addr
+  headers["x-crowdsec-waap-host"] = ngx.var.http_host
+  headers["x-crowdsec-waap-verb"] = ngx.var.request_method
+  headers["x-crowdsec-waap-uri"] = uri
+  headers[WAAP_API_KEY_HEADER] = runtime.conf["API_KEY"]
 
-  -- set CrowdSec WAF Host
-  headers["host"] = runtime.conf["WAF_HOST"]
+  -- set CrowdSec WAAP Host
+  headers["host"] = runtime.conf["WAAP_HOST"]
 
   ngx.req.read_body()
   body = ngx.req.get_body_data()
 
   local ok, remediation = true, "allow"
-  if runtime.conf["WAF_FAILURE_ACTION"] == DENY then
+  if runtime.conf["WAAP_FAILURE_ACTION"] == DENY then
     ok = false
     remediation = runtime.conf["FALLBACK_REMEDIATION"]
   end
@@ -502,7 +502,7 @@ function csmod.WafCheck()
     end
   end
 
-  local res, err = httpc:request_uri(runtime.conf["WAF_URL"], {
+  local res, err = httpc:request_uri(runtime.conf["WAAP_URL"], {
     method = method,
     headers = headers,
     body = body,
@@ -523,9 +523,9 @@ function csmod.WafCheck()
     response = cjson.decode(res.body)
     remediation = response.action
   elseif res.status == 401 then
-    ngx.log(ngx.ERR, "Unauthenticated request to WAF")
+    ngx.log(ngx.ERR, "Unauthenticated request to WAAP")
   else
-    ngx.log(ngx.ERR, "Bad request to WAF (" .. res.status .. "): " .. res.body)
+    ngx.log(ngx.ERR, "Bad request to WAAP (" .. res.status .. "): " .. res.body)
   end
 
   return ok, remediation, err
@@ -565,19 +565,19 @@ function csmod.Allow(ip)
   end
 
   -- if the ip is now allowed, try to delete its captcha state in cache
-  -- if the ip is allowed, check on the WAF (is enabled) if he can request the application
+  -- if the ip is allowed, check on the WAAP (is enabled) if he can request the application
   if ok == true then
     ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
   end
-  if runtime.conf["WAF_ENABLED"] == true then
-    wafOk, wafRemediation, err = csmod.WafCheck()
+  if runtime.conf["WAAP_ENABLED"] == true then
+    waapOk, waapRemediation, err = csmod.WaapCheck()
     if err ~= nil then
-      ngx.log(ngx.ERR, "Waf check: " .. err)
+      ngx.log(ngx.ERR, "Waap check: " .. err)
     end
-    if wafOk == false then
+    if waapOk == false then
       ok = false
-      remediationSource = captcha.WAF_SOURCE
-      remediation = wafRemediation
+      remediationSource = captcha.WAAP_SOURCE
+      remediation = waapRemediation
     end
   end
 
@@ -608,7 +608,7 @@ function csmod.Allow(ip)
               ngx.log(ngx.ERR, "Error while validating captcha: " .. err)
             end
             if valid == true then
-                if source == captcha.WAF_SOURCE then
+                if source == captcha.WAAP_SOURCE then
                   ngx.shared.crowdsec_cache:delete("captcha_"..ngx.var.remote_addr)
                 else
                   local succ, err, forcible = ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, previous_uri, runtime.conf["CAPTCHA_EXPIRATION"], bit.bor(captcha.VALIDATED_STATE, source) )
@@ -640,7 +640,7 @@ function csmod.Allow(ip)
           local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
           source, state_id, err = captcha.GetFlags(flags)
           -- we check if the IP is already in cache for captcha and not yet validated
-          if previous_uri == nil or remediationSource == captcha.WAF_SOURCE then
+          if previous_uri == nil or remediationSource == captcha.WAAP_SOURCE then
               ngx.header.content_type = "text/html"
               ngx.say(csmod.GetCaptchaTemplate())
               local uri = ngx.var.uri

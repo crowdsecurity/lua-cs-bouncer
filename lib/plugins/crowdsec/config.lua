@@ -39,8 +39,8 @@ function config.loadConfig(file)
         return nil, "File ".. file .." doesn't exist"
     end
     local conf = {}
-    local valid_params = {'ENABLED','API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'WAF_URL', 'WAF_FAILURE_ACTION', 'SSL_VERIFY'}
-    local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'WAF_CONNECT_TIMEOUT', 'WAF_SEND_TIMEOUT', 'WAF_PROCESS_TIMEOUT'}
+    local valid_params = {'ENABLED','API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'WAAP_URL', 'WAAP_FAILURE_ACTION', 'SSL_VERIFY'}
+    local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'WAAP_CONNECT_TIMEOUT', 'WAAP_SEND_TIMEOUT', 'WAAP_PROCESS_TIMEOUT'}
     local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
     local valid_truefalse_values = {'false', 'true'}
     local default_values = {
@@ -54,11 +54,11 @@ function config.loadConfig(file)
         ['EXCLUDE_LOCATION'] = {},
         ['RET_CODE'] = 0,
 	    ['CAPTCHA_PROVIDER'] = "recaptcha",
-        ['WAF_URL'] = "",
-        ['WAF_CONNECT_TIMEOUT'] = 1000,
-        ['WAF_SEND_TIMEOUT'] = 1000,
-        ['WAF_PROCESS_TIMEOUT'] = 2000,
-        ['WAF_FAILURE_ACTION'] = "passthrough",
+        ['WAAP_URL'] = "",
+        ['WAAP_CONNECT_TIMEOUT'] = 1000,
+        ['WAAP_SEND_TIMEOUT'] = 1000,
+        ['WAAP_PROCESS_TIMEOUT'] = 2000,
+        ['WAAP_FAILURE_ACTION'] = "passthrough",
         ['SSL_VERIFY'] = "true",
 
     }
