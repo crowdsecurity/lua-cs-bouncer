@@ -81,6 +81,12 @@ function csmod.init(configFile, userAgent)
     runtime.conf["SSL_VERIFY"] = true
   end
 
+  if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "false" then
+    runtime.conf["ALWAYS_SEND_TO_APPSEC"] = false
+  else
+    runtime.conf["ALWAYS_SEND_TO_APPSEC"] = true
+  end
+
   runtime.conf["APPSEC_ENABLED"] = false
 
   if runtime.conf["APPSEC_URL"] ~= "" then
@@ -574,7 +580,7 @@ function csmod.Allow(ip)
   -- OR
   -- that user configured the remediation component to always check on the appSec (even if there is a decision for the IP)
   if ok == true or runtime.conf["ALWAYS_SEND_TO_APPSEC"] == true then
-    if runtime.conf["APPSEC_ENABLED"] == true and ngx.var.no_waf ~= "1" then
+    if runtime.conf["APPSEC_ENABLED"] == true and ngx.var.no_appsec ~= "1" then
       appsecOk, appsecRemediation, err = csmod.AppSecCheck()
       if err ~= nil then
         ngx.log(ngx.ERR, "AppSec check: " .. err)
@@ -637,7 +643,7 @@ function csmod.Allow(ip)
   end
   if not ok then
       if remediation == "ban" then
-        ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."'")
+        ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ngx.var.remote_addr .. "' with '"..remediation.."' (by " .. flag.Flags[remediationSource] .. ")")
         ban.apply()
         return
       end

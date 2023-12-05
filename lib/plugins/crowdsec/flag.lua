@@ -8,6 +8,13 @@ M.APPSEC_SOURCE = 0x2
 M.VERIFY_STATE = 0x4
 M.VALIDATED_STATE = 0x8
 
+M.Flags = {}
+M.Flags[0x0] = ""
+M.Flags[0x1] = "bouncer"
+M.Flags[0x2] = "appsec"
+M.Flags[0x4] = "to_verify"
+M.Flags[0x8] = "validated"
+
 
 function M.GetFlags(flags)
   local source = 0x0
