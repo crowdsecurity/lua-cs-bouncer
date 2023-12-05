@@ -1,6 +1,8 @@
 local bit
 if _VERSION == "Lua 5.1" then bit = require "bit" else bit = require "bit32" end
 
+local M = {_TYPE='module', _NAME='flag.funcs', _VERSION='1.0-0'}
+
 M.BOUNCER_SOURCE = 0x1
 M.APPSEC_SOURCE = 0x2
 M.VERIFY_STATE = 0x4
