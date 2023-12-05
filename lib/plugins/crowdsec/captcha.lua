@@ -3,9 +3,6 @@ local cjson = require "cjson"
 local template = require "plugins.crowdsec.template"
 local utils = require "plugins.crowdsec.utils"
 
-local bit
-if _VERSION == "Lua 5.1" then bit = require "bit" else bit = require "bit32" end
-
 local M = {_TYPE='module', _NAME='recaptcha.funcs', _VERSION='1.0-0'}
 
 local captcha_backend_url = {}
@@ -23,64 +20,9 @@ captcha_frontend_key["recaptcha"] = "g-recaptcha"
 captcha_frontend_key["hcaptcha"] = "h-captcha"
 captcha_frontend_key["turnstile"] = "cf-turnstile"
 
-M._VERIFY_STATE = "to_verify"
-M._VALIDATED_STATE = "validated"
-
-M.State = {}
-M.State["1"] = M._VERIFY_STATE
-M.State["2"] = M._VALIDATED_STATE
-
-M.Flags = {}
-M.Flags[0x0] = ""
-M.Flags[0x1] = "bouncer"
-M.Flags[0x2] = "appsec"
-M.Flags[0x4] = "to_verify"
-M.Flags[0x8] = "validated"
-
-
-M.BOUNCER_SOURCE = 0x1
-M.APPSEC_SOURCE = 0x2
-M.VERIFY_STATE = 0x4
-M.VALIDATED_STATE = 0x8
-
 M.SecretKey = ""
 M.SiteKey = ""
 M.Template = ""
-
-function M.GetFlags(flags)
-  local source = 0x0
-  local err = ""
-  local state = 0x0
-
-  if flags == nil then
-    return source, state, err
-  end
-
-  if bit.band(flags, M.BOUNCER_SOURCE) then
-    source = M.BOUNCER_SOURCE
-  elseif bit.band(flags, M.APPSEC_SOURCE) then
-    source = M.APPSEC_SOURCE
-  end
-
-  if bit.band(flags, M.VERIFY_STATE) then
-    state = M.VERIFY_STATE
-  elseif bit.band(flags, M.VALIDATED_STATE) then
-    state = M.VALIDATED_STATE
-  end
-  return source, state, err    
-
-end
-
-function M.GetStateID(state)
-    for k, v in pairs(M.State) do
-        if v == state then
-            return tonumber(k)
-        end
-    end
-    return nil
-end
-
-
 
 function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider)
 
