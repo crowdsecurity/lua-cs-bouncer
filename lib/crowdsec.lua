@@ -27,8 +27,8 @@ local csmod = {}
 local PASSTHROUGH = "passthrough"
 local DENY = "deny"
 
-local WAAP_API_KEY_HEADER = "x-crowdsec-waap-api-key"
-local REMEDIATION_API_KEY_HEADER = 'X-Api-Key'
+local APPSEC_API_KEY_HEADER = "x-crowdsec-appsec-api-key"
+local REMEDIATION_API_KEY_HEADER = 'x-api-key'
 
 
 -- init function
@@ -80,16 +80,16 @@ function csmod.init(configFile, userAgent)
     runtime.conf["SSL_VERIFY"] = true
   end
 
-  runtime.conf["WAAP_ENABLED"] = false
+  runtime.conf["APPSEC_ENABLED"] = false
 
-  if runtime.conf["WAAP_URL"] ~= "" then
-    u = url.parse(runtime.conf["WAAP_URL"])
-    runtime.conf["WAAP_ENABLED"] = true
-    runtime.conf["WAAP_HOST"] = u.host
+  if runtime.conf["APPSEC_URL"] ~= "" then
+    u = url.parse(runtime.conf["APPSEC_URL"])
+    runtime.conf["APPSEC_ENABLED"] = true
+    runtime.conf["APPSEC_HOST"] = u.host
     if u.port ~= nil then
-      runtime.conf["WAAP_HOST"] = runtime.conf["WAAP_HOST"] .. ":" .. u.port
+      runtime.conf["APPSEC_HOST"] = runtime.conf["APPSEC_HOST"] .. ":" .. u.port
     end
-    ngx.log(ngx.ERR, "WAAP is enabled on '" .. runtime.conf["WAAP_HOST"] .. "'")
+    ngx.log(ngx.ERR, "APPSEC is enabled on '" .. runtime.conf["APPSEC_HOST"] .. "'")
   end
 
 
@@ -462,9 +462,9 @@ function csmod.allowIp(ip)
 end
 
 
-function csmod.WaapCheck()
+function csmod.AppSecCheck()
   local httpc = http.new()
-  httpc:set_timeouts(runtime.conf["WAAP_CONNECT_TIMEOUT"], runtime.conf["WAAP_SEND_TIMEOUT"], runtime.conf["WAAP_PROCESS_TIMEOUT"])
+  httpc:set_timeouts(runtime.conf["APPSEC_CONNECT_TIMEOUT"], runtime.conf["APPSEC_SEND_TIMEOUT"], runtime.conf["APPSEC_PROCESS_TIMEOUT"])
 
   local uri = ngx.var.uri
   if ngx.var.is_args ~= nil then
@@ -476,21 +476,21 @@ function csmod.WaapCheck()
 
   headers = ngx.req.get_headers()
 
-  -- overwrite headers with crowdsec waap require headers
-  headers["x-crowdsec-waap-ip"] = ngx.var.remote_addr
-  headers["x-crowdsec-waap-host"] = ngx.var.http_host
-  headers["x-crowdsec-waap-verb"] = ngx.var.request_method
-  headers["x-crowdsec-waap-uri"] = uri
-  headers[WAAP_API_KEY_HEADER] = runtime.conf["API_KEY"]
+  -- overwrite headers with crowdsec appsec require headers
+  headers["x-crowdsec-appsec-ip"] = ngx.var.remote_addr
+  headers["x-crowdsec-appsec-host"] = ngx.var.http_host
+  headers["x-crowdsec-appsec-verb"] = ngx.var.request_method
+  headers["x-crowdsec-appsec-uri"] = uri
+  headers[APPSEC_API_KEY_HEADER] = runtime.conf["API_KEY"]
 
-  -- set CrowdSec WAAP Host
-  headers["host"] = runtime.conf["WAAP_HOST"]
+  -- set CrowdSec APPSEC Host
+  headers["host"] = runtime.conf["APPSEC_HOST"]
 
   ngx.req.read_body()
   body = ngx.req.get_body_data()
 
   local ok, remediation = true, "allow"
-  if runtime.conf["WAAP_FAILURE_ACTION"] == DENY then
+  if runtime.conf["APPSEC_FAILURE_ACTION"] == DENY then
     ok = false
     remediation = runtime.conf["FALLBACK_REMEDIATION"]
   end
@@ -502,7 +502,7 @@ function csmod.WaapCheck()
     end
   end
 
-  local res, err = httpc:request_uri(runtime.conf["WAAP_URL"], {
+  local res, err = httpc:request_uri(runtime.conf["APPSEC_URL"], {
     method = method,
     headers = headers,
     body = body,
@@ -523,9 +523,9 @@ function csmod.WaapCheck()
     response = cjson.decode(res.body)
     remediation = response.action
   elseif res.status == 401 then
-    ngx.log(ngx.ERR, "Unauthenticated request to WAAP")
+    ngx.log(ngx.ERR, "Unauthenticated request to APPSEC")
   else
-    ngx.log(ngx.ERR, "Bad request to WAAP (" .. res.status .. "): " .. res.body)
+    ngx.log(ngx.ERR, "Bad request to APPSEC (" .. res.status .. "): " .. res.body)
   end
 
   return ok, remediation, err
@@ -565,19 +565,19 @@ function csmod.Allow(ip)
   end
 
   -- if the ip is now allowed, try to delete its captcha state in cache
-  -- if the ip is allowed, check on the WAAP (is enabled) if he can request the application
+  -- if the ip is allowed, check on the APPSEC (is enabled) if he can request the application
   if ok == true then
     ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
   end
-  if runtime.conf["WAAP_ENABLED"] == true then
-    waapOk, waapRemediation, err = csmod.WaapCheck()
+  if runtime.conf["APPSEC_ENABLED"] == true then
+    appsecOk, appsecRemediation, err = csmod.AppSecCheck()
     if err ~= nil then
-      ngx.log(ngx.ERR, "Waap check: " .. err)
+      ngx.log(ngx.ERR, "AppSec check: " .. err)
     end
-    if waapOk == false then
+    if appsecOk == false then
       ok = false
-      remediationSource = captcha.WAAP_SOURCE
-      remediation = waapRemediation
+      remediationSource = captcha.APPSEC_SOURCE
+      remediation = appsecRemediation
     end
   end
 
@@ -608,7 +608,7 @@ function csmod.Allow(ip)
               ngx.log(ngx.ERR, "Error while validating captcha: " .. err)
             end
             if valid == true then
-                if source == captcha.WAAP_SOURCE then
+                if source == captcha.APPSEC_SOURCE then
                   ngx.shared.crowdsec_cache:delete("captcha_"..ngx.var.remote_addr)
                 else
                   local succ, err, forcible = ngx.shared.crowdsec_cache:set("captcha_"..ngx.var.remote_addr, previous_uri, runtime.conf["CAPTCHA_EXPIRATION"], bit.bor(captcha.VALIDATED_STATE, source) )
@@ -640,7 +640,7 @@ function csmod.Allow(ip)
           local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ngx.var.remote_addr)
           source, state_id, err = captcha.GetFlags(flags)
           -- we check if the IP is already in cache for captcha and not yet validated
-          if previous_uri == nil or remediationSource == captcha.WAAP_SOURCE then
+          if previous_uri == nil or remediationSource == captcha.APPSEC_SOURCE then
               ngx.header.content_type = "text/html"
               ngx.say(csmod.GetCaptchaTemplate())
               local uri = ngx.var.uri

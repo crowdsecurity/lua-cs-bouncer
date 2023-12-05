@@ -33,13 +33,13 @@ M.State["2"] = M._VALIDATED_STATE
 M.Flags = {}
 M.Flags[0x0] = ""
 M.Flags[0x1] = "bouncer"
-M.Flags[0x2] = "waap"
+M.Flags[0x2] = "appsec"
 M.Flags[0x4] = "to_verify"
 M.Flags[0x8] = "validated"
 
 
 M.BOUNCER_SOURCE = 0x1
-M.WAAP_SOURCE = 0x2
+M.APPSEC_SOURCE = 0x2
 M.VERIFY_STATE = 0x4
 M.VALIDATED_STATE = 0x8
 
@@ -58,8 +58,8 @@ function M.GetFlags(flags)
 
   if bit.band(flags, M.BOUNCER_SOURCE) then
     source = M.BOUNCER_SOURCE
-  elseif bit.band(flags, M.WAAP_SOURCE) then
-    source = M.WAAP_SOURCE
+  elseif bit.band(flags, M.APPSEC_SOURCE) then
+    source = M.APPSEC_SOURCE
   end
 
   if bit.band(flags, M.VERIFY_STATE) then
