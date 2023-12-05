@@ -41,3 +41,5 @@ function M.GetStateID(state)
     end
     return nil
 end
+
+return M
