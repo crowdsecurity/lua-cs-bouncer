@@ -620,6 +620,10 @@ function csmod.Allow(ip)
               ngx.log(ngx.ERR, "Error while validating captcha: " .. err)
             end
             if valid == true then
+                -- if the captcha is valid and has been applied by the application security component
+                -- then we delete the state from the cache because from the bouncing part, if the user solve the captcha
+                -- we will not propose a captcha until the 'CAPTCHA_EXPIRATION'.
+                -- But for the Application security component, we serve the captcha each time the user trigger it.
                 if source == flag.APPSEC_SOURCE then
                   ngx.shared.crowdsec_cache:delete("captcha_"..ngx.var.remote_addr)
                 else

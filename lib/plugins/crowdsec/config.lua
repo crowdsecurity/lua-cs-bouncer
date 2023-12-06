@@ -53,11 +53,11 @@ function config.loadConfig(file)
         ['REDIRECT_LOCATION'] = "",
         ['EXCLUDE_LOCATION'] = {},
         ['RET_CODE'] = 0,
-	    ['CAPTCHA_PROVIDER'] = "recaptcha",
+        ['CAPTCHA_PROVIDER'] = "recaptcha",
         ['APPSEC_URL'] = "",
-        ['APPSEC_CONNECT_TIMEOUT'] = 1000,
-        ['APPSEC_SEND_TIMEOUT'] = 1000,
-        ['APPSEC_PROCESS_TIMEOUT'] = 2000,
+        ['APPSEC_CONNECT_TIMEOUT'] = 100,
+        ['APPSEC_SEND_TIMEOUT'] = 100,
+        ['APPSEC_PROCESS_TIMEOUT'] = 500,
         ['APPSEC_FAILURE_ACTION'] = "passthrough",
         ['SSL_VERIFY'] = "true",
         ['ALWAYS_SEND_TO_APPSEC'] = "false",
@@ -72,14 +72,14 @@ function config.loadConfig(file)
             isOk = true
         end
         if not isOk then
-	    local sep_pos = line:find("=")
-	    if not sep_pos then
-	       ngx.log(ngx.ERR, "invalid configuration line: " .. line)
-	       break
-	    end
+        local sep_pos = line:find("=")
+        if not sep_pos then
+           ngx.log(ngx.ERR, "invalid configuration line: " .. line)
+           break
+        end
             local key = trim(line:sub(1, sep_pos - 1))
-	    local value = trim(line:sub(sep_pos + 1))
-	    if has_value(valid_params, key) then
+        local value = trim(line:sub(sep_pos + 1))
+        if has_value(valid_params, key) then
             if key == "ENABLED" then
                 if not has_value(valid_truefalse_values, value) then
                     ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'true' instead")
@@ -116,13 +116,13 @@ function config.loadConfig(file)
             end
             
             conf[key] = value
-	    
+
         elseif has_value(valid_int_params, key) then
-		    conf[key] = tonumber(value)
-	    else
-		    ngx.log(ngx.ERR, "unsupported configuration '" .. key .. "'")
-	    end
-	end
+            conf[key] = tonumber(value)
+        else
+            ngx.log(ngx.ERR, "unsupported configuration '" .. key .. "'")
+        end
+    end
     end
     for k, v in pairs(default_values) do
         if conf[k] == nil then
