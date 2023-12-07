@@ -398,6 +398,22 @@ local function live_query(ip)
   end
 end
 
+local function get_body()
+
+  ngx.req.read_body()
+  local body = ngx.req.get_body_data()
+  if body == nil then
+    local bodyfile = ngx.req.get_body_file()
+    if bodyfile then
+      local fh, err = io.open(bodyfile, "r")
+      if fh then
+        body = fh:read("*a")
+        fh:close()
+      end
+    end
+  end
+  return body
+end
 
 function csmod.GetCaptchaTemplate()
   return captcha.GetTemplate()
@@ -481,7 +497,7 @@ function csmod.AppSecCheck()
     uri = uri .. ngx.var.args
   end
 
-  headers = ngx.req.get_headers()
+  local headers = ngx.req.get_headers()
 
   -- overwrite headers with crowdsec appsec require headers
   headers["x-crowdsec-appsec-ip"] = ngx.var.remote_addr
@@ -493,9 +509,6 @@ function csmod.AppSecCheck()
   -- set CrowdSec APPSEC Host
   headers["host"] = runtime.conf["APPSEC_HOST"]
 
-  ngx.req.read_body()
-  body = ngx.req.get_body_data()
-
   local ok, remediation = true, "allow"
   if runtime.conf["APPSEC_FAILURE_ACTION"] == DENY then
     ok = false
@@ -503,6 +516,8 @@ function csmod.AppSecCheck()
   end
 
   local method = "GET"
+
+  local body = get_body()
   if body ~= nil then
     if #body > 0 then
       method = "POST"
@@ -527,7 +542,7 @@ function csmod.AppSecCheck()
     remediation = "allow"
   elseif res.status == 403 then
     ok = false
-    response = cjson.decode(res.body)
+    local response = cjson.decode(res.body)
     remediation = response.action
   elseif res.status == 401 then
     ngx.log(ngx.ERR, "Unauthenticated request to APPSEC")
