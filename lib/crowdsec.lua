@@ -489,14 +489,7 @@ function csmod.AppSecCheck()
   local httpc = http.new()
   httpc:set_timeouts(runtime.conf["APPSEC_CONNECT_TIMEOUT"], runtime.conf["APPSEC_SEND_TIMEOUT"], runtime.conf["APPSEC_PROCESS_TIMEOUT"])
 
-  local uri = ngx.var.uri
-  if ngx.var.is_args ~= nil then
-    uri = uri .. ngx.var.is_args
-  end
-  if ngx.var.args ~= nil then
-    uri = uri .. ngx.var.args
-  end
-
+  local uri = ngx.var.request_uri
   local headers = ngx.req.get_headers()
 
   -- overwrite headers with crowdsec appsec require headers
