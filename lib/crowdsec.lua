@@ -514,6 +514,9 @@ function csmod.AppSecCheck()
   if body ~= nil then
     if #body > 0 then
       method = "POST"
+      if headers["content-length"] == nil then
+        headers["content-length"] = tostring(#body)
+      end
     end
   end
 
