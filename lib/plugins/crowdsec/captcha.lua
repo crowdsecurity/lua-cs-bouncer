@@ -3,7 +3,6 @@ local cjson = require "cjson"
 local template = require "plugins.crowdsec.template"
 local utils = require "plugins.crowdsec.utils"
 
-
 local M = {_TYPE='module', _NAME='recaptcha.funcs', _VERSION='1.0-0'}
 
 local captcha_backend_url = {}
@@ -21,29 +20,9 @@ captcha_frontend_key["recaptcha"] = "g-recaptcha"
 captcha_frontend_key["hcaptcha"] = "h-captcha"
 captcha_frontend_key["turnstile"] = "cf-turnstile"
 
-M._VERIFY_STATE = "to_verify"
-M._VALIDATED_STATE = "validated"
-
-
-M.State = {}
-M.State["1"] = M._VERIFY_STATE
-M.State["2"] = M._VALIDATED_STATE
-
 M.SecretKey = ""
 M.SiteKey = ""
 M.Template = ""
-
-
-function M.GetStateID(state)
-    for k, v in pairs(M.State) do
-        if v == state then
-            return tonumber(k)
-        end
-    end
-    return nil
-end
-
-
 
 function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider)
 
