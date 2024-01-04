@@ -45,8 +45,8 @@ function config.loadConfig(file)
     local valid_truefalse_values = {'false', 'true'}
     local default_values = {
         ['ENABLED'] = "true",
-        ['REQUEST_TIMEOUT'] = 0.2,
-        ['STREAM_REQUEST_TIMEOUT'] = 15,
+        ['REQUEST_TIMEOUT'] = 500,
+        ['STREAM_REQUEST_TIMEOUT'] = 15000,
         ['BOUNCING_ON_TYPE'] = "ban",
         ['MODE'] = "stream",
         ['UPDATE_FREQUENCY'] = 10,
