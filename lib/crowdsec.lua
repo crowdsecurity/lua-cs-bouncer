@@ -131,7 +131,11 @@ end
 
 local function get_remediation_http_request(link)
   local httpc = http.new()
-  httpc:set_timeout(runtime.conf['REQUEST_TIMEOUT'])
+  if runtime.conf['MODE'] == 'stream' then
+    httpc:set_timeout(runtime.conf['STREAM_REQUEST_TIMEOUT'])
+  else
+    httpc:set_timeout(runtime.conf['REQUEST_TIMEOUT'])
+  end
   local res, err = httpc:request_uri(link, {
     method = "GET",
     headers = {
@@ -264,10 +268,10 @@ local function stream_query(premature)
   local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
   local res, err = get_remediation_http_request(link)
   if not res then
-    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+    local ok, err2 = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
     if not ok then
       set_refreshing(false)
-      error("Failed to create the timer: " .. (err or "unknown"))
+      error("Failed to create the timer: " .. (err2 or "unknown"))
     end
     set_refreshing(false)
     error("request failed: ".. err)
