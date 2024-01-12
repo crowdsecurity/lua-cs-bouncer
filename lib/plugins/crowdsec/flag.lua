@@ -39,3 +39,5 @@ function M.GetFlags(flags)
   return source, state, err    
 
 end
+
+return M
