@@ -675,9 +675,9 @@ function csmod.Allow(ip)
       -- if the remediation is a captcha and captcha is well configured
       if remediation == "captcha" and captcha_ok and ngx.var.uri ~= "/favicon.ico" then
           local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ip)
-          source, state_id, err = flag.GetFlags(flags)
+          local source, state_id, err = flag.GetFlags(flags)
           -- we check if the IP is already in cache for captcha and not yet validated
-          if previous_uri == nil or remediationSource == flag.APPSEC_SOURCE then
+          if previous_uri == nil or state_id ~= flag.VALIDATED_STATE or remediationSource == flag.APPSEC_SOURCE then
               ngx.header.content_type = "text/html"
               ngx.header.cache_control = "no-cache"
               ngx.say(csmod.GetCaptchaTemplate())
