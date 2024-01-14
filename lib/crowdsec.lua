@@ -584,7 +584,7 @@ function csmod.AppSecCheck()
   elseif res.status == 401 then
     ngx.log(ngx.ERR, "Unauthenticated request to APPSEC")
   else
-    ngx.log(ngx.ERR, "Bad request to APPSEC (" .. res.status .. "): " .. res.body)
+    ngx.log(ngx.ERR, "Bad request to APPSEC (" .. res.status .. "): " .. res:read_body())
   end
   httpc:close()
   return ok, remediation, err
