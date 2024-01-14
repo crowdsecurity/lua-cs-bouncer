@@ -92,11 +92,26 @@ function csmod.init(configFile, userAgent)
   if runtime.conf["APPSEC_URL"] ~= "" then
     u = url.parse(runtime.conf["APPSEC_URL"])
     runtime.conf["APPSEC_ENABLED"] = true
-    runtime.conf["APPSEC_HOST"] = u.host
-    if u.port ~= nil then
-      runtime.conf["APPSEC_HOST"] = runtime.conf["APPSEC_HOST"] .. ":" .. u.port
+    if u.scheme ~= nil then
+      runtime.conf["APPSEC_SCHEME"] = u.scheme
+      ngx.log(ngx.DEBUG, "APPSEC scheme is '" .. u.scheme .. "'")
     end
-    ngx.log(ngx.ERR, "APPSEC is enabled on '" .. runtime.conf["APPSEC_HOST"] .. "'")
+    if u.url ~= nil then
+      runtime.conf["APPSEC_PARSED"] = u.url
+      ngx.log(ngx.DEBUG, "APPSEC url is '" .. u.url .. "'")
+    end
+    if u.host ~= nil then
+      runtime.conf["APPSEC_HOST"] = u.host
+      ngx.log(ngx.DEBUG, "APPSEC host is '" .. runtime.conf["APPSEC_HOST"] .. "'")
+    end
+    if u.path ~= nil then
+      runtime.conf["APPSEC_PATH"] = u.path
+      ngx.log(ngx.DEBUG, "APPSEC path is '" .. u.path .. "'")
+    end
+    if u.port ~= nil then
+      ngx.log(ngx.DEBUG, "APPSEC port is '" .. u.port .. "'")
+      runtime.conf["APPSEC_PORT"] = u.port
+    end
   end
 
 
@@ -510,7 +525,12 @@ function csmod.AppSecCheck()
   headers[APPSEC_API_KEY_HEADER] = runtime.conf["API_KEY"]
 
   -- set CrowdSec APPSEC Host
-  headers["host"] = runtime.conf["APPSEC_HOST"]
+  headers["Host"] = runtime.conf["APPSEC_HOST"] or "localhost"
+  -- Set localhost if no host is set (Unix socket)
+  if runtime.conf["APPSEC_PORT"] ~= nil then
+    headers["Host"] = headers["Host"] .. ":" .. runtime.conf["APPSEC_PORT"]
+  end
+  -- Append port if set (Cannot set on runtime configuration since we need it for connection)
 
   local ok, remediation = true, "allow"
   if runtime.conf["APPSEC_FAILURE_ACTION"] == DENY then
@@ -530,15 +550,26 @@ function csmod.AppSecCheck()
     end
   end
 
-  local res, err = httpc:request_uri(runtime.conf["APPSEC_URL"], {
+  local httpok, err, ssl_session = httpc:connect({
+    scheme = (runtime.conf["APPSEC_SCHEME"] ~= "unix" and runtime.conf["APPSEC_SCHEME"] or nil),
+    port = (runtime.conf["APPSEC_SCHEME"] ~= "unix" and runtime.conf["APPSEC_PORT"] or nil),
+    host = (runtime.conf["APPSEC_SCHEME"] ~= "unix" and runtime.conf["APPSEC_HOST"] or runtime.conf["APPSEC_URL"]),
+    ssl_verify = runtime.conf["SSL_VERIFY"],
+  })
+
+  if not httpok then
+    ngx.log(ngx.ERR, "connection failed: ", err)
+    return
+  end
+
+  local res, err = httpc:request({
+    path = (runtime.conf["APPSEC_SCHEME"] ~= "unix" and runtime.conf["APPSEC_PATH"] or "/"),
     method = method,
     headers = headers,
     body = body,
-    ssl_verify = runtime.conf["SSL_VERIFY"],
   })
-  httpc:close()
 
-  if err ~= nil then
+  if err ~= nil or not res then
     ngx.log(ngx.ERR, "Fallback because of err: " .. err)
     return ok, remediation, err
   end
@@ -548,14 +579,14 @@ function csmod.AppSecCheck()
     remediation = "allow"
   elseif res.status == 403 then
     ok = false
-    local response = cjson.decode(res.body)
+    local response = cjson.decode(res:read_body())
     remediation = response.action
   elseif res.status == 401 then
     ngx.log(ngx.ERR, "Unauthenticated request to APPSEC")
   else
     ngx.log(ngx.ERR, "Bad request to APPSEC (" .. res.status .. "): " .. res.body)
   end
-
+  httpc:close()
   return ok, remediation, err
 
 end
