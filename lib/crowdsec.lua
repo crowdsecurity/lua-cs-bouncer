@@ -512,7 +512,7 @@ function csmod.AppSecCheck(ip)
   -- set CrowdSec APPSEC Host
   headers["host"] = runtime.conf["APPSEC_HOST"]
 
-  local ok, remediation = true, "allow"
+  local ok, remediation, status_code = true, "allow", 200
   if runtime.conf["APPSEC_FAILURE_ACTION"] == DENY then
     ok = false
     remediation = runtime.conf["FALLBACK_REMEDIATION"]
@@ -548,15 +548,22 @@ function csmod.AppSecCheck(ip)
     remediation = "allow"
   elseif res.status == 403 then
     ok = false
+    ngx.log(ngx.DEBUG, "Appsec body response: " .. res.body)
     local response = cjson.decode(res.body)
     remediation = response.action
+    if response.http_status ~= nil then
+      ngx.log(ngx.DEBUG, "Got status code from APPSEC: " .. response.http_status)
+      status_code = response.http_status
+    else
+      status_code = ngx.HTTP_FORBIDDEN
+    end
   elseif res.status == 401 then
     ngx.log(ngx.ERR, "Unauthenticated request to APPSEC")
   else
     ngx.log(ngx.ERR, "Bad request to APPSEC (" .. res.status .. "): " .. res.body)
   end
 
-  return ok, remediation, err
+  return ok, remediation, status_code, err
 
 end
 
@@ -570,6 +577,7 @@ function csmod.Allow(ip)
   end
 
   local remediationSource = flag.BOUNCER_SOURCE
+  local ret_code = nil
 
   if utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
     for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
@@ -602,7 +610,7 @@ function csmod.Allow(ip)
   -- that user configured the remediation component to always check on the appSec (even if there is a decision for the IP)
   if ok == true or runtime.conf["ALWAYS_SEND_TO_APPSEC"] == true then
     if runtime.conf["APPSEC_ENABLED"] == true and ngx.var.no_appsec ~= "1" then
-      local appsecOk, appsecRemediation, err = csmod.AppSecCheck(ip)
+      local appsecOk, appsecRemediation, status_code, err = csmod.AppSecCheck(ip)
       if err ~= nil then
         ngx.log(ngx.ERR, "AppSec check: " .. err)
       end
@@ -610,6 +618,7 @@ function csmod.Allow(ip)
         ok = false
         remediationSource = flag.APPSEC_SOURCE
         remediation = appsecRemediation
+        ret_code = status_code
       end
     end
   end
@@ -669,7 +678,7 @@ function csmod.Allow(ip)
   if not ok then
       if remediation == "ban" then
         ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."' (by " .. flag.Flags[remediationSource] .. ")")
-        ban.apply()
+        ban.apply(ret_code)
         return
       end
       -- if the remediation is a captcha and captcha is well configured
