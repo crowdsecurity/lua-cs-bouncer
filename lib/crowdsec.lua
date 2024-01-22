@@ -540,7 +540,7 @@ function csmod.AppSecCheck(ip)
 
   if err ~= nil then
     ngx.log(ngx.ERR, "Fallback because of err: " .. err)
-    return ok, remediation, err
+    return ok, remediation, status_code, err
   end
 
   if res.status == 200 then
