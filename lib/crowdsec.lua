@@ -580,8 +580,9 @@ function csmod.AppSecCheck(ip)
     remediation = "allow"
   elseif res.status == 403 then
     ok = false
-    ngx.log(ngx.DEBUG, "Appsec body response: " .. res.body)
-    local response = cjson.decode(res:read_body())
+    local body = res:read_body()
+    ngx.log(ngx.DEBUG, "Appsec body response: " .. body)
+    local response = cjson.decode(body)
     remediation = response.action
     if response.http_status ~= nil then
       ngx.log(ngx.DEBUG, "Got status code from APPSEC: " .. response.http_status)
