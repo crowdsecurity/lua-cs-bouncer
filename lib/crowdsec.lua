@@ -569,11 +569,11 @@ end
 
 function csmod.Allow(ip)
   if runtime.conf["ENABLED"] == "false" then
-    return "Disabled", nil
+    ngx.exit(ngx.DECLINED)
   end
 
   if ngx.req.is_internal() then
-    return
+    ngx.exit(ngx.DECLINED)
   end
 
   local remediationSource = flag.BOUNCER_SOURCE
@@ -583,7 +583,7 @@ function csmod.Allow(ip)
     for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
       if ngx.var.uri == v then
         ngx.log(ngx.ERR,  "whitelisted location: " .. v)
-        return
+        ngx.exit(ngx.DECLINED)
       end
       local uri_to_check = v
       if utils.ends_with(uri_to_check, "/") == false then
@@ -667,8 +667,7 @@ function csmod.Allow(ip)
                 end
                 -- captcha is valid, we redirect the IP to its previous URI but in GET method
                 ngx.req.set_method(ngx.HTTP_GET)
-                ngx.redirect(previous_uri)
-                return
+                return ngx.redirect(previous_uri)
             else
                 ngx.log(ngx.ALERT, "Invalid captcha from " .. ip)
             end
@@ -708,9 +707,11 @@ function csmod.Allow(ip)
                 ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
               end
               ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."'")
+              return
           end
       end
   end
+  ngx.exit(ngx.DECLINED)
 end
 
 
