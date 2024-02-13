@@ -90,7 +90,7 @@ function csmod.init(configFile, userAgent)
   runtime.conf["APPSEC_ENABLED"] = false
 
   if runtime.conf["APPSEC_URL"] ~= "" then
-    u = url.parse(runtime.conf["APPSEC_URL"])
+    local u = url.parse(runtime.conf["APPSEC_URL"])
     runtime.conf["APPSEC_ENABLED"] = true
     runtime.conf["APPSEC_HOST"] = u.host
     if u.port ~= nil then
@@ -193,7 +193,7 @@ local function item_to_string(item, scope)
   local ip_network_address, is_ipv4 = iputils.parseIPAddress(ip)
   if ip_network_address == nil then
     return nil
-  end 
+  end
   if is_ipv4 then
     ip_version = "ipv4"
     if cidr == nil then
@@ -221,11 +221,11 @@ local function set_refreshing(value)
   end
   if forcible then
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-  end  
+  end
 end
 
 local function stream_query(premature)
-  -- As this function is running inside coroutine (with ngx.timer.at), 
+  -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
 
@@ -283,7 +283,7 @@ local function stream_query(premature)
   end
   if forcible then
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-  end  
+  end
 
   local status = res.status
   local body = res.body
@@ -345,7 +345,7 @@ local function stream_query(premature)
   end
   if forcible then
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-  end  
+  end
 
 
   local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
@@ -369,7 +369,7 @@ local function live_query(ip)
   local status = res.status
   local body = res.body
   if status~=200 then
-    return true, nil, "Http error " .. status .. " while talking to LAPI (" .. link .. ")" 
+    return true, nil, "Http error " .. status .. " while talking to LAPI (" .. link .. ")"
   end
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
@@ -407,6 +407,13 @@ end
 
 local function get_body()
 
+  -- HTTP < 2 allows a body without a content-length (chunked transfer-encoding), but HTTP2 and HTTP3 require a content-length
+  -- do not even try to read the body if there's no content-length as the LUA API will throw an error
+  if ngx.req.http_version() >= 2 and ngx.var.http_content_length == nil then
+    ngx.log(ngx.DEBUG, "No content-length header in request")
+    return nil
+  end
+  ngx.log(ngx.ERR, "Found content-length header: " .. ngx.var.http_content_length)
   ngx.req.read_body()
   local body = ngx.req.get_body_data()
   if body == nil then
@@ -468,7 +475,7 @@ function csmod.allowIp(ip)
       return in_cache, runtime.remediations[tostring(remediation_id)], nil
     end
   end
-  
+
   local ip_network_address = key_parts[3]
   local netmasks = iputils.netmasks_by_key_type[key_type]
   for i, netmask in pairs(netmasks) do
@@ -528,6 +535,8 @@ function csmod.AppSecCheck(ip)
         headers["content-length"] = tostring(#body)
       end
     end
+  else
+    headers["content-length"] = nil
   end
 
   local res, err = httpc:request_uri(runtime.conf["APPSEC_URL"], {
