@@ -90,7 +90,7 @@ function csmod.init(configFile, userAgent)
   runtime.conf["APPSEC_ENABLED"] = false
 
   if runtime.conf["APPSEC_URL"] ~= "" then
-    u = url.parse(runtime.conf["APPSEC_URL"])
+    local u = url.parse(runtime.conf["APPSEC_URL"])
     runtime.conf["APPSEC_ENABLED"] = true
     if u.scheme ~= nil then
       runtime.conf["APPSEC_SCHEME"] = u.scheme
@@ -208,7 +208,7 @@ local function item_to_string(item, scope)
   local ip_network_address, is_ipv4 = iputils.parseIPAddress(ip)
   if ip_network_address == nil then
     return nil
-  end 
+  end
   if is_ipv4 then
     ip_version = "ipv4"
     if cidr == nil then
@@ -236,11 +236,11 @@ local function set_refreshing(value)
   end
   if forcible then
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-  end  
+  end
 end
 
 local function stream_query(premature)
-  -- As this function is running inside coroutine (with ngx.timer.at), 
+  -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
 
@@ -298,7 +298,7 @@ local function stream_query(premature)
   end
   if forcible then
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-  end  
+  end
 
   local status = res.status
   local body = res.body
@@ -360,7 +360,7 @@ local function stream_query(premature)
   end
   if forcible then
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-  end  
+  end
 
 
   local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
@@ -384,7 +384,7 @@ local function live_query(ip)
   local status = res.status
   local body = res.body
   if status~=200 then
-    return true, nil, "Http error " .. status .. " while talking to LAPI (" .. link .. ")" 
+    return true, nil, "Http error " .. status .. " while talking to LAPI (" .. link .. ")"
   end
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
@@ -422,6 +422,13 @@ end
 
 local function get_body()
 
+  -- the LUA module requires a content-length header to read a body for HTTP 2/3 requests, although it's not mandatory.
+  -- This means that we will likely miss body, but AFAIK, there's no workaround for this.
+  -- do not even try to read the body if there's no content-length as the LUA API will throw an error
+  if ngx.req.http_version() >= 2 and ngx.var.http_content_length == nil then
+    ngx.log(ngx.DEBUG, "No content-length header in request")
+    return nil
+  end
   ngx.req.read_body()
   local body = ngx.req.get_body_data()
   if body == nil then
@@ -483,7 +490,7 @@ function csmod.allowIp(ip)
       return in_cache, runtime.remediations[tostring(remediation_id)], nil
     end
   end
-  
+
   local ip_network_address = key_parts[3]
   local netmasks = iputils.netmasks_by_key_type[key_type]
   for i, netmask in pairs(netmasks) do
@@ -549,6 +556,8 @@ function csmod.AppSecCheck(ip)
         headers["content-length"] = tostring(#body)
       end
     end
+  else
+    headers["content-length"] = nil
   end
 
   local httpok, err, ssl_session = httpc:connect({
@@ -674,8 +683,11 @@ function csmod.Allow(ip)
     -- we check if the IP need to validate its captcha before checking it against crowdsec local API
     local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ip)
     local source, state_id, err = flag.GetFlags(flags)
-    if previous_uri ~= nil and state_id == flag.VERIFY_STATE then
-        ngx.req.read_body()
+    local body = get_body()
+
+    -- nil body means it was likely not a post, abort here because the user hasn't provided a captcha solution
+
+    if previous_uri ~= nil and state_id == flag.VERIFY_STATE and body ~= nil then
         local captcha_res = ngx.req.get_post_args()[csmod.GetCaptchaBackendKey()] or 0
         if captcha_res ~= 0 then
             local valid, err = csmod.validateCaptcha(captcha_res, ip)
