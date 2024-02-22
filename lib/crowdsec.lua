@@ -29,6 +29,11 @@ local PASSTHROUGH = "passthrough"
 local DENY = "deny"
 
 local APPSEC_API_KEY_HEADER = "x-crowdsec-appsec-api-key"
+local APPSEC_IP_HEADER = "x-crowdsec-appsec-ip"
+local APPSEC_HOST_HEADER = "x-crowdsec-appsec-host"
+local APPSEC_VERB_HEADER = "x-crowdsec-appsec-verb"
+local APPSEC_URI_HEADER = "x-crowdsec-appsec-uri"
+local APPSEC_USER_AGENT_HEADER = "x-crowdsec-appsec-user-agent"
 local REMEDIATION_API_KEY_HEADER = 'x-api-key'
 
 
@@ -131,6 +136,14 @@ function csmod.init(configFile, userAgent)
     if forcible then
       ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
     end
+  end
+
+  if runtime.conf["API_URL"] == "" and  runtime.conf["APPSEC_URL"] == "" then
+    ngx.log(ngx.ERR, "Neither API_URL or APPSEC_URL are defined, remediation component will not do anything")
+  end
+
+  if runtime.conf["API_URL"] == "" and  runtime.conf["APPSEC_URL"] ~= "" then
+    ngx.log(ngx.ERR, "Only APPSEC_URL is defined, local API decisions will be ignored")
   end
 
 
@@ -243,6 +256,9 @@ local function stream_query(premature)
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
+  if runtime.conf["API_URL"] == "" then
+    return
+  end
 
   ngx.log(ngx.DEBUG, "running timers: " .. tostring(ngx.timer.running_count()) .. " | pending timers: " .. tostring(ngx.timer.pending_count()))
 
@@ -375,6 +391,9 @@ local function stream_query(premature)
 end
 
 local function live_query(ip)
+  if runtime.conf["API_URL"] == "" then
+    return true, nil, nil
+  end
   local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
   local res, err = get_remediation_http_request(link)
   if not res then
@@ -454,6 +473,9 @@ end
 
 function csmod.SetupStream()
   -- if it stream mode and startup start timer
+  if runtime.conf["API_URL"] == "" then
+    return
+  end
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
   if runtime.timer_started == false and runtime.conf["MODE"] == "stream" then
     local ok, err
@@ -469,6 +491,10 @@ end
 function csmod.allowIp(ip)
   if runtime.conf == nil then
     return true, nil, "Configuration is bad, cannot run properly"
+  end
+
+  if runtime.conf["API_URL"] == "" then
+    return true, nil, nil
   end
 
   csmod.SetupStream()
@@ -525,10 +551,11 @@ function csmod.AppSecCheck(ip)
   local headers = ngx.req.get_headers()
 
   -- overwrite headers with crowdsec appsec require headers
-  headers["x-crowdsec-appsec-ip"] = ip
-  headers["x-crowdsec-appsec-host"] = ngx.var.http_host
-  headers["x-crowdsec-appsec-verb"] = ngx.var.request_method
-  headers["x-crowdsec-appsec-uri"] = uri
+  headers[APPSEC_IP_HEADER] = ip
+  headers[APPSEC_HOST_HEADER] = ngx.var.http_host
+  headers[APPSEC_VERB_HEADER] = ngx.var.request_method
+  headers[APPSEC_URI_HEADER] = uri
+  headers[APPSEC_USER_AGENT_HEADER] = ngx.var.http_user_agent
   headers[APPSEC_API_KEY_HEADER] = runtime.conf["API_KEY"]
 
   -- set CrowdSec APPSEC Host
