@@ -29,6 +29,11 @@ local PASSTHROUGH = "passthrough"
 local DENY = "deny"
 
 local APPSEC_API_KEY_HEADER = "x-crowdsec-appsec-api-key"
+local APPSEC_IP_HEADER = "x-crowdsec-appsec-ip"
+local APPSEC_HOST_HEADER = "x-crowdsec-appsec-host"
+local APPSEC_VERB_HEADER = "x-crowdsec-appsec-verb"
+local APPSEC_URI_HEADER = "x-crowdsec-appsec-uri"
+local APPSEC_USER_AGENT_HEADER = "x-crowdsec-appsec-user-agent"
 local REMEDIATION_API_KEY_HEADER = 'x-api-key'
 
 
@@ -510,10 +515,11 @@ function csmod.AppSecCheck(ip)
   local headers = ngx.req.get_headers()
 
   -- overwrite headers with crowdsec appsec require headers
-  headers["x-crowdsec-appsec-ip"] = ip
-  headers["x-crowdsec-appsec-host"] = ngx.var.http_host
-  headers["x-crowdsec-appsec-verb"] = ngx.var.request_method
-  headers["x-crowdsec-appsec-uri"] = uri
+  headers[APPSEC_IP_HEADER] = ip
+  headers[APPSEC_HOST_HEADER] = ngx.var.http_host
+  headers[APPSEC_VERB_HEADER] = ngx.var.request_method
+  headers[APPSEC_URI_HEADER] = uri
+  headers[APPSEC_USER_AGENT_HEADER] = ngx.var.http_user_agent
   headers[APPSEC_API_KEY_HEADER] = runtime.conf["API_KEY"]
 
   -- set CrowdSec APPSEC Host
