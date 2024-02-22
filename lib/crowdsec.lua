@@ -118,6 +118,14 @@ function csmod.init(configFile, userAgent)
     end
   end
 
+  if runtime.conf["API_URL"] == "" and  runtime.conf["APPSEC_URL"] == "" then
+    ngx.log(ngx.ERR, "Neither API_URL or APPSEC_URL are defined, remediation component will not do anything")
+  end
+
+  if runtime.conf["API_URL"] == "" and  runtime.conf["APPSEC_URL"] ~= "" then
+    ngx.log(ngx.ERR, "Only APPSEC_URL is defined, local API decisions will be ignored")
+  end
+
 
 
   return true, nil
@@ -228,6 +236,9 @@ local function stream_query(premature)
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
+  if runtime.conf["API_URL"] == "" then
+    return
+  end
 
   ngx.log(ngx.DEBUG, "running timers: " .. tostring(ngx.timer.running_count()) .. " | pending timers: " .. tostring(ngx.timer.pending_count()))
 
@@ -360,6 +371,9 @@ local function stream_query(premature)
 end
 
 local function live_query(ip)
+  if runtime.conf["API_URL"] == "" then
+    return true, nil, nil
+  end
   local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
   local res, err = get_remediation_http_request(link)
   if not res then
@@ -439,6 +453,9 @@ end
 
 function csmod.SetupStream()
   -- if it stream mode and startup start timer
+  if runtime.conf["API_URL"] == "" then
+    return
+  end
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
   if runtime.timer_started == false and runtime.conf["MODE"] == "stream" then
     local ok, err
@@ -454,6 +471,10 @@ end
 function csmod.allowIp(ip)
   if runtime.conf == nil then
     return true, nil, "Configuration is bad, cannot run properly"
+  end
+
+  if runtime.conf["API_URL"] == "" then
+    return true, nil, nil
   end
 
   csmod.SetupStream()
