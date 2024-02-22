@@ -407,7 +407,8 @@ end
 
 local function get_body()
 
-  -- HTTP < 2 allows a body without a content-length (chunked transfer-encoding), but HTTP2 and HTTP3 require a content-length
+  -- the LUA module requires a content-length header to read a body for HTTP 2/3 requests, although it's not mandatory.
+  -- This means that we will likely miss body, but AFAIK, there's no workaround for this.
   -- do not even try to read the body if there's no content-length as the LUA API will throw an error
   if ngx.req.http_version() >= 2 and ngx.var.http_content_length == nil then
     ngx.log(ngx.DEBUG, "No content-length header in request")
