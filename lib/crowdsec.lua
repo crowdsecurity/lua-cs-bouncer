@@ -117,6 +117,14 @@ function csmod.init(configFile, userAgent)
       ngx.log(ngx.DEBUG, "APPSEC port is '" .. u.port .. "'")
       runtime.conf["APPSEC_PORT"] = u.port
     end
+
+    if runtime.conf["APPSEC_SCHEME"] == "unix" then
+      -- if the scheme is unix, then reset all fields to nil
+      runtime.conf["APPSEC_SCHEME"] = nil
+      runtime.conf["APPSEC_PORT"] = nil
+      runtime.conf["APPSEC_HOST"] = nil
+      runtime.conf["APPSEC_PATH"] = nil
+    end
   end
 
 
@@ -588,9 +596,9 @@ function csmod.AppSecCheck(ip)
   end
 
   local httpok, err, ssl_session = httpc:connect({
-    scheme = (runtime.conf["APPSEC_SCHEME"] ~= "unix" and runtime.conf["APPSEC_SCHEME"] or nil),
-    port = (runtime.conf["APPSEC_SCHEME"] ~= "unix" and runtime.conf["APPSEC_PORT"] or nil),
-    host = (runtime.conf["APPSEC_SCHEME"] ~= "unix" and runtime.conf["APPSEC_HOST"] or runtime.conf["APPSEC_URL"]),
+    scheme = runtime.conf["APPSEC_SCHEME"],
+    port = runtime.conf["APPSEC_PORT"],
+    host = runtime.conf["APPSEC_HOST"] or runtime.conf["APPSEC_URL"],
     ssl_verify = runtime.conf["SSL_VERIFY"],
   })
 
@@ -600,7 +608,7 @@ function csmod.AppSecCheck(ip)
   end
 
   local res, err = httpc:request({
-    path = (runtime.conf["APPSEC_SCHEME"] ~= "unix" and runtime.conf["APPSEC_PATH"] or "/"),
+    path = runtime.conf["APPSEC_PATH"] or "/",
     method = method,
     headers = headers,
     body = body,
