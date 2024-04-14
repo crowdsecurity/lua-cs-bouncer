@@ -70,8 +70,7 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
   end
 
-
-  local err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"])
+  local err = ban.new(runtime.conf["BAN_TEMPLATE_PATH"], runtime.conf["REDIRECT_LOCATION"], runtime.conf["RET_CODE"], runtime.conf["BAN_CONTENT_TYPE"])
   if err ~= nil then
     ngx.log(ngx.ERR, "error loading ban plugins: " .. err)
   end

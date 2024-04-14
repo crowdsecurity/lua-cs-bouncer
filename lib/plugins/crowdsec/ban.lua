@@ -5,10 +5,11 @@ local M = {_TYPE='module', _NAME='ban.funcs', _VERSION='1.0-0'}
 
 M.template_str = ""
 M.redirect_location = ""
+M.content_type = "text/html"
 M.ret_code = ngx.HTTP_FORBIDDEN
 
 
-function M.new(template_path, redirect_location, ret_code)
+function M.new(template_path, redirect_location, ret_code, content_type)
     M.redirect_location = redirect_location
 
     ret_code_ok = false
@@ -31,6 +32,20 @@ function M.new(template_path, redirect_location, ret_code)
         if M.template_str ~= nil then
             template_file_ok = true
         end
+    end
+
+    content_type_ok = false
+    if content_type ~= nil and content_type ~= "" then
+      for k, v in pairs(utils.CONTENT_TYPE) do
+          if k == content_type then
+              M.content_type = utils.CONTENT_TYPE[content_type]
+              content_type_ok = true
+              break
+          end
+      end
+      if content_type_ok == false then
+          ngx.log(ngx.ERR, "RET_CONTENT_TYPE '" .. content_type .. "' is not supported, using default content_type " .. M.content_type)
+      end
     end
 
     if template_file_ok == false and (M.redirect_location == nil or M.redirect_location == "") then
@@ -61,14 +76,13 @@ function M.apply(...)
         return
     end
     if M.template_str ~= "" then
-        ngx.header.content_type = "text/html"
+        ngx.header.content_type = M.content_type
         ngx.header.cache_control = "no-cache"
         ngx.status = status
         ngx.say(M.template_str)
         ngx.exit(status)
         return
     end
- 
     ngx.exit(status)
 
     return
