@@ -9,12 +9,20 @@ M.HTTP_CODE["301"] = ngx.HTTP_MOVED_PERMANENTLY
 M.HTTP_CODE["302"] = ngx.HTTP_MOVED_TEMPORARILY
 M.HTTP_CODE["400"] = ngx.HTTP_BAD_REQUEST
 M.HTTP_CODE["401"] = ngx.HTTP_UNAUTHORIZED
-M.HTTP_CODE["401"] = ngx.HTTP_UNAUTHORIZED
 M.HTTP_CODE["403"] = ngx.HTTP_FORBIDDEN
 M.HTTP_CODE["404"] = ngx.HTTP_NOT_FOUND
 M.HTTP_CODE["405"] = ngx.HTTP_NOT_ALLOWED
 M.HTTP_CODE["406"] = ngx.HTTP_NOT_ACCEPTABLE
 M.HTTP_CODE["500"] = ngx.HTTP_INTERNAL_SERVER_ERROR
+
+M.CONTENT_TYPE = {}
+M.CONTENT_TYPE["gif"]  = "image/gif"
+M.CONTENT_TYPE["html"] = "text/html"
+M.CONTENT_TYPE["jpeg"] = "image/jpeg"
+M.CONTENT_TYPE["png"]  = "image/png"
+M.CONTENT_TYPE["svg"]  = "image/svg+xml"
+M.CONTENT_TYPE["text"] = "text/plain"
+M.CONTENT_TYPE["tiff"] = "image/tiff"
 
 function M.read_file(path)
    local file = io.open(path, "r") -- r read mode and b binary mode
@@ -30,10 +38,10 @@ function M.file_exist(path)
    return nil
  end
  local f = io.open(path, "r")
- if f ~= nil then 
+ if f ~= nil then
    io.close(f)
-   return true 
- else 
+   return true
+ else
    return false
  end
 end
@@ -41,7 +49,7 @@ end
 function M.starts_with(str, start)
     return str:sub(1, #start) == start
  end
- 
+
  function M.ends_with(str, ending)
     return ending == "" or str:sub(-#ending) == ending
  end
