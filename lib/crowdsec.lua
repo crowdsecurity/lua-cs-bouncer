@@ -9,6 +9,7 @@ local flag = require "plugins.crowdsec.flag"
 local utils = require "plugins.crowdsec.utils"
 local ban = require "plugins.crowdsec.ban"
 local url = require "plugins.crowdsec.url"
+local metrics = require "plugins.crowdsec.metrics"
 local bit
 if _VERSION == "Lua 5.1" then bit = require "bit" else bit = require "bit32" end
 
@@ -85,6 +86,12 @@ function csmod.init(configFile, userAgent)
   else
     runtime.conf["SSL_VERIFY"] = true
   end
+
+  if runtime.conf["METRICS_PERIOD"] == "" then
+    runtime.conf["METRICS_PERIOD"] = 300
+  end
+
+  metrics.setupTimer(runtime.conf["METRICS_PERIOD"])
 
   if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "false" then
     runtime.conf["ALWAYS_SEND_TO_APPSEC"] = false
@@ -481,7 +488,7 @@ function csmod.allowIp(ip)
   if runtime.conf["API_URL"] == "" then
     return true, nil, nil
   end
-
+  metrics:setupTimer()
   csmod.SetupStream()
 
   local key = item_to_string(ip, "ip")
@@ -498,6 +505,7 @@ function csmod.allowIp(ip)
     local in_cache, remediation_id = runtime.cache:get(key)
     if in_cache ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
+      metrics.increment(ngx.var.location_id, runtime.remediations[tostring(remediation_id)])
       return in_cache, runtime.remediations[tostring(remediation_id)], nil
     end
   end
@@ -515,6 +523,7 @@ function csmod.allowIp(ip)
     local in_cache, remediation_id = runtime.cache:get(item)
     if in_cache ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
+      metrics:increment(ngx.var.location_id,runtime.remediations[tostring(remediation_id)])
       return in_cache, runtime.remediations[tostring(remediation_id)], nil
     end
   end
@@ -522,8 +531,10 @@ function csmod.allowIp(ip)
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
     local ok, remediation, err = live_query(ip)
+    metrics:increment(ngx.var.location_id,remediation)
     return ok, remediation, err
   end
+  metrics:increment("allowed")
   return true, nil, nil
 end
 
