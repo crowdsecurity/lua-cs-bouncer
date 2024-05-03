@@ -112,7 +112,7 @@ end
 
 function metrics:setupTimer(frequency)
   ngx.log(ngx.INFO, "Setting up timer" .. frequency)
-  local ok, err = ngx.timer.at(frequency, function()
+  -- local ok, err = ngx.timer.at(frequency, function()
   if not self.startup then
     self:sendMetrics()
   end
