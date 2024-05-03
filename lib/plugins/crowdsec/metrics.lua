@@ -110,21 +110,6 @@ function metrics:sendMetrics(link, headers, ssl)
 
 end
 
-
-function metrics:setupTimer(frequency)
-  local timer_function = function()
-  if not metrics.startup then
-    metrics:sendMetrics()
-  end
-  metrics:setupTimer(frequency)
-  end
-  local ok, err = ngx.timer.at(frequency, timer_function)
-  if not ok then
-    ngx.log(ngx.ERR, "failed to create timer: ", err)
-  end
-
-end
-
 -- Function to retrieve all keys that start with a given prefix
 function metrics:get_keys_with_prefix(prefix)
     local keys = self.cache:get_keys(0)  -- Retrieve all keys,
