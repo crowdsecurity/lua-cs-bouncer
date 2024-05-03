@@ -87,7 +87,7 @@ function csmod.init(configFile, userAgent)
     runtime.conf["SSL_VERIFY"] = true
   end
 
-  if runtime.conf["METRICS_PERIOD"] == "" then
+  if runtime.conf["METRICS_PERIOD"] == "" or runtime.conf["METRICS_PERIOD"] == nil then
     runtime.conf["METRICS_PERIOD"] = 300
   end
 
