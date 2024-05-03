@@ -110,15 +110,14 @@ function metrics:sendMetrics(link, headers, ssl)
 
 end
 
-function timer_function(metrics, frequency)
+function metrics:setupTimer(frequency)
+  local timer_function = function()
   if not metrics.startup then
     metrics:sendMetrics()
   end
   metrics:setupTimer(frequency)
-end
-
-function metrics:setupTimer(frequency)
-  local ok, err = ngx.timer.at(frequency, timer_function, self, frequency)
+  end
+  local ok, err = ngx.timer.at(frequency, timer_function)
   if not ok then
     ngx.log(ngx.ERR, "failed to create timer: ", err)
   end
