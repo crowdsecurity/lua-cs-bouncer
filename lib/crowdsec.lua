@@ -91,7 +91,7 @@ function csmod.init(configFile, userAgent)
     runtime.conf["METRICS_PERIOD"] = 300
   end
 
-  metrics.setupTimer(runtime.conf["METRICS_PERIOD"])
+  metrics:setupTimer(runtime.conf["METRICS_PERIOD"])
 
   if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "false" then
     runtime.conf["ALWAYS_SEND_TO_APPSEC"] = false
@@ -488,7 +488,6 @@ function csmod.allowIp(ip)
   if runtime.conf["API_URL"] == "" then
     return true, nil, nil
   end
-  metrics:setupTimer()
   csmod.SetupStream()
 
   local key = item_to_string(ip, "ip")
