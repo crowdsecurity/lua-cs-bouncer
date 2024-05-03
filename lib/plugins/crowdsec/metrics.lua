@@ -114,10 +114,7 @@ function metrics:timer_function()
   if not self.startup then
     self:sendMetrics()
   end
-
   self:setupTimer(frequency)
-  end)
-
 end
 
 function metrics:setupTimer(frequency)
