@@ -110,6 +110,7 @@ function metrics:sendMetrics(link, headers, ssl)
 
 end
 
+
 function metrics:setupTimer(frequency)
   local timer_function = function()
   if not metrics.startup then

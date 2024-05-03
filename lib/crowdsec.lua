@@ -22,7 +22,6 @@ runtime.remediations["1"] = "ban"
 runtime.remediations["2"] = "captcha"
 
 
-runtime.timer_started = false
 
 local csmod = {}
 
@@ -91,7 +90,8 @@ function csmod.init(configFile, userAgent)
     runtime.conf["METRICS_PERIOD"] = 300
   end
 
-  metrics:setupTimer(runtime.conf["METRICS_PERIOD"])
+  runtime.cache:set("metrics_started",false) -- to avoid sending metrics before the first period
+  Send_metrics()
 
   if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "false" then
     runtime.conf["ALWAYS_SEND_TO_APPSEC"] = false
@@ -138,9 +138,19 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Only APPSEC_URL is defined, local API decisions will be ignored")
   end
 
-
-
+  Send_metrics()
   return true, nil
+end
+
+function Send_metrics()
+  local started = runtime.cache:get("metrics_started")
+  if started then
+    metrics.sendMetrics(runtime.cache.metrics)
+  end
+  local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Send_metrics)
+  if not ok then
+    error("Failed to create the timer: " .. (err or "unknown"))
+  end
 end
 
 
