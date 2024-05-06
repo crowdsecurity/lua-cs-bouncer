@@ -91,7 +91,6 @@ function csmod.init(configFile, userAgent)
   end
 
   runtime.cache:set("metrics_started",false) -- to avoid sending metrics before the first period
-  Send_metrics()
 
   if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "false" then
     runtime.conf["ALWAYS_SEND_TO_APPSEC"] = false
@@ -138,20 +137,20 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Only APPSEC_URL is defined, local API decisions will be ignored")
   end
 
-  Send_metrics()
-
   return true, nil
 end
 
-function Send_metrics()
+function Setup_metrics()
   local started = runtime.cache:get("metrics_started")
   if started then
     metrics.sendMetrics(runtime.cache.metrics)
   end
-  local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Send_metrics)
+  local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
   if not ok then
     error("Failed to create the timer: " .. (err or "unknown"))
-  end
+  else
+    runtime.cache:set("metrics_started",true)
+  end--TODO add a hold after a few tries
 end
 
 
@@ -633,8 +632,13 @@ function csmod.Allow(ip)
     ngx.exit(ngx.DECLINED)
   end
 
+
+  Setup_metrics()
+
   local remediationSource = flag.BOUNCER_SOURCE
   local ret_code = nil
+
+
 
   if utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
     for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
