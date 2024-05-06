@@ -139,6 +139,7 @@ function csmod.init(configFile, userAgent)
   end
 
   Send_metrics()
+
   return true, nil
 end
 
