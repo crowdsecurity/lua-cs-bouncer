@@ -38,6 +38,8 @@ local cjson = require "cjson"
 local http = require "resty.http"
 
 local metrics = {}
+
+metrics.__index = metrics
 metrics.cache = ngx.shared.crowdsec_cache
 
 
