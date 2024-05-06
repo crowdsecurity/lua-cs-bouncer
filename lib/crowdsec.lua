@@ -532,7 +532,7 @@ function csmod.allowIp(ip)
     local in_cache, remediation_id = runtime.cache:get(item)
     if in_cache ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
-      metrics:increment(ngx.var.location_id,runtime.remediations[tostring(remediation_id)])
+      metrics:increment(ngx.var.uri,runtime.remediations[tostring(remediation_id)])
       return in_cache, runtime.remediations[tostring(remediation_id)], nil
     end
   end
@@ -540,10 +540,10 @@ function csmod.allowIp(ip)
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
     local ok, remediation, err = live_query(ip)
-    metrics:increment(ngx.var.location_id,remediation)
+    metrics:increment(ngx.var.uri,remediation)
     return ok, remediation, err
   end
-  metrics:increment("allowed")
+  metrics:increment(ngx.var.uri,"allowed")
   return true, nil, nil
 end
 
