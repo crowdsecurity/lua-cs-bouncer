@@ -143,7 +143,7 @@ end
 function Setup_metrics()
   local started = runtime.cache:get("metrics_started")
   if started then
-    metrics:sendMetrics(runtime.cache.metrics)
+    metrics:sendMetrics(runtime.conf["API_URL"],runtime.userAgent,runtime.conf["SSL_VERIFY"])
   end
   local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
   if not ok then
