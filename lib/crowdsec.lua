@@ -514,8 +514,7 @@ function csmod.allowIp(ip)
     local in_cache, remediation_id = runtime.cache:get(key)
     if in_cache ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
-      ngx.log(ngx.ERR, "remediation_id: " .. tostring(ngx.var))
-      metrics.increment(ngx.var.location_id, runtime.remediations[tostring(remediation_id)])
+      metrics.increment(ngx.var.uri, runtime.remediations[tostring(remediation_id)])
       return in_cache, runtime.remediations[tostring(remediation_id)], nil
     end
   end
