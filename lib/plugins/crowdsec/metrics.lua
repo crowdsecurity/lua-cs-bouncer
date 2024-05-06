@@ -62,7 +62,7 @@ end
 function metrics:increment(location_id,key, increment)
     increment = increment or 1
 
-    local value, err , forcible = self.cache:increment("metrics" .. key .. "_" .. location_id, increment, 0)
+    local value, err, forcible = self.cache:incr("metrics" .. key .. "_" .. location_id, increment, 0)
     if err then
         ngx.log(ngx.ERR, "failed to increment key: ", err)
     end
