@@ -540,7 +540,11 @@ function csmod.allowIp(ip)
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
     local ok, remediation, err = live_query(ip)
-    metrics:increment(ngx.var.uri,remediation)
+    if remediation ~= nil then
+      metrics:increment(ngx.var.uri,remediation)
+    else
+      metrics:increment(ngx.var.uri,"allowed")
+    end
     return ok, remediation, err
   end
   metrics:increment(ngx.var.uri,"allowed")
