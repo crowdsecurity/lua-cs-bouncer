@@ -84,7 +84,7 @@ function metrics:toJson()
   local filtered_keys = self:get_keys_with_prefix("metrics")
   for _, key in pairs(filtered_keys) do
     local metric, location_id = extract_specific_parts(key)
-    table.insert(self.data.metrics_array, {
+    table.insert(metrics_array, {
       name = metric,
       value = self.cache:get(key),
       unit = "number of requests",
