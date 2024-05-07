@@ -150,6 +150,7 @@ function Setup_metrics()
     error("Failed to create the timer: " .. (err or "unknown"))
   else
     runtime.cache:set("metrics_started",true)
+
   end--TODO add a hold after a few tries
 end
 
