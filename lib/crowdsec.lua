@@ -147,7 +147,6 @@ function Setup_metrics()
   else
     metrics:new(runtime.userAgent, runtime.conf["METRICS_PERIOD"], ngx.time())
   end
-  end
   local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
   if not ok then
     error("Failed to create the timer: " .. (err or "unknown"))
