@@ -82,6 +82,7 @@ end
 function metrics:toJson()
   local metrics_array = {}
   local metrics_data = self.cache:get("metrics_data")
+  ngx.log(ngx.INFO, "metrics_data: " .. metrics_data)
   local filtered_keys = self:get_keys_with_prefix("metrics")
   for _, key in pairs(filtered_keys) do
     local metric, location_id = extract_specific_parts(key)
