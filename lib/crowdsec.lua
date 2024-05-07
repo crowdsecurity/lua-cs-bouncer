@@ -369,7 +369,7 @@ local function stream_query(premature)
         if forcible then
           ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
         end
-        ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. ttl .. "' seconds")
+        ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. ttl .. "' seconds with value " .. tostring(runtime.remediations[tostring(remediation_id)]))
       end
     end
   end
