@@ -80,12 +80,15 @@ function metrics:toJson()
   local keys = {"CAPI","LAPI","cscli","allowed"}
   for _, key in ipairs(keys) do
     local cache_key = "metrics_" .. key
-    ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key))) --debug
-    table.insert(metrics_array, {
-      name = key,
-      value = self.cache:get(cache_key),
-      unit = "number of requests",
-    })
+    ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key)))--debug
+    value = self.cache:get(cache_key)
+    if value ~nil then
+      table.insert(metrics_array, {
+                     name = key,
+                     value = value,
+                     unit = "number of requests",
+      })
+    end
   end
   return cjson.encode({metrics_data, metrics_array})
 end
