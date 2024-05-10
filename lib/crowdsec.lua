@@ -150,11 +150,11 @@ end
 
 
 local function Setup_metrics()
-  local first_run = runtime.cache:get("first_run")
+  local first_run = runtime.cache:get("metrics_first_run")
   if first_run then
     ngx.log(ngx.INFO, "First run for setup metrics ") --debug
     metrics:new(runtime.userAgent, runtime.conf["METRICS_PERIOD"], ngx.time())
-    runtime.cache:set("first_run",false)
+    runtime.cache:set("metrics_first_run",false)
     Setup_metrics_timer()
     return
   end
