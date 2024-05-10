@@ -151,12 +151,14 @@ end
 local function Setup_metrics()
   local first_run = runtime.cache:get("first_run")
   if first_run then
+    ngx.log(ngx.INFO, "First run for setup metrics ") --debug
     metrics:new(runtime.userAgent, runtime.conf["METRICS_PERIOD"], ngx.time())
     runtime.cache:set("first_run",false)
     return
   end
   local started = runtime.cache:get("metrics_startup_time")
   if ngx.time() - started < runtime.conf["METRICS_PERIOD"]  then
+    ngx.log(ngx.INFO, "returning from setup metrics wirouth setuping up the timer 'cause condition is fulfilled ") --debug
     return
   else
     metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"])
@@ -165,7 +167,7 @@ local function Setup_metrics()
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
     else
-    ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(runtime.conf["METRICS_PERIOD"]) .. " seconds")
+      ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(runtime.conf["METRICS_PERIOD"]) .. " seconds")
     end
   end
 end
@@ -390,7 +392,7 @@ local function stream_query(premature)
         end
         local key = item_to_string(decision.value, decision.scope)
         local succ, err, forcible = runtime.cache:set(key, false, ttl, remediation_id+origin_id*4)
-        ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds")
+        ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds") -- debug
         if not succ then
           ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
         end
@@ -443,7 +445,7 @@ local function live_query(ip)
     local key = item_to_string(ip, "ip")
     local succ, err, forcible = runtime.cache:set(key, true, runtime.conf["CACHE_EXPIRATION"], 1)
     --
-    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. runtime.conf["CACHE_EXPIRATION"] .. "' seconds")
+    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. runtime.conf["CACHE_EXPIRATION"] .. "' seconds") --debug
     if not succ then
       ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: "..err)
     end
@@ -459,9 +461,9 @@ local function live_query(ip)
     if remediation_id == nil then
       remediation_id = get_remediation_id(runtime.fallback)
     end
-    ngx.log(ngx.INFO, "Origin ID: " .. decision.origin)
+    ngx.log(ngx.INFO, "Origin ID: " .. decision.origin) --debug
     local origin_id = get_origin_id(decision.origin)
-    ngx.log(ngx.INFO, "Origin ID: " .. origin_id)
+    ngx.log(ngx.INFO, "Origin ID: " .. origin_id) --debug
     if origin_id == nil then
       origin_id = get_origin_id("unknown")
     end
