@@ -148,26 +148,26 @@ function csmod.init(configFile, userAgent)
   return true, nil
 end
 
+
 local function Setup_metrics()
   local first_run = runtime.cache:get("first_run")
   if first_run then
     ngx.log(ngx.INFO, "First run for setup metrics ") --debug
     metrics:new(runtime.userAgent, runtime.conf["METRICS_PERIOD"], ngx.time())
     runtime.cache:set("first_run",false)
-    local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
-    if not ok then
-      error("Failed to create the timer: " .. (err or "unknown"))
-    else
-      ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(runtime.conf["METRICS_PERIOD"]) .. " seconds")
-    end
+    Setup_metrics_timer()
     return
   end
   local started = runtime.cache:get("metrics_startup_time")
-  if ngx.time() - started < runtime.conf["METRICS_PERIOD"] then
-    return
+  if ngx.time() - started >= runtime.conf["METRICS_PERIOD"] then
+    metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"])
+    runtime.cache:set("metrics_startup_time",ngx.time()) --TODO add err handling
+    --TODO rename the cache key
+    Setup_metrics_timer()
   end
-  metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"])
-  runtime.cache:set("metrics_startup_time",ngx.time()) --TODO add err handling
+end
+
+local function Setup_metrics_timer()
   local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
   if not ok then
     error("Failed to create the timer: " .. (err or "unknown"))
@@ -175,6 +175,7 @@ local function Setup_metrics()
     ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(runtime.conf["METRICS_PERIOD"]) .. " seconds")
   end
 end
+
 
 
 function csmod.validateCaptcha(captcha_res, remote_ip)
