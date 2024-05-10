@@ -221,7 +221,7 @@ end
 
 local function get_remediation_id(remediation)
   for key, value in pairs(runtime.remediations) do
-    if value == remediation % 4 then
+    if value == remediation then
       return tonumber(key)
     end
   end
