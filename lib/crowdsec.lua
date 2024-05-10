@@ -157,10 +157,7 @@ local function Setup_metrics()
     return
   end
   local started = runtime.cache:get("metrics_startup_time")
-  if ngx.time() - started < runtime.conf["METRICS_PERIOD"]  then
-    ngx.log(ngx.INFO, tostring(started))
-    ngx.log(ngx.INFO, tostring(ngx.time()))
-    ngx.log(ngx.INFO, "returning from setup metrics wirouth setuping up the timer 'cause condition is not fulfilled ") --debug
+  if ngx.time() - started < runtime.conf["METRICS_PERIOD"] and not first_run then
     return
   else
     metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"])
