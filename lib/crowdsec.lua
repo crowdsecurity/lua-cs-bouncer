@@ -23,6 +23,7 @@ runtime.remediations["2"] = "captcha"
 
 -- origins are stored in cache as int (shared dict tags)
 -- with the same tag as remediations but on the 5th
+runtime.origins = {}
 runtime.origins["0"] = "CAPI"
 runtime.origins["1"] = "LAPI"
 runtime.origins["2"] = "manual"
