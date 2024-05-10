@@ -459,7 +459,9 @@ local function live_query(ip)
     if remediation_id == nil then
       remediation_id = get_remediation_id(runtime.fallback)
     end
+    ngx.log(ngx.INFO, "Origin ID: " .. decision.origin)
     local origin_id = get_origin_id(decision.origin)
+    ngx.log(ngx.INFO, "Origin ID: " .. origin_id)
     if origin_id == nil then
       origin_id = get_origin_id("unknown")
     end
