@@ -62,7 +62,7 @@ end
 function metrics:increment(key, increment)
     increment = increment or 1
 
-    local value, err, forcible = self.cache:incr("metrics" .. key, increment, 0)
+    local value, err, forcible = self.cache:incr("metrics_" .. key, increment, 0)
     if err then
         ngx.log(ngx.ERR, "failed to increment key: ", err)
     end
@@ -78,8 +78,8 @@ function metrics:toJson()
   local metrics_data = self.cache:get("metrics_data")
   ngx.log(ngx.INFO, "metrics_data: " .. metrics_data)
   local keys = {"CAPI","LAPI","cscli","unknown"}
-  for key in ipairs(keys) do
-    local cache_key = "metrics" .. key
+  for _, key in ipairs(keys) do
+    local cache_key = "metrics_" .. key
     table.insert(metrics_array, {
       name = key,
       value = self.cache:get(cache_key),
