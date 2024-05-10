@@ -150,6 +150,14 @@ end
 
 
 local function Setup_metrics()
+  local function Setup_metrics_timer()
+    local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
+    if not ok then
+      error("Failed to create the timer: " .. (err or "unknown"))
+    else
+      ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(runtime.conf["METRICS_PERIOD"]) .. " seconds")
+    end
+  end
   local first_run = runtime.cache:get("metrics_first_run")
   if first_run then
     ngx.log(ngx.INFO, "First run for setup metrics ") --debug
@@ -167,14 +175,6 @@ local function Setup_metrics()
   end
 end
 
-local function Setup_metrics_timer()
-  local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
-  if not ok then
-    error("Failed to create the timer: " .. (err or "unknown"))
-  else
-    ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(runtime.conf["METRICS_PERIOD"]) .. " seconds")
-  end
-end
 
 
 
