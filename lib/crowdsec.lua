@@ -559,6 +559,9 @@ function csmod.allowIp(ip)
   local key_type = key_parts[1]
   if key_type == "normal" then
     local in_cache, flag_id = runtime.cache:get(key)
+    if flag_id == nil then
+      ngx.log(ngx.INFO, "flag_id is nil") --debug
+    end
     if in_cache ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
       metrics:increment(runtime.origins[tostring(flag_id/4)],1)
