@@ -362,6 +362,7 @@ local function stream_query(premature)
           remediation_id = get_remediation_id(runtime.fallback)
         end
         local key = item_to_string(decision.value, decision.scope)
+        ngx.log(ngx.NOTICE, "Adding '" .. key .. "' in cache for '" .. ttl .. "' seconds")
         local succ, err, forcible = runtime.cache:set(key, false, ttl, remediation_id)
         if not succ then
           ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
@@ -369,7 +370,7 @@ local function stream_query(premature)
         if forcible then
           ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
         end
-        ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. ttl .. "' seconds with value " .. tostring(runtime.remediations[tostring(remediation_id)]))
+
       end
     end
   end
