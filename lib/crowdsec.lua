@@ -97,7 +97,7 @@ function csmod.init(configFile, userAgent)
     runtime.conf["METRICS_PERIOD"] = 300
   end
 
-  runtime.cache:set("metrics_started",ngx.time.now())  -- to make sure we have only one thread sending metrics
+  runtime.cache:set("metrics_started", ngx.time())  -- to make sure we have only one thread sending metrics
   runtime.cache:set("metrics_first_run",true) -- to avoid sending metrics before the first period
 
   if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "false" then
@@ -156,11 +156,11 @@ local function Setup_metrics()
     return
   end
   local started = runtime.cache:get("metrics_startup_time")
-  if ngx.time.now() - started < runtime.conf["METRICS_PERIOD"]  then
+  if ngx.time() - started < runtime.conf["METRICS_PERIOD"]  then
     return
   else
     metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"])
-    runtime.cache:set("metrics_started",time.now())
+    runtime.cache:set("metrics_started",ngx.time())
     local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
