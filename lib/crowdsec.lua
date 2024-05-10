@@ -363,7 +363,7 @@ local function stream_query(premature)
         end
         local key = item_to_string(decision.value, decision.scope)
         local succ, err, forcible = runtime.cache:set(key, false, ttl, remediation_id)
-        ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. ttl .. "' seconds")
+        ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds")
         if not succ then
           ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
         end
@@ -415,7 +415,7 @@ local function live_query(ip)
     -- set ip in cache and DON'T block it
     local key = item_to_string(ip, "ip")
     local succ, err, forcible = runtime.cache:set(key, true, runtime.conf["CACHE_EXPIRATION"], 1)
-    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. ttl .. "' seconds")
+    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. runtime.conf["CACHE_EXPIRATION"] .. "' seconds")
     if not succ then
       ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: "..err)
     end
@@ -433,7 +433,7 @@ local function live_query(ip)
     end
     local key = item_to_string(decision.value, decision.scope)
     local succ, err, forcible = runtime.cache:set(key, false, runtime.conf["CACHE_EXPIRATION"], remediation_id)
-    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. ttl .. "' seconds")
+    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. runtime.conf["CACHE_EXPIRATION"] .. "' seconds")
     if not succ then
       ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
     end
