@@ -21,6 +21,12 @@ runtime.remediations = {}
 runtime.remediations["1"] = "ban"
 runtime.remediations["2"] = "captcha"
 
+-- origins are stored in cache as int (shared dict tags)
+-- with the same tag as remediations but on the 5th
+runtime.origins["0"] = "CAPI"
+runtime.origins["1"] = "LAPI"
+runtime.origins["2"] = "manual"
+runtime.origins["3"] = "unknown"
 
 
 local csmod = {}
@@ -90,7 +96,8 @@ function csmod.init(configFile, userAgent)
     runtime.conf["METRICS_PERIOD"] = 300
   end
 
-  runtime.cache:set("metrics_started",false) -- to avoid sending metrics before the first period
+  runtime.cache:set("metrics_started",ngx.time.now())  -- to make sure we have only one thread sending metrics
+  runtime.cache:set("metrics_first_run",true) -- to avoid sending metrics before the first period
 
   if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "false" then
     runtime.conf["ALWAYS_SEND_TO_APPSEC"] = false
@@ -140,20 +147,26 @@ function csmod.init(configFile, userAgent)
   return true, nil
 end
 
-function Setup_metrics()
-  local started = runtime.cache:get("metrics_started")
-  if started then
-    metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"])
-  else
+local function Setup_metrics()
+  local first_run = runtime.cache:get("first_run")
+  if first_run then
     metrics:new(runtime.userAgent, runtime.conf["METRICS_PERIOD"], ngx.time())
+    runtime.cache:set("first_run",false)
+    return
   end
-  local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
-  if not ok then
-    error("Failed to create the timer: " .. (err or "unknown"))
+  local started = runtime.cache:get("metrics_startup_time")
+  if ngx.time.now() - started < runtime.conf["METRICS_PERIOD"]  then
+    return
   else
-    runtime.cache:set("metrics_started",true)
+    metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"])
+    runtime.cache:set("metrics_started",time.now())
+    local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
+    if not ok then
+      error("Failed to create the timer: " .. (err or "unknown"))
+    else
     ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(runtime.conf["METRICS_PERIOD"]) .. " seconds")
-  end --TODO add a hold after a few tries
+    end
+  end
 end
 
 
@@ -207,7 +220,16 @@ end
 
 local function get_remediation_id(remediation)
   for key, value in pairs(runtime.remediations) do
-    if value == remediation then
+    if value == remediation % 4 then
+      return tonumber(key)
+    end
+  end
+  return nil
+end
+
+local function get_origin_id(origin)
+  for key, value in pairs(runtime.remediations) do
+    if value == origin then
       return tonumber(key)
     end
   end
@@ -361,8 +383,12 @@ local function stream_query(premature)
         if remediation_id == nil then
           remediation_id = get_remediation_id(runtime.fallback)
         end
+        local origin_id = get_origin_id(decision.origin)
+        if origin_id == nil then
+          origin_id = get_origin_id("unknown")
+        end
         local key = item_to_string(decision.value, decision.scope)
-        local succ, err, forcible = runtime.cache:set(key, false, ttl, remediation_id)
+        local succ, err, forcible = runtime.cache:set(key, false, ttl, remediation_id+origin_id*4)
         ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds")
         if not succ then
           ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
@@ -398,23 +424,24 @@ end
 
 local function live_query(ip)
   if runtime.conf["API_URL"] == "" then
-    return true, nil, nil
+    return true, nil, nil, nil
   end
   local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
   local res, err = get_remediation_http_request(link)
   if not res then
-    return true, nil, "request failed: ".. err
+    return true, nil, nil, "request failed: ".. err
   end
 
   local status = res.status
   local body = res.body
   if status~=200 then
-    return true, nil, "Http error " .. status .. " while talking to LAPI (" .. link .. ")"
+    return true, nil, nil, "Http error " .. status .. " while talking to LAPI (" .. link .. ")"
   end
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
     local key = item_to_string(ip, "ip")
     local succ, err, forcible = runtime.cache:set(key, true, runtime.conf["CACHE_EXPIRATION"], 1)
+    --
     ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. runtime.conf["CACHE_EXPIRATION"] .. "' seconds")
     if not succ then
       ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: "..err)
@@ -422,7 +449,7 @@ local function live_query(ip)
     if forcible then
       ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
     end
-    return true, nil, nil
+    return true, nil, nil, nil
   end
   local decision = cjson.decode(body)[1]
 
@@ -431,8 +458,12 @@ local function live_query(ip)
     if remediation_id == nil then
       remediation_id = get_remediation_id(runtime.fallback)
     end
+    local origin_id = get_origin_id(decision.origin)
+    if origin_id == nil then
+      origin_id = get_origin_id("unknown")
+    end
     local key = item_to_string(decision.value, decision.scope)
-    local succ, err, forcible = runtime.cache:set(key, false, runtime.conf["CACHE_EXPIRATION"], remediation_id)
+    local succ, err, forcible = runtime.cache:set(key, false, runtime.conf["CACHE_EXPIRATION"], remediation_id+origin_id*4)
     ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. runtime.conf["CACHE_EXPIRATION"] .. "' seconds")
     if not succ then
       ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
@@ -441,9 +472,9 @@ local function live_query(ip)
       ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
     end
     ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. runtime.conf["CACHE_EXPIRATION"] .. "' seconds")
-    return false, decision.type, nil
+    return false, decision.type, decision.origin, nil
   else
-    return true, nil, nil
+    return true, nil, nil, nil
   end
 end
 
@@ -517,11 +548,11 @@ function csmod.allowIp(ip)
 
   local key_type = key_parts[1]
   if key_type == "normal" then
-    local in_cache, remediation_id = runtime.cache:get(key)
+    local in_cache, flag_id = runtime.cache:get(key)
     if in_cache ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
-      metrics.increment(ngx.var.uri, runtime.remediations[tostring(remediation_id)])
-      return in_cache, runtime.remediations[tostring(remediation_id)], nil
+      metrics.increment(runtime.origins[tostring(flag_id/4)],1)
+      return in_cache, runtime.remediations[tostring(flag_id%4)], nil
     end
   end
 
@@ -535,25 +566,25 @@ function csmod.allowIp(ip)
     if key_type == "ipv6" then
       item = key_type.."_"..table.concat(netmask, ":").."_"..iputils.ipv6_band(ip_network_address, netmask)
     end
-    local in_cache, remediation_id = runtime.cache:get(item)
+    local in_cache, flag_id = runtime.cache:get(item)
     if in_cache ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
-      metrics:increment(ngx.var.uri,runtime.remediations[tostring(remediation_id)])
-      return in_cache, runtime.remediations[tostring(remediation_id)], nil
+      metrics:increment(runtime.origins[tostring(flag_id/4)],1)
+      return in_cache, runtime.remediations[tostring(flag_id%4)], nil
     end
   end
 
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
-    local ok, remediation, err = live_query(ip)
+    local ok, remediation, origin, err = live_query(ip)
     if remediation ~= nil then
-      metrics:increment(ngx.var.uri,remediation)
+      metrics:increment("origin",1)
     else
-      metrics:increment(ngx.var.uri,"allowed")
+      metrics:increment("allowed",1)
     end
     return ok, remediation, err
   end
-  metrics:increment(ngx.var.uri,"allowed")
+  metrics:increment("allowed", 1)
   return true, nil, nil
 end
 
