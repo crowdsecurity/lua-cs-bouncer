@@ -77,7 +77,7 @@ function metrics:toJson()
   local metrics_array = {}
   local metrics_data = self.cache:get("metrics_data")
   ngx.log(ngx.INFO, "metrics_data: " .. metrics_data)
-  local keys = {"CAPI","LAPI","manual","unknown"}
+  local keys = {"CAPI","LAPI","cscli","unknown"}
   for key in keys do
     local cache_key = "metrics" .. key
     table.insert(metrics_array, {
