@@ -579,7 +579,7 @@ function csmod.allowIp(ip)
     local in_cache, flag_id = runtime.cache:get(item)
     if in_cache ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
-      ngx.log(ngx.INFO("Increment" .. tostring(flag_id/4)))
+      ngx.log(ngx.INFO, "'" .. key .. "with flag" .. tostring(flag_id) .. "' is in cache")
       metrics:increment(runtime.origins[tostring(flag_id/4)],1)
       return in_cache, runtime.remediations[tostring(flag_id%4)], nil
     end
