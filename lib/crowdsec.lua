@@ -154,20 +154,25 @@ local function Setup_metrics()
     ngx.log(ngx.INFO, "First run for setup metrics ") --debug
     metrics:new(runtime.userAgent, runtime.conf["METRICS_PERIOD"], ngx.time())
     runtime.cache:set("first_run",false)
-    return
-  end
-  local started = runtime.cache:get("metrics_startup_time")
-  if ngx.time() - started < runtime.conf["METRICS_PERIOD"] and not first_run then
-    return
-  else
-    metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"])
-    runtime.cache:set("metrics_startup_time",ngx.time()) --TODO add err handling
     local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
     else
       ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(runtime.conf["METRICS_PERIOD"]) .. " seconds")
     end
+    return
+  end
+  local started = runtime.cache:get("metrics_startup_time")
+  if ngx.time() - started < runtime.conf["METRICS_PERIOD"] then
+    return
+  end
+  metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"])
+  runtime.cache:set("metrics_startup_time",ngx.time()) --TODO add err handling
+  local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
+  if not ok then
+    error("Failed to create the timer: " .. (err or "unknown"))
+  else
+    ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(runtime.conf["METRICS_PERIOD"]) .. " seconds")
   end
 end
 
