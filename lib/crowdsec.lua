@@ -26,7 +26,7 @@ runtime.remediations["2"] = "captcha"
 runtime.origins = {}
 runtime.origins["0"] = "CAPI"
 runtime.origins["1"] = "LAPI"
-runtime.origins["2"] = "manual"
+runtime.origins["2"] = "cscli"
 runtime.origins["3"] = "unknown"
 
 
@@ -229,7 +229,7 @@ local function get_remediation_id(remediation)
 end
 
 local function get_origin_id(origin)
-  for key, value in pairs(runtime.remediations) do
+  for key, value in pairs(runtime.origins) do
     if value == origin then
       return tonumber(key)
     end
