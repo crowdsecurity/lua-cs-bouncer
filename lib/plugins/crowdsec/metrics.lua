@@ -59,10 +59,10 @@ function metrics:new(userAgent, window, startup_timestamp)
 end
 
 -- Increment the value of a key or initialize it if it does not exist
-function metrics:increment(location_id,key, increment)
+function metrics:increment(key, increment)
     increment = increment or 1
 
-    local value, err, forcible = self.cache:incr("metrics" .. key .. "_" .. location_id, increment, 0)
+    local value, err, forcible = self.cache:incr("metrics" .. key, increment, 0)
     if err then
         ngx.log(ngx.ERR, "failed to increment key: ", err)
     end
@@ -72,27 +72,18 @@ function metrics:increment(location_id,key, increment)
     return value
 end
 
-local function extract_specific_parts(input_string)
-    -- The pattern below captures two groups of characters separated by underscores
-    local first_part, second_part = string.match(input_string, "^metrics_([^_]+)_([^_]+)_")
-    return first_part, second_part
-end
-
 -- Export the store data to JSON
 function metrics:toJson()
   local metrics_array = {}
   local metrics_data = self.cache:get("metrics_data")
   ngx.log(ngx.INFO, "metrics_data: " .. metrics_data)
-  local filtered_keys = self:get_keys_with_prefix("metrics")
-  for _, key in pairs(filtered_keys) do
-    local metric, location_id = extract_specific_parts(key)
+  local keys = {"CAPI","LAPI","manual","unknown"}
+  for key in keys do
+    local cache_key = "metrics" .. key
     table.insert(metrics_array, {
-      name = metric,
-      value = self.cache:get(key),
+      name = key,
+      value = self.cache:get(cache_key),
       unit = "number of requests",
-      labels = {
-        location_id = location_id
-      }
     })
   end
   return cjson.encode({metrics_data, metrics_array})
@@ -117,17 +108,5 @@ function metrics:sendMetrics(link, headers, ssl)
 end
 
 -- Function to retrieve all keys that start with a given prefix
-function metrics:get_keys_with_prefix(prefix)
-    local keys = self.cache:get_keys(0)  -- Retrieve all keys,
-    local filtered_keys = {}
-
-    for _, key in ipairs(keys) do
-        if string.sub(key, 1, string.len(prefix)) == prefix then
-            table.insert(filtered_keys, key)
-        end
-    end
-
-    return filtered_keys
-end
 
 return metrics
