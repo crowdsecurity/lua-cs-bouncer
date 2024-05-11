@@ -54,7 +54,11 @@ function metrics:new(userAgent, window, startup_timestamp)
     os = {
       name = "",
       version = ""
-    }
+    },
+    feature_flags = {},
+    type="bouncer",
+    name="nginx bouncer",
+    last_pull = 0
   }))
 end
 
@@ -75,8 +79,7 @@ end
 -- Export the store data to JSON
 function metrics:toJson()
   local metrics_array = {}
-  local metrics_data = self.cache:get("metrics_data")
-  ngx.log(ngx.INFO, "metrics_data: " .. metrics_data)
+  local metrics_data = cjson.decode(self.cache:get("metrics_data"))
   local keys = {"CAPI","LAPI","cscli","allowed"}
   for _, key in ipairs(keys) do
     local cache_key = "metrics_" .. key
