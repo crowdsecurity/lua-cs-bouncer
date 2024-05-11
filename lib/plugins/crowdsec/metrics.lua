@@ -98,7 +98,7 @@ function metrics:toJson()
   table.insert(remediation_components, {
                  metrics_data,
                  metrics})
-  return cjson.encode({metrics_data, metrics})
+  return cjson.encode({remediation_components = remediation_components})
 end
 
 function metrics:sendMetrics(link, headers, ssl)
