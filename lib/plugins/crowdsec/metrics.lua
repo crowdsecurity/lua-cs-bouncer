@@ -85,7 +85,7 @@ function metrics:toJson()
     local cache_key = "metrics_" .. key
     ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key)))--debug
     value = self.cache:get(cache_key)
-    if value ~nil then
+    if value ~= nil then
       table.insert(metrics_array, {
                      name = key,
                      value = value,
