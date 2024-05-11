@@ -94,11 +94,7 @@ function metrics:toJson()
       })
     end
   end
-  local metrics=metrics_array
-  local remediation_components = {}
-  table.insert(remediation_components, {
-                 metrics_data,
-                 metrics})
+  local remediation_components = {metrics_data,metrics=metrics_array}
   return cjson.encode(remediation_components)
 end
 
