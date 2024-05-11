@@ -80,6 +80,7 @@ end
 function metrics:toJson()
   local metrics_array = {}
   local metrics_data = cjson.decode(self.cache:get("metrics_data"))
+  metrics_data.meta.utc_now_timestamp = ngx.time()
   local keys = {"CAPI","LAPI","cscli","allowed"}
   for _, key in ipairs(keys) do
     local cache_key = "metrics_" .. key
@@ -98,7 +99,7 @@ function metrics:toJson()
   table.insert(remediation_components, {
                  metrics_data,
                  metrics})
-  return cjson.encode({remediation_components = remediation_components})
+  return cjson.encode(remediation_components})
 end
 
 function metrics:sendMetrics(link, headers, ssl)
