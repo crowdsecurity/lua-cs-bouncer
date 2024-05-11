@@ -93,7 +93,12 @@ function metrics:toJson()
       })
     end
   end
-  return cjson.encode({metrics_data, metrics_array})
+  local metrics=metrics_array
+  local remediation_components = {}
+  table.insert(remediation_components, {
+                 metrics_data,
+                 metrics})
+  return cjson.encode({metrics_data, metrics})
 end
 
 function metrics:sendMetrics(link, headers, ssl)
