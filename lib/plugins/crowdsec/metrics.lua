@@ -55,8 +55,8 @@ function metrics:new(userAgent, window, startup_timestamp)
       name = "",
       version = ""
     },
-    feature_flags = {},
-    type="bouncer",
+--    feature_flags = {}, none for now, but this should be an array of strings
+    type="lua-bouncer",
     name="nginx bouncer",
     last_pull = 0
   }))
