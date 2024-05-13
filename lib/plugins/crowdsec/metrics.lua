@@ -102,7 +102,7 @@ function metrics:toJson()
 end
 
 function metrics:sendMetrics(link, headers, ssl)
-  local body = self:toJson()
+  local body = self:toJson() .. "\n"
   ngx.log(ngx.INFO, "Sending metrics to " .. link .. "/v1/usage-metrics")
   ngx.log(ngx.INFO, "metrics: " .. body)
   local httpc = http.new()
