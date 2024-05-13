@@ -98,7 +98,7 @@ function metrics:toJson()
   local remediation_components = {}
   table.insert(remediation_components,
                metrics_data)
-  return cjson.encode(remediation_components)
+  return cjson.encode({remediation_components=remediation_components})
 end
 
 function metrics:sendMetrics(link, headers, ssl)
