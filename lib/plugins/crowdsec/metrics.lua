@@ -115,6 +115,9 @@ function metrics:sendMetrics(link, headers, ssl)
   httpc:close()
   if not res then
     ngx.log(ngx.ERR, "failed to send metrics: ", err)
+  else
+    ngx.log(ngx.INFO, "metrics sent: " .. res.status)
+    ngx.log(ngx.INFO, "metrics response: " .. body)
   end
 
 end
