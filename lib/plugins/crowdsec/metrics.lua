@@ -92,7 +92,7 @@ function metrics:toJson()
                      value = value,
                      unit = "number of requests",
       })
-      local success, err = cache:delete(key)
+      local success, err = self.cache:delete(key)
       if success then
          ngx.log(ngx.INFO, "Cache key '", key, "' deleted successfully")
       else
