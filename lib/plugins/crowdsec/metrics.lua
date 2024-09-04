@@ -92,6 +92,7 @@ function metrics:toJson()
                      value = value,
                      unit = "number of requests",
       })
+      self.cache:set(cache_key, 0)
     end
   end
   metrics_data.metrics = metrics_array
