@@ -148,9 +148,8 @@ function metrics:toJson(window)
     }
 
     local items = {}
-    table.insert(items, metrics_array)
     local t = {}
-    t.items = items
+    t.items = metrics_array
     t.meta = meta
 
     metrics_data.metrics = {}
