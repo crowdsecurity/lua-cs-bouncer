@@ -34,6 +34,45 @@
 --   ]
 -- }
 
+-- {
+--   "remediation_components": [
+--     {
+--       "version": "string",
+--       "os": {
+--         "name": "string",
+--         "version": "string"
+--       },
+--       "metrics": [
+--         {
+--           "items": [
+--             {
+--               "name": "string",
+--               "value": 0,
+--               "unit": "string",
+--               "labels": {
+--                 "additionalProp1": "string",
+--                 "additionalProp2": "string",
+--                 "additionalProp3": "string"
+--               }
+--             }
+--           ],
+--           "meta": {
+--             "window_size_seconds": 0,
+--             "utc_now_timestamp": 0
+--           }
+--         }
+--       ],
+--       "feature_flags": [
+--         "string"
+--       ],
+--       "utc_startup_timestamp": 0,
+--       "type": "string",
+--       "name": "string",
+--       "last_pull": 0
+--     }
+--   ],
+
+
 local cjson = require "cjson"
 local http = require "resty.http"
 
@@ -44,13 +83,9 @@ metrics.cache = ngx.shared.crowdsec_cache
 
 
 -- Constructor for the store
-function metrics:new(userAgent, window, startup_timestamp)
+function metrics:new(userAgent)
   self.cache:set("metrics_data", cjson.encode({
     version = userAgent,
-    meta = {
-      window_size_seconds = window,
-      utc_startup_timestamp = startup_timestamp,
-    },
     os = {
       name = "",
       version = ""
@@ -77,7 +112,7 @@ function metrics:increment(key, increment)
 end
 
 -- Export the store data to JSON
-function metrics:toJson()
+function metrics:toJson(window)
   local metrics_array = {}
   local metrics_data = cjson.decode(self.cache:get("metrics_data"))
   metrics_data.meta.utc_now_timestamp = ngx.time()
@@ -100,7 +135,14 @@ function metrics:toJson()
       end
     end
   end
-  metrics_data.metrics = metrics_array
+  metrics_data.metrics = {}
+  metrics_data.metrics.items = metrics_array
+  local meta = {
+      window_size_seconds = window,
+      utc_now_timestamp = ngx.time(),
+    }
+
+  metrics_data.metrics.meta = meta
   local remediation_components = {}
   table.insert(remediation_components,
                metrics_data)
