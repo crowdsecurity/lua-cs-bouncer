@@ -113,6 +113,7 @@ end
 
 -- Export the store data to JSON
 function metrics:toJson(window)
+  local data_exists = false
   local metrics_array = {}
   local metrics_data = cjson.decode(self.cache:get("metrics_data"))
   local keys = {"CAPI","LAPI","cscli","allowed"}
@@ -132,27 +133,32 @@ function metrics:toJson(window)
       else
          ngx.log(ngx.INFO, "Failed to delete cache key '", cache_key, "': ", err)
       end
+      data_exists = true
     end
   end
-  metrics_data.metrics = {}
-  metrics_data.metrics.items = {}
-  table.insert(metrics_data.metrics.items, metrics_array)
-  local meta = {
+
+  if data_exists then
+    metrics_data.metrics = {}
+    metrics_data.metrics.items = {}
+    table.insert(metrics_data.metrics.items, metrics_array)
+    local meta = {
       window_size_seconds = window,
       utc_now_timestamp = ngx.time(),
     }
 
-  local items = {}
-  table.insert(items, metrics_array)
-  local t = {}
-  t.items = items
-  t.meta = meta
+    local items = {}
+    table.insert(items, metrics_array)
+    local t = {}
+    t.items = items
+    t.meta = meta
 
-  metrics_data.metrics = {}
-  table.insert(metrics_data.metrics, t)
+    metrics_data.metrics = {}
+    table.insert(metrics_data.metrics, t)
+  end
   local remediation_components = {}
   table.insert(remediation_components,
                metrics_data)
+
   return cjson.encode({remediation_components=remediation_components})
 end
 
