@@ -148,8 +148,8 @@ function metrics:toJson(window)
   return cjson.encode({remediation_components=remediation_components})
 end
 
-function metrics:sendMetrics(link, headers, ssl)
-  local body = self:toJson() .. "\n"
+function metrics:sendMetrics(link, headers, ssl, window)
+  local body = self:toJson(window) .. "\n"
   ngx.log(ngx.INFO, "Sending metrics to " .. link .. "/v1/usage-metrics")
   ngx.log(ngx.INFO, "metrics: " .. body)
   local httpc = http.new()
