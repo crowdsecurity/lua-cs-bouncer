@@ -115,7 +115,6 @@ end
 function metrics:toJson(window)
   local metrics_array = {}
   local metrics_data = cjson.decode(self.cache:get("metrics_data"))
-  metrics_data.meta.utc_now_timestamp = ngx.time()
   local keys = {"CAPI","LAPI","cscli","allowed"}
   for _, key in ipairs(keys) do
     local cache_key = "metrics_" .. key
