@@ -168,7 +168,7 @@ local function Setup_metrics()
   end
   local started = runtime.cache:get("metrics_startup_time")
   if ngx.time() - started >= runtime.conf["METRICS_PERIOD"] then
-    metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"])
+    metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"], runtime.conf["METRICS_PERIOD"])
     runtime.cache:set("metrics_startup_time",ngx.time()) --TODO add err handling
     --TODO rename the cache key
     Setup_metrics_timer()
