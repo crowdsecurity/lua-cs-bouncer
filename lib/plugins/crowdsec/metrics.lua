@@ -135,13 +135,21 @@ function metrics:toJson(window)
     end
   end
   metrics_data.metrics = {}
-  metrics_data.metrics.items = metrics_array
+  metrics_data.metrics.items = {}
+  table.insert(metrics_data.metrics.items, metrics_array)
   local meta = {
       window_size_seconds = window,
       utc_now_timestamp = ngx.time(),
     }
 
-  metrics_data.metrics.meta = meta
+  local items = {}
+  table.insert(items, metrics_array)
+  local t = {}
+  t.items = items
+  t.meta = meta
+
+  metrics_data.metrics = {}
+  table.insert(metrics_data.metrics, t)
   local remediation_components = {}
   table.insert(remediation_components,
                metrics_data)
