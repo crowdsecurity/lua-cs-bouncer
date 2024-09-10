@@ -15,7 +15,7 @@ live.cache = ngx.shared.crowdsec_cache
 -- @param api_key_header string: the header to use for the API key
 -- @return live: the live object
 
-function live:new(api_url, cache_expiration, bouncing_on_type, time_out, api_key_header)
+function live:new(api_url, cache_expiration, user_agent, bouncing_on_type, time_out, api_key_header)
   local succ, err, forcible = self.cache:set("api_url", api_url)
   if not succ then
     ngx.log(ngx.ERR, "failed to add key api_url in cache: "..err)
@@ -27,6 +27,14 @@ function live:new(api_url, cache_expiration, bouncing_on_type, time_out, api_key
   local succ, err, forcible = self.cache:set("cache_expiration", cache_expiration)
   if not succ then
     ngx.log(ngx.ERR, "failed to add key cache_expiration in cache: "..err)
+  end
+  if forcible then
+    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+  end
+
+  local succ, err, forcible = self.cache:set("user_agent", user_agent)
+  if not succ then
+    ngx.log(ngx.ERR, "failed to add key bouncing_on_type in cache: "..err)
   end
   if forcible then
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
