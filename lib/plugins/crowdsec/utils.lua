@@ -110,7 +110,7 @@ function M.split_on_delimiter(str, delimiter)
   ngx.log(ngx.INFO, "split_on_delimiter: " .. str .. " using delimiter: " .. delimiter)
 
   local result = {}
-  local pattern = "([^" .. delimiter .. "]+)"  -- Create a pattern to match between delimiters
+  -- local pattern = "([^" .. delimiter .. "]+)"  -- Create a pattern to match between delimiters
 
   --for k,v in string.gmatch(str, pattern) do
   --  result[k] = v
