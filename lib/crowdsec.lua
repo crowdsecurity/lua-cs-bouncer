@@ -291,7 +291,7 @@ function csmod.allowIp(ip)
 
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
-    local ok, remediation, origin, err = live:live_query(ip), runtime.conf["API_URL"], runtime.conf["CACHE_EXPIRATION"], runtime.conf["BOUNCING_ON_TYPE"])
+    local ok, remediation, origin, err = live:live_query(ip)
     if remediation ~= nil then
       metrics:increment(origin,1)
     return ok, remediation, err
