@@ -134,7 +134,7 @@ function metrics:toJson(window)
   local data_exists = false
   local metrics_array = {}
   local metrics_data = cjson.decode(self.cache:get("metrics_data"))
-  local keys = metrics:get_all_keys
+  local keys = metrics:get_all_keys()
   for  key in pairs(keys) do
     local cache_key = "metrics_" .. key
     local value = self.cache:get(cache_key)
