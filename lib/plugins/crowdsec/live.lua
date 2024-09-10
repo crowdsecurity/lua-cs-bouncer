@@ -29,6 +29,7 @@ end
 --- Live query the API to get the decision for the IP
 -- Query the live API to get the decision for the IP in real time
 -- @param ip string: the IP to query
+-- @param api_url string: the URL of the LAPI
 -- @param timeout number: the timeout of the request to lapi
 -- @param cache_expiration number: the expiration time of the cache
 -- @param api_key_header string: the authorization header to use for the lapi request
@@ -41,7 +42,7 @@ end
 -- @return string: the origin of the decision
 -- @return string: the error message if any
 
-function live:live_query(ip, timeout, cache_expiration, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
+function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
 
   local link = api_url .. "/v1/decisions?ip=" .. ip
   -- function M.get_remediation_http_request(link,timeout, api_key_header, api_key, user_agent,ssl_verify)
