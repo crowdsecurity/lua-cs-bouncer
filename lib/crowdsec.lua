@@ -289,6 +289,7 @@ function csmod.allowIp(ip)
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
       ngx.log(ngx.INFO, "'" .. key .. "' is in cache")
       local  remediation, origin = utils.split_on_delimiter(decision_string,"/")
+      ngx.log(ngx.INFO, "Decision: " .. remediation .. " | " .. origin)
       metrics:increment(origin,1)
       return flag_id == 1, remediation, nil
     end
