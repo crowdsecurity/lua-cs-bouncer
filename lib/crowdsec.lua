@@ -296,7 +296,7 @@ function csmod.allowIp(ip)
 
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
-    local ok, remediation, origin, err = live:live_query(ip)
+    local ok, remediation, origin, err = live:live_query(ip, runtime.conf['API_KEY'])
     -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok == false and "banned with" or not "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
     if remediation ~= nil then

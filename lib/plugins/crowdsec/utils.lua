@@ -1,4 +1,5 @@
 local iputils = require "plugins.crowdsec.iputils"
+local http = require "resty.http"
 
 local M = {}
 
@@ -89,21 +90,21 @@ function M.item_to_string(item, scope)
   return ip_version.."_"..ip_netmask.."_"..ip_network_address
 end
 
-function M.get_remediation_http_request(link)
+function M.get_remediation_http_request(link,timeout, api_key_header, api_key, user_agent,ssl_verify)
   local httpc = http.new()
   if runtime.conf['MODE'] == 'stream' then
-    httpc:set_timeout(runtime.conf['STREAM_REQUEST_TIMEOUT'])
+    httpc:set_timeout(timeout)
   else
-    httpc:set_timeout(runtime.conf['REQUEST_TIMEOUT'])
+    httpc:set_timeout(timeout)
   end
   local res, err = httpc:request_uri(link, {
     method = "GET",
     headers = {
       ['Connection'] = 'close',
-      [REMEDIATION_API_KEY_HEADER] = runtime.conf["API_KEY"],
-      ['User-Agent'] = runtime.userAgent
+      [api_key_header] = api_key,
+      ['User-Agent'] = user_agent
     },
-    ssl_verify = runtime.conf["SSL_VERIFY"]
+    ssl_verify = ssl_verify
   })
   httpc:close()
   return res, err
