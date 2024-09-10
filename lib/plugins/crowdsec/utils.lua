@@ -111,7 +111,7 @@ function M.get_remediation_http_request(link)
 end
 
 function M.split_on_delimiter(str, delimiter)
-  ngx.log(ngx.DEBUG, "split_on_delimiter: " .. str .. delimiter)
+  ngx.log(ngx.INFO, "split_on_delimiter: " .. str .. delimiter)
   local index = string.find(str, "/")
   if not index then
     return str, ""  -- No delimiter found, return the original string and an empty string
