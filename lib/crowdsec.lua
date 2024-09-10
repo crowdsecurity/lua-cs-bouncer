@@ -296,7 +296,6 @@ function csmod.allowIp(ip)
       if t[1] ~= nil then
         remediation = t[1]
       end
-
       return flag_id == 1, remediation, nil
     end
   end

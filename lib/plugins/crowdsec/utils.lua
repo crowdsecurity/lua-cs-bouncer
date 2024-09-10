@@ -108,14 +108,16 @@ function M.get_remediation_http_request(link,timeout, api_key_header, api_key, u
 end
 
 function M.split_on_delimiter(str, delimiter)
-  ngx.log(ngx.INFO, "split_on_delimiter: " .. str .. delimiter)
-  local index = string.find(str, "/")
-  if not index then
-    return str, ""  -- No delimiter found, return the original string and an empty string
+  ngx.log(ngx.INFO, "split_on_delimiter: " .. str .. " using delimiter: " .. delimiter)
+
+  local result = {}
+  local pattern = "([^" .. delimiter .. "]+)"  -- Create a pattern to match between delimiters
+
+  for part in string.gmatch(str, pattern) do
+    table.insert(result, part)
   end
-  local first = string.sub(str, 1, index - 1)
-  local rest = string.sub(str, index + 1)
-  return {first, M.split_on_delimiter(rest, delimiter)}
+
+  return result  -- Return the split parts as a table
 end
 
 return M
