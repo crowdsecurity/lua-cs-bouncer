@@ -156,7 +156,7 @@ function csmod.init(configFile, userAgent)
     live:new(
       runtime.conf["API_URL"],
       runtime.conf["CACHE_EXPIRATION"],
-      userAgent,
+      runtime.userAgent,
       runtime.conf["BOUNCING_ON_TYPE"],
       runtime.conf["REQUEST_TIMEOUT"],
       REMEDIATION_API_KEY_HEADER
