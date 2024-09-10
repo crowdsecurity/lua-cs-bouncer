@@ -107,6 +107,10 @@ function M.get_remediation_http_request(link,timeout, api_key_header, api_key, u
 end
 
 function M.split_on_delimiter(str, delimiter)
+  if str == nil then
+    return nil
+  end
+
   ngx.log(ngx.INFO, "split_on_delimiter: " .. str .. " using delimiter: " .. delimiter)
 
   local result = {}
