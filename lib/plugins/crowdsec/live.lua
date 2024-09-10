@@ -6,6 +6,13 @@ live.__index = live
 
 live.cache = ngx.shared.crowdsec_cache
 
+--- Create a new live object
+-- Create a new live object to query the live API
+-- @param api_url string: the URL of the live API
+-- @param cache_expiration number: the expiration time of the cache
+-- @param bouncing_on_type string: the type of decision to bounce on
+-- @return live: the live object
+
 function live:new(api_url, cache_expiration, bouncing_on_type)
   local succ, err, forcible = self.cache:set("api_url", api_url)
   if not succ then
@@ -33,13 +40,30 @@ function live:new(api_url, cache_expiration, bouncing_on_type)
   return self
 end
 
+--- Live query the API to get the decision for the IP
+-- Query the live API to get the decision for the IP in real time
+-- @param ip string: the IP to query
+-- @return boolean: true if the IP is allowed, false if the IP is blocked
+-- @return string: the type of the decision
+-- @return string: the origin of the decision
+-- @return string: the error message if any
+
 function live:live_query(ip)
   -- debug: wip
   ngx.log(ngx.INFO, "live_query: " .. ip)
   local cache_expiration = self.cache:get("cache_expiration")
+  if not cache_expiration then
+    ngx.log(ngx.ERR, "cache_expiration not found")
+    return true, nil, nil, nil
+  end
   local bouncing_on_type = self.cache:get("bouncing_on_type")
+  if not cache_expiration then
+    ngx.log(ngx.ERR, "bouncing_on_type not found")
+    return true, nil, nil, nil
+  end
   local api_url = self.cache:get("api_url")
-  if api_url then
+  if not api_url then
+    ngx.log(ngx.ERR, "api_url not found")
     return true, nil, nil, nil
   end
   local link = api_url .. "/v1/decisions?ip=" .. ip
