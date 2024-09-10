@@ -112,6 +112,26 @@ function metrics:increment(key, increment)
     return value
 end
 
+-- Get all metrics as a table (key-value pairs)
+function metrics:get_all_keys()
+    local keys = metrics_module.get_all_metrics_keys()
+    for _, key in ipairs(keys) do
+        local metric_key = get_metric_key(key)
+        metrics[key] = self.cache:get(metric_key)
+    end
+    return metrics
+end
+
+-- Add a metric key to the `metrics_all` list
+function metrics:add_to_metrics(key)
+    local metrics_all = self.cache:get("metrics_all") or ""
+    if not metrics_all:find(key) then
+        metrics_all = metrics_all .. key .. ","
+        self.cache:set("metrics_all", metrics_all)
+    end
+end
+
+
 -- Export the store data to JSON
 function metrics:toJson(window)
   local data_exists = false
