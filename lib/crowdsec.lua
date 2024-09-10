@@ -237,7 +237,6 @@ function csmod.SetupStream()
 end
 
 function csmod.allowIp(ip)
-  local metrics = cjson.decode(runtime.cache.metrics)
   if runtime.conf == nil then
     return true, nil, "Configuration is bad, cannot run properly"
   end
@@ -246,9 +245,7 @@ function csmod.allowIp(ip)
     return true, nil, nil
   end
   csmod.SetupStream()
-  if metrics["processed"] == nil then
-    metrics["processed"] = 0
-  end
+  metrics:increment("processed",1)
 
   local key = utils.item_to_string(ip, "ip")
   if key == nil then
@@ -263,11 +260,7 @@ function csmod.allowIp(ip)
   if key_type == "normal" then
     local decision_string, flag_id = runtime.cache:get(key)
     local  remediation, origin = utils.split_on_first_slash(decision_string)
-    metrics["processed"] = metrics["processed"] + 1
-    if metrics[origin] == nil then
-      metrics[origin] = 0
-    end
-    metrics[origin] = metrics[origin] + 1
+    metrics:increment(origin,1)
     if decision_string ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
       return flag_id == 1, remediation, nil
@@ -289,11 +282,7 @@ function csmod.allowIp(ip)
     if decision_string ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
       ngx.log(ngx.INFO, "'" .. key .. "' is in cache")
-      if metrics[origin] == nil then
-        metrics[origin] = 0
-      end
-      metrics[origin] = metrics[origin] + 1
-
+      metrics:increment(origin,1)
       return flag_id == 1, remediation, nil
     end
   end
@@ -303,7 +292,6 @@ function csmod.allowIp(ip)
     local ok, remediation, origin, err = live:live_query(ip, runtime.conf["API_URL"], runtime.conf["CACHE_EXPIRATION"], runtime.conf["BOUNCING_ON_TYPE"])
     if remediation ~= nil then
       metrics:increment(origin,1)
-    metrics:increment("processed",1)
     return ok, remediation, err
     end
   end
