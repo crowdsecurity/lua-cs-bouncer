@@ -48,7 +48,11 @@ local APPSEC_USER_AGENT_HEADER = "x-crowdsec-appsec-user-agent"
 local REMEDIATION_API_KEY_HEADER = 'x-api-key'
 
 
--- init function
+--- init function
+-- init function called by nginx in init_by_lua_block
+-- @param configFile path to the configuration file
+-- @param userAgent the user agent of the bouncer
+-- @return boolean: true if the init is successful, false otherwise
 function csmod.init(configFile, userAgent)
   local conf, err = config.loadConfig(configFile)
   if conf == nil then
@@ -238,6 +242,7 @@ function csmod.SetupStream()
   end
 end
 
+---
 function csmod.allowIp(ip)
   if runtime.conf == nil then
     return true, nil, "Configuration is bad, cannot run properly"
@@ -292,6 +297,8 @@ function csmod.allowIp(ip)
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
     local ok, remediation, origin, err = live:live_query(ip)
+    -- debug: wip
+    ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok == false and "banned with" or not "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
     if remediation ~= nil then
       metrics:increment(origin,1)
     return ok, remediation, err
@@ -375,6 +382,10 @@ function csmod.AppSecCheck(ip)
 
 end
 
+--- return if the IP is allowed or not
+-- return if the IP is allowed, false otherwise
+-- the function is called from nginx access_by_lua_block
+-- @param ip the IP to check
 function csmod.Allow(ip)
   if runtime.conf["ENABLED"] == "false" then
     ngx.exit(ngx.DECLINED)
