@@ -123,7 +123,6 @@ function csmod.init(configFile, userAgent)
   end
 
 
-  -- if stream mode, add callback to stream_query and start timer
   if runtime.conf["MODE"] == "stream" then
     local succ, err, forcible = runtime.cache:set("startup", true)
     if not succ then
@@ -149,6 +148,9 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Only APPSEC_URL is defined, local API decisions will be ignored")
   end
 
+  if runtime.conf["MODE"] == "live" then
+    live:new(runtime.conf["API_URL"], runtime.conf["CACHE_EXPIRATION"], runtime.conf["BOUNCING_ON_TYPE"])
+  end
   return true, nil
 end
 
@@ -289,7 +291,7 @@ function csmod.allowIp(ip)
 
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
-    local ok, remediation, origin, err = live:LiveQuery(ip, runtime.conf["API_URL"], runtime.conf["CACHE_EXPIRATION"], runtime.conf["BOUNCING_ON_TYPE"])
+    local ok, remediation, origin, err = live:live_query(ip), runtime.conf["API_URL"], runtime.conf["CACHE_EXPIRATION"], runtime.conf["BOUNCING_ON_TYPE"])
     if remediation ~= nil then
       metrics:increment(origin,1)
     return ok, remediation, err

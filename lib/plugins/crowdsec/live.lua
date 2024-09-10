@@ -4,10 +4,16 @@ local utils = require "plugins.crowdsec.utils"
 local live = {}
 live.__index = live
 
-local runtime = {}
-runtime.cache = ngx.shared.crowdsec_cache
+live.cache = ngx.shared.crowdsec_cache
 
-function LiveQuery(ip, api_url, cache_expiration, bouncing_on_type)
+function live:new(api_url, cache_expiration, bouncing_on_type)
+  self.cache:set("api_url", api_url)
+  self.cache:set("cache_expiration", cache_expiration)
+  self.cache:set("bouncing_on_type", bouncing_on_type)
+  return self
+end
+
+function live:live_query(ip, api_url, cache_expiration, bouncing_on_type)
   if api_url then
     return true, nil, nil, nil
   end
