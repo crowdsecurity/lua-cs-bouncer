@@ -114,7 +114,8 @@ end
 
 -- Get all metrics as a table (key-value pairs)
 function metrics:get_all_keys()
-    local keys = metrics_module.get_all_metrics_keys()
+    local keys = metrics.cache:get("metrics_all")
+
     for _, key in ipairs(keys) do
         local metric_key = get_metric_key(key)
         metrics[key] = self.cache:get(metric_key)
