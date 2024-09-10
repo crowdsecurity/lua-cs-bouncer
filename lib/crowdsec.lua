@@ -288,9 +288,15 @@ function csmod.allowIp(ip)
     if decision_string ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
       ngx.log(ngx.INFO, "'" .. key .. "' is in cache")
-      local  remediation, origin = utils.split_on_delimiter(decision_string,"/")
-      ngx.log(ngx.INFO, "Decision: " .. remediation .. " | " .. origin)
-      metrics:increment(origin,1)
+      local  t = utils.split_on_delimiter(decision_string,"/")
+      if t[2] ~= nil then
+        metrics:increment(t[2],1)
+      end
+      local remediation = ""
+      if t[1] ~= nil then
+        remediation = t[1]
+      end
+
       return flag_id == 1, remediation, nil
     end
   end
