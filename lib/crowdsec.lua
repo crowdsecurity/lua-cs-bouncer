@@ -152,8 +152,15 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Only APPSEC_URL is defined, local API decisions will be ignored")
   end
 
+
   if runtime.conf["MODE"] == "live" then
-    live:new(runtime.conf["API_URL"], runtime.conf["CACHE_EXPIRATION"], runtime.conf["BOUNCING_ON_TYPE"])
+    live:new(
+      runtime.conf["API_URL"],
+      runtime.conf["CACHE_EXPIRATION"],
+      runtime.conf["BOUNCING_ON_TYPE"],
+      runtime.conf["REQUEST_TIMEOUT"],
+      REMEDIATION_API_KEY_HEADER
+    )
   end
   return true, nil
 end
@@ -296,7 +303,7 @@ function csmod.allowIp(ip)
 
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
-    ngx.log(ngx.LOG, "live mode")
+    ngx.log(ngx.DEBUG, "live mode")
     local ok, remediation, origin, err = live:live_query(ip, runtime.conf['API_KEY'])
     -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "banned with" or not "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
