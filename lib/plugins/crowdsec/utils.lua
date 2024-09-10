@@ -111,13 +111,14 @@ function M.get_remediation_http_request(link)
 end
 
 function M.split_on_delimiter(str, delimiter)
-    local index = string.find(str, "/")
-    if not index then
-        return str, ""  -- No delimiter found, return the original string and an empty string
-    end
-    local first = string.sub(str, 1, index - 1)
-    local rest = string.sub(str, index + 1)
-    return {first, M.split_on_delimiter(rest, delimiter)}
+  ngx.log(ngx.DEBUG, "split_on_delimiter: " .. str .. delimiter)
+  local index = string.find(str, "/")
+  if not index then
+    return str, ""  -- No delimiter found, return the original string and an empty string
+  end
+  local first = string.sub(str, 1, index - 1)
+  local rest = string.sub(str, index + 1)
+  return {first, M.split_on_delimiter(rest, delimiter)}
 end
 
 return M
