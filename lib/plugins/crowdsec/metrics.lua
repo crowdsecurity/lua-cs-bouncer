@@ -75,7 +75,7 @@
 
 local cjson = require "cjson"
 local http = require "resty.http"
-
+local utils = require "plugins.crowdsec.utils"
 local metrics = {}
 
 metrics.__index = metrics
@@ -116,11 +116,7 @@ end
 function metrics:get_all_keys()
     local keys = metrics.cache:get("metrics_all")
 
-    for _, key in ipairs(keys) do
-        local metric_key = get_metric_key(key)
-        metrics[key] = self.cache:get(metric_key)
-    end
-    return metrics
+    return utils.split_on_delimiter(keys, ",")
 end
 
 -- Add a metric key to the `metrics_all` list
@@ -138,8 +134,8 @@ function metrics:toJson(window)
   local data_exists = false
   local metrics_array = {}
   local metrics_data = cjson.decode(self.cache:get("metrics_data"))
-  local keys = {"CAPI","LAPI","cscli","allowed"}
-  for _, key in ipairs(keys) do
+  local keys = metrics:get_all_keys
+  for  key in pairs(keys) do
     local cache_key = "metrics_" .. key
     local value = self.cache:get(cache_key)
     ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key)))--debug
