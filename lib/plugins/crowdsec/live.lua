@@ -1,6 +1,9 @@
 local cjson = require "cjson"
 local utils = require "plugins.crowdsec.utils"
 
+local live = {}
+live.__index = live
+
 local runtime = {}
 runtime.cache = ngx.shared.crowdsec_cache
 
@@ -52,3 +55,5 @@ function LiveQuery(ip, api_url, cache_expiration, bouncing_on_type)
     return true, nil, nil, nil
   end
 end
+
+return live
