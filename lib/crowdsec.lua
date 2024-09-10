@@ -299,6 +299,7 @@ function csmod.allowIp(ip)
     ngx.log(ngx.DEBUG, "live mode")
     local ok, remediation, origin, err = live:live_query(
       ip,
+      runtime.conf["API_URL"],
       runtime.conf["REQUEST_TIMEOUT"],
       runtime.conf["CAPTCHA_EXPIRATION"],
       REMEDIATION_API_KEY_HEADER,
