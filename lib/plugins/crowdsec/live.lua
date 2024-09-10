@@ -34,6 +34,8 @@ function live:new(api_url, cache_expiration, bouncing_on_type)
 end
 
 function live:live_query(ip)
+  -- debug: wip
+  ngx.log(ngx.INFO, "live_query: " .. ip)
   local cache_expiration = self.cache:get("cache_expiration")
   local bouncing_on_type = self.cache:get("bouncing_on_type")
   local api_url = self.cache:get("api_url")
