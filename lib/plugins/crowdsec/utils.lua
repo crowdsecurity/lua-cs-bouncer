@@ -112,9 +112,9 @@ function M.split_on_delimiter(str, delimiter)
   local result = {}
   local pattern = "([^" .. delimiter .. "]+)"  -- Create a pattern to match between delimiters
 
-  for k,v in string.gmatch(str, pattern) do
-    result[k] = v
-  end
+  --for k,v in string.gmatch(str, pattern) do
+  --  result[k] = v
+  --end
 
   return result  -- Return the split parts as a table
 end
