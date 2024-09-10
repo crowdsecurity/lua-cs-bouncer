@@ -10,7 +10,10 @@ local utils = require "plugins.crowdsec.utils"
 local ban = require "plugins.crowdsec.ban"
 local url = require "plugins.crowdsec.url"
 local metrics = require "plugins.crowdsec.metrics"
+local live = require "plugins.crowdsec.live"
+local stream = require "plugins.crowdsec.stream"
 local bit
+
 if _VERSION == "Lua 5.1" then bit = require "bit" else bit = require "bit32" end
 
 -- contain runtime = {}
@@ -28,6 +31,7 @@ runtime.origins["0"] = "CAPI"
 runtime.origins["1"] = "LAPI"
 runtime.origins["2"] = "cscli"
 runtime.origins["3"] = "unknown"
+
 
 
 local csmod = {}
@@ -161,7 +165,7 @@ local function Setup_metrics()
   local first_run = runtime.cache:get("metrics_first_run")
   if first_run then
     ngx.log(ngx.INFO, "First run for setup metrics ") --debug
-    metrics:new(runtime.userAgent, runtime.conf["METRICS_PERIOD"], ngx.time())
+    metrics:new(runtime.userAgent)
     runtime.cache:set("metrics_first_run",false)
     Setup_metrics_timer()
     return
@@ -182,311 +186,6 @@ function csmod.validateCaptcha(captcha_res, remote_ip)
   return captcha.Validate(captcha_res, remote_ip)
 end
 
-
-local function get_remediation_http_request(link)
-  local httpc = http.new()
-  if runtime.conf['MODE'] == 'stream' then
-    httpc:set_timeout(runtime.conf['STREAM_REQUEST_TIMEOUT'])
-  else
-    httpc:set_timeout(runtime.conf['REQUEST_TIMEOUT'])
-  end
-  local res, err = httpc:request_uri(link, {
-    method = "GET",
-    headers = {
-      ['Connection'] = 'close',
-      [REMEDIATION_API_KEY_HEADER] = runtime.conf["API_KEY"],
-      ['User-Agent'] = runtime.userAgent
-    },
-    ssl_verify = runtime.conf["SSL_VERIFY"]
-  })
-  httpc:close()
-  return res, err
-end
-
-local function parse_duration(duration)
-  local match, err = ngx.re.match(duration, "^((?<hours>[0-9]+)h)?((?<minutes>[0-9]+)m)?(?<seconds>[0-9]+)")
-  local ttl = 0
-  if not match then
-    if err then
-      return ttl, err
-    end
-  end
-  if match["hours"] ~= nil and match["hours"] ~= false then
-    local hours = tonumber(match["hours"])
-    ttl = ttl + (hours * 3600)
-  end
-  if match["minutes"] ~= nil and match["minutes"] ~= false then
-    local minutes = tonumber(match["minutes"])
-    ttl = ttl + (minutes * 60)
-  end
-  if match["seconds"] ~= nil and match["seconds"] ~= false then
-    local seconds = tonumber(match["seconds"])
-    ttl = ttl + seconds
-  end
-  return ttl, nil
-end
-
-local function get_remediation_id(remediation)
-  for key, value in pairs(runtime.remediations) do
-    if value == remediation then
-      return tonumber(key)
-    end
-  end
-  return nil
-end
-
-local function get_origin_id(origin)
-  for key, value in pairs(runtime.origins) do
-    if value == origin then
-      return tonumber(key)
-    end
-  end
-  return nil
-end
-
-local function item_to_string(item, scope)
-  local ip, cidr, ip_version
-  if scope:lower() == "ip" then
-    ip = item
-  end
-  if scope:lower() == "range" then
-    ip, cidr = iputils.splitRange(item, scope)
-  end
-
-  local ip_network_address, is_ipv4 = iputils.parseIPAddress(ip)
-  if ip_network_address == nil then
-    return nil
-  end
-  if is_ipv4 then
-    ip_version = "ipv4"
-    if cidr == nil then
-      cidr = 32
-    end
-  else
-    ip_version = "ipv6"
-    ip_network_address = ip_network_address.uint32[3]..":"..ip_network_address.uint32[2]..":"..ip_network_address.uint32[1]..":"..ip_network_address.uint32[0]
-    if cidr == nil then
-      cidr = 128
-    end
-  end
-
-  if ip_version == nil then
-    return "normal_"..item
-  end
-  local ip_netmask = iputils.cidrToInt(cidr, ip_version)
-  return ip_version.."_"..ip_netmask.."_"..ip_network_address
-end
-
-local function set_refreshing(value)
-  local succ, err, forcible = runtime.cache:set("refreshing", value)
-  if not succ then
-    error("Failed to set refreshing key in cache: "..err)
-  end
-  if forcible then
-    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-  end
-end
-
-local function stream_query(premature)
-  -- As this function is running inside coroutine (with ngx.timer.at),
-  -- we need to raise error instead of returning them
-
-  if runtime.conf["API_URL"] == "" then
-    return
-  end
-
-  ngx.log(ngx.DEBUG, "running timers: " .. tostring(ngx.timer.running_count()) .. " | pending timers: " .. tostring(ngx.timer.pending_count()))
-
-  if premature then
-    ngx.log(ngx.DEBUG, "premature run of the timer, returning")
-    return
-  end
-
-  local refreshing = runtime.cache:get("refreshing")
-
-  if refreshing == true then
-    ngx.log(ngx.DEBUG, "another worker is refreshing the data, returning")
-    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
-    if not ok then
-      error("Failed to create the timer: " .. (err or "unknown"))
-    end
-    return
-  end
-
-  local last_refresh = runtime.cache:get("last_refresh")
-  if last_refresh ~= nil then
-      -- local last_refresh_time = tonumber(last_refresh)
-      local now = ngx.time()
-      if now - last_refresh < runtime.conf["UPDATE_FREQUENCY"] then
-        ngx.log(ngx.DEBUG, "last refresh was less than " .. runtime.conf["UPDATE_FREQUENCY"] .. " seconds ago, returning")
-        local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
-        if not ok then
-          error("Failed to create the timer: " .. (err or "unknown"))
-        end
-        return
-      end
-  end
-
-  set_refreshing(true)
-
-  local is_startup = runtime.cache:get("startup")
-  ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup) .. " | premature: " .. tostring(premature))
-  local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
-  local res, err = get_remediation_http_request(link)
-  if not res then
-    local ok, err2 = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
-    if not ok then
-      set_refreshing(false)
-      error("Failed to create the timer: " .. (err2 or "unknown"))
-    end
-    set_refreshing(false)
-    error("request failed: ".. err)
-  end
-
-  local succ, err, forcible = runtime.cache:set("last_refresh", ngx.time())
-  if not succ then
-    error("Failed to set last_refresh key in cache: "..err)
-  end
-  if forcible then
-    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-  end
-
-  local status = res.status
-  local body = res.body
-
-  ngx.log(ngx.DEBUG, "Response:" .. tostring(status) .. " | " .. tostring(body))
-
-  if status~=200 then
-    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
-    if not ok then
-      set_refreshing(false)
-      error("Failed to create the timer: " .. (err or "unknown"))
-    end
-    set_refreshing(false)
-    error("HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")")
-  end
-
-  local decisions = cjson.decode(body)
-  -- process deleted decisions
-  if type(decisions.deleted) == "table" then
-      for i, decision in pairs(decisions.deleted) do
-        if decision.type == "captcha" then
-          runtime.cache:delete("captcha_" .. decision.value)
-        end
-        local key = item_to_string(decision.value, decision.scope)
-        runtime.cache:delete(key)
-        ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
-      end
-  end
-
-  -- process new decisions
-  if type(decisions.new) == "table" then
-    for i, decision in pairs(decisions.new) do
-      if runtime.conf["BOUNCING_ON_TYPE"] == decision.type or runtime.conf["BOUNCING_ON_TYPE"] == "all" then
-        local ttl, err = parse_duration(decision.duration)
-        if err ~= nil then
-          ngx.log(ngx.ERR, "[Crowdsec] failed to parse ban duration '" .. decision.duration .. "' : " .. err)
-        end
-        local remediation_id = get_remediation_id(decision.type)
-        if remediation_id == nil then
-          remediation_id = get_remediation_id(runtime.fallback)
-        end
-        local origin_id = get_origin_id(decision.origin)
-        if origin_id == nil then
-          origin_id = get_origin_id("unknown")
-        end
-        local key = item_to_string(decision.value, decision.scope)
-        local succ, err, forcible = runtime.cache:set(key, false, ttl, remediation_id+origin_id*4)
-        ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds with flag " .. tostring(remediation_id+origin_id*4)) -- debug
-        if not succ then
-          ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
-        end
-        if forcible then
-          ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-        end
-
-      end
-    end
-  end
-
-  -- not startup anymore after first callback
-  local succ, err, forcible = runtime.cache:set("startup", false)
-  if not succ then
-    ngx.log(ngx.ERR, "failed to set startup key in cache: "..err)
-  end
-  if forcible then
-    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-  end
-
-
-  local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
-  if not ok then
-    set_refreshing(false)
-    error("Failed to create the timer: " .. (err or "unknown"))
-  end
-
-  set_refreshing(false)
-  ngx.log(ngx.DEBUG, "end of stream_query")
-  return nil
-end
-
-local function live_query(ip)
-  if runtime.conf["API_URL"] == "" then
-    return true, nil, nil, nil
-  end
-  local link = runtime.conf["API_URL"] .. "/v1/decisions?ip=" .. ip
-  local res, err = get_remediation_http_request(link)
-  if not res then
-    return true, nil, nil, "request failed: ".. err
-  end
-
-  local status = res.status
-  local body = res.body
-  if status~=200 then
-    return true, nil, nil, "Http error " .. status .. " while talking to LAPI (" .. link .. ")"
-  end
-  if body == "null" then -- no result from API, no decision for this IP
-    -- set ip in cache and DON'T block it
-    local key = item_to_string(ip, "ip")
-    local succ, err, forcible = runtime.cache:set(key, true, runtime.conf["CACHE_EXPIRATION"], 1)
-    --
-    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. runtime.conf["CACHE_EXPIRATION"] .. "' seconds") --debug
-    if not succ then
-      ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: "..err)
-    end
-    if forcible then
-      ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-    end
-    return true, nil, nil, nil
-  end
-  local decision = cjson.decode(body)[1]
-
-  if runtime.conf["BOUNCING_ON_TYPE"] == decision.type or runtime.conf["BOUNCING_ON_TYPE"] == "all" then
-    local remediation_id = get_remediation_id(decision.type)
-    if remediation_id == nil then
-      remediation_id = get_remediation_id(runtime.fallback)
-    end
-    ngx.log(ngx.INFO, "Origin ID: " .. decision.origin) --debug
-    local origin_id = get_origin_id(decision.origin)
-    ngx.log(ngx.INFO, "Origin ID: " .. origin_id) --debug
-    if origin_id == nil then
-      origin_id = get_origin_id("unknown")
-    end
-    local key = item_to_string(decision.value, decision.scope)
-    local succ, err, forcible = runtime.cache:set(key, false, runtime.conf["CACHE_EXPIRATION"], remediation_id+origin_id*4)
-    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. runtime.conf["CACHE_EXPIRATION"] .. "' seconds with flag" .. remediation_id+origin_id*4) --debug
-    if not succ then
-      ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
-    end
-    if forcible then
-      ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-    end
-    ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. runtime.conf["CACHE_EXPIRATION"] .. "' seconds")
-    return false, decision.type, decision.origin, nil
-  else
-    return true, nil, nil, nil
-  end
-end
 
 local function get_body()
 
@@ -528,7 +227,7 @@ function csmod.SetupStream()
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
   if runtime.timer_started == false and runtime.conf["MODE"] == "stream" then
     local ok, err
-    ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream_query)
+    ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream:stream_query())
     if not ok then
       return true, nil, "Failed to create the timer: " .. (err or "unknown")
     end
@@ -538,6 +237,7 @@ function csmod.SetupStream()
 end
 
 function csmod.allowIp(ip)
+  local metrics = cjson.decode(runtime.cache.metrics)
   if runtime.conf == nil then
     return true, nil, "Configuration is bad, cannot run properly"
   end
@@ -546,8 +246,11 @@ function csmod.allowIp(ip)
     return true, nil, nil
   end
   csmod.SetupStream()
+  if metrics["processed"] == nil then
+    metrics["processed"] = 0
+  end
 
-  local key = item_to_string(ip, "ip")
+  local key = utils.item_to_string(ip, "ip")
   if key == nil then
     return true, nil, "Check failed '" .. ip .. "' has no valid IP address"
   end
@@ -558,14 +261,16 @@ function csmod.allowIp(ip)
 
   local key_type = key_parts[1]
   if key_type == "normal" then
-    local in_cache, flag_id = runtime.cache:get(key)
-    if flag_id == nil then
-      ngx.log(ngx.INFO, "flag_id is nil") --debug
+    local decision_string, flag_id = runtime.cache:get(key)
+    local  remediation, origin = utils.split_on_first_slash(decision_string)
+    metrics["processed"] = metrics["processed"] + 1
+    if metrics[origin] == nil then
+      metrics[origin] = 0
     end
-    if in_cache ~= nil then -- we have it in cache
+    metrics[origin] = metrics[origin] + 1
+    if decision_string ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
-      metrics:increment(runtime.origins[tostring((flag_id-flag_id%4)/4)],1)
-      return in_cache, runtime.remediations[tostring(flag_id%4)], nil
+      return flag_id == 1, remediation, nil
     end
   end
 
@@ -579,29 +284,31 @@ function csmod.allowIp(ip)
     if key_type == "ipv6" then
       item = key_type.."_"..table.concat(netmask, ":").."_"..iputils.ipv6_band(ip_network_address, netmask)
     end
-    local in_cache, flag_id = runtime.cache:get(item)
-    if in_cache ~= nil then -- we have it in cache
+    local decision_string, flag_id = runtime.cache:get(item)
+    local  remediation, origin = utils.split_on_first_slash(decision_string)
+    if decision_string ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
       ngx.log(ngx.INFO, "'" .. key .. "' is in cache")
-      metrics:increment(runtime.origins[tostring((flag_id-flag_id%4)/4)],1)
-      return in_cache, runtime.remediations[tostring(flag_id%4)], nil
+      if metrics[origin] == nil then
+        metrics[origin] = 0
+      end
+      metrics[origin] = metrics[origin] + 1
+
+      return flag_id == 1, remediation, nil
     end
   end
 
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
-    local ok, remediation, origin, err = live_query(ip)
+    local ok, remediation, origin, err = live:live_query(ip, runtime.conf["API_URL"], runtime.conf["CACHE_EXPIRATION"], runtime.conf["BOUNCING_ON_TYPE"])
     if remediation ~= nil then
-      metrics:increment("origin",1)
-    else
-      metrics:increment("allowed",1)
-    end
+      metrics:increment(origin,1)
+    metrics:increment("processed",1)
     return ok, remediation, err
+    end
   end
-  metrics:increment("allowed", 1)
   return true, nil, nil
 end
-
 
 function csmod.AppSecCheck(ip)
   local httpc = http.new()

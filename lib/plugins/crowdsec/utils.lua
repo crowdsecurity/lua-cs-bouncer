@@ -1,3 +1,5 @@
+local iputils = require "plugins.crowdsec.iputils"
+
 local M = {}
 
 
@@ -52,6 +54,69 @@ function M.table_len(table)
       count = count + 1
    end
    return count
+end
+
+function M.item_to_string(item, scope)
+  local ip, cidr, ip_version
+  if scope:lower() == "ip" then
+    ip = item
+  end
+  if scope:lower() == "range" then
+    ip, cidr = iputils.splitRange(item, scope)
+  end
+
+  local ip_network_address, is_ipv4 = iputils.parseIPAddress(ip)
+  if ip_network_address == nil then
+    return nil
+  end
+  if is_ipv4 then
+    ip_version = "ipv4"
+    if cidr == nil then
+      cidr = 32
+    end
+  else
+    ip_version = "ipv6"
+    ip_network_address = ip_network_address.uint32[3]..":"..ip_network_address.uint32[2]..":"..ip_network_address.uint32[1]..":"..ip_network_address.uint32[0]
+    if cidr == nil then
+      cidr = 128
+    end
+  end
+
+  if ip_version == nil then
+    return "normal_"..item
+  end
+  local ip_netmask = iputils.cidrToInt(cidr, ip_version)
+  return ip_version.."_"..ip_netmask.."_"..ip_network_address
+end
+
+function M.get_remediation_http_request(link)
+  local httpc = http.new()
+  if runtime.conf['MODE'] == 'stream' then
+    httpc:set_timeout(runtime.conf['STREAM_REQUEST_TIMEOUT'])
+  else
+    httpc:set_timeout(runtime.conf['REQUEST_TIMEOUT'])
+  end
+  local res, err = httpc:request_uri(link, {
+    method = "GET",
+    headers = {
+      ['Connection'] = 'close',
+      [REMEDIATION_API_KEY_HEADER] = runtime.conf["API_KEY"],
+      ['User-Agent'] = runtime.userAgent
+    },
+    ssl_verify = runtime.conf["SSL_VERIFY"]
+  })
+  httpc:close()
+  return res, err
+end
+
+function M.split_on_first_slash(input_str)
+    local slash_index = string.find(input_str, ",")
+    if not slash_index then
+        return input_str, ""  -- No slash found, return the original string and an empty string
+    end
+    local first = string.sub(input_str, 1, slash_index - 1)
+    local rest = string.sub(input_str, slash_index + 1)
+    return first, rest
 end
 
 return M
