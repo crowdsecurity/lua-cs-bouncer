@@ -278,10 +278,10 @@ function csmod.allowIp(ip)
       item = key_type.."_"..table.concat(netmask, ":").."_"..iputils.ipv6_band(ip_network_address, netmask)
     end
     local decision_string, flag_id = runtime.cache:get(item)
-    local  remediation, origin = utils.split_on_delimiter(decision_string,"/")
     if decision_string ~= nil then -- we have it in cache
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
       ngx.log(ngx.INFO, "'" .. key .. "' is in cache")
+      local  remediation, origin = utils.split_on_delimiter(decision_string,"/")
       metrics:increment(origin,1)
       return flag_id == 1, remediation, nil
     end
