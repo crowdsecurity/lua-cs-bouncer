@@ -47,7 +47,8 @@ function live:live_query(ip)
   if not res then
     return true, nil, nil, "request failed: ".. err
   end
-
+  -- debug: wip
+  ngx.log(ngx.INFO, "request" .. res.body)
   local status = res.status
   local body = res.body
   if status~=200 then
