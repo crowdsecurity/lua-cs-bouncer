@@ -32,9 +32,10 @@ function live:new(api_url, cache_expiration, user_agent, bouncing_on_type, time_
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
   end
 
+  ngx.log(ngx.INFO, "debug" .. user_agent)
   local succ, err, forcible = self.cache:set("user_agent", user_agent)
   if not succ then
-    ngx.log(ngx.ERR, "failed to add key bouncing_on_type in cache: "..err)
+    ngx.log(ngx.ERR, "failed to add key user_agent in cache: ".. err)
   end
   if forcible then
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
