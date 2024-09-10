@@ -152,7 +152,6 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Only APPSEC_URL is defined, local API decisions will be ignored")
   end
 
-  ngx.log(ngx.INFO, "debug" .. REMEDIATION_API_KEY_HEADER)
   if runtime.conf["MODE"] == "live" then
     live:new(
       runtime.conf["API_URL"],

@@ -56,6 +56,7 @@ function live:new(api_url, cache_expiration, user_agent, bouncing_on_type, time_
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
   end
 
+  ngx.log(ngx.INFO, "debug" .. api_key_header)
   local succ, err, forcible = self.cache:set("api_key_header", api_key_header)
   if not succ then
     ngx.log(ngx.ERR, "failed to add key api_key_header in cache: "..err)
