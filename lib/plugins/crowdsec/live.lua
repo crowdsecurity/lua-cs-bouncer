@@ -67,6 +67,8 @@ function live:live_query(ip)
   end
   local decision = cjson.decode(body)[1]
 
+  -- debug: wip
+  ngx.log(ngx.INFO, "Decision: " .. decision.type .. " | " .. decision.value .. " | " .. decision.origin .. " | " .. decision.duration)
   if bouncing_on_type == decision.type or bouncing_on_type == "all" then
     local cache_value = decision.type .. "/" .. decision.origin
     local key = utils.item_to_string(decision.value, decision.scope)
