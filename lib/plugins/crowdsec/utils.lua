@@ -92,11 +92,7 @@ end
 
 function M.get_remediation_http_request(link,timeout, api_key_header, api_key, user_agent,ssl_verify)
   local httpc = http.new()
-  if runtime.conf['MODE'] == 'stream' then
-    httpc:set_timeout(timeout)
-  else
-    httpc:set_timeout(timeout)
-  end
+  httpc:set_timeout(timeout)
   local res, err = httpc:request_uri(link, {
     method = "GET",
     headers = {
