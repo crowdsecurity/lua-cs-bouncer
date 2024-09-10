@@ -110,14 +110,15 @@ function M.get_remediation_http_request(link)
   return res, err
 end
 
-function M.split_on_first_slash(input_str)
-    local slash_index = string.find(input_str, ",")
-    if not slash_index then
-        return input_str, ""  -- No slash found, return the original string and an empty string
+function M.split_on_first_delimiter(str, delimiter)
+    local index = string.find(str, "/")
+    if not index then
+        return str, ""  -- No delimiter found, return the original string and an empty string
     end
-    local first = string.sub(input_str, 1, slash_index - 1)
-    local rest = string.sub(input_str, slash_index + 1)
-    return first, rest
+    local first = string.sub(str, 1, index - 1)
+    local rest = string.sub(str, index + 1)
+    return {first, M.split_on_first_delimiter(rest, delimiter)}
 end
 
 return M
+
