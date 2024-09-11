@@ -286,8 +286,8 @@ function csmod.allowIp(ip)
     end
     local decision_string, flag_id = runtime.cache:get(item)
     if decision_string ~= nil then -- we have it in cache
-      ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
-      ngx.log(ngx.INFO, "'" .. key .. "' is in cache")
+      ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache with value'" .. decision_string .. "'")
+      ngx.log(ngx.INFO, "'" .. key .. "' is in cache with value'" .. decision_string .. "'")
       local  t = utils.split_on_delimiter(decision_string,"/")
       if t[2] ~= nil then
         metrics:increment(t[2],1)
