@@ -76,6 +76,7 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
 
   -- debug: wip
   ngx.log(ngx.INFO, "Decision: " .. decision.type .. " | " .. decision.value .. " | " .. decision.origin .. " | " .. decision.duration)
+  ngx.log(ngx.INFO, "Bouncing on type: " .. bouncing_on_type)
   if bouncing_on_type == decision.type or bouncing_on_type == "all" then
     local cache_value = decision.type .. "/" .. decision.origin
     local key = utils.item_to_string(decision.value, decision.scope)
