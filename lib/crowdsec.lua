@@ -244,6 +244,8 @@ function csmod.SetupStream()
     end
     runtime.timer_started = true
     ngx.log(ngx.DEBUG, "Timer launched")
+    --wip debug
+    ngx.log(ngx.INFO, "Timer launched")
   end
 end
 
