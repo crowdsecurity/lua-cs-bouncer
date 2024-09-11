@@ -319,7 +319,8 @@ function csmod.allowIp(ip)
       REMEDIATION_API_KEY_HEADER,
       runtime.conf['API_KEY'],
       runtime.userAgent,
-      runtime.conf["SSL_VERIFY"]
+      runtime.conf["SSL_VERIFY"],
+      runtime.conf["BOUNCING_ON_TYPE"]
     )
     -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
