@@ -39,7 +39,7 @@ end
 
 
 
-function StreamQuery(premature, api_url, update_frequency, bouncing_on_type)
+function stream_query(premature, api_url, update_frequency, bouncing_on_type)
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
@@ -58,7 +58,7 @@ function StreamQuery(premature, api_url, update_frequency, bouncing_on_type)
 
   if refreshing == true then
     ngx.log(ngx.DEBUG, "another worker is refreshing the data, returning")
-    local ok, err = ngx.timer.at(update_frequency, StreamQuery)
+    local ok, err = ngx.timer.at(update_frequency, stream_query)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
     end
@@ -71,7 +71,7 @@ function StreamQuery(premature, api_url, update_frequency, bouncing_on_type)
       local now = ngx.time()
       if now - last_refresh < update_frequency then
         ngx.log(ngx.DEBUG, "last refresh was less than " .. update_frequency .. " seconds ago, returning")
-        local ok, err = ngx.timer.at(update_frequency, StreamQuery)
+        local ok, err = ngx.timer.at(update_frequency, stream_query)
         if not ok then
           error("Failed to create the timer: " .. (err or "unknown"))
         end
