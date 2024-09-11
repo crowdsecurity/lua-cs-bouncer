@@ -286,13 +286,21 @@ function csmod.allowIp(ip)
     end
     local decision_string, flag_id = runtime.cache:get(item)
     if decision_string ~= nil then -- we have it in cache
+      if decision_string == "none" then
+        ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache with value'" .. decision_string .. "'")
+        ngx.log(ngx.INFO, "'" .. key .. "' is allowed in cache")
+        return true, nil, nil
+      end
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache with value'" .. decision_string .. "'")
       ngx.log(ngx.INFO, "'" .. key .. "' is in cache with value'" .. decision_string .. "'")
       local  t = utils.split_on_delimiter(decision_string,"/")
+      if t == nil then
+        return true, nil, "Failed to split decision string"
+      end
+      local remediation = ""
       if t[2] ~= nil then
         metrics:increment(t[2],1)
       end
-      local remediation = ""
       if t[1] ~= nil then
         remediation = t[1]
       end
@@ -314,8 +322,8 @@ function csmod.allowIp(ip)
       runtime.conf["SSL_VERIFY"]
     )
     -- debug: wip
-    ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "banned with" or not "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
-    if remediation ~= nil then
+    ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
+    if remediation ~= nil and remediation ~= "none" then
       metrics:increment(origin,1)
     return ok, remediation, err
     end
