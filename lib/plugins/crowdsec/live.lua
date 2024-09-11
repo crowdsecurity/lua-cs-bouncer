@@ -61,11 +61,11 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
     local key = utils.item_to_string(ip, "ip")
-    local succ, err, forcible = live.cache:set(key, "allowed/all", cache_expiration, 1)
+    local succ, err, forcible = live.cache:set(key, "none", cache_expiration, 1)
     --
     ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds") --debug
     if not succ then
-      ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: "..err)
+      ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: ".. err)
     end
     if forcible then
       ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")

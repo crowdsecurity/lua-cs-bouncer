@@ -103,6 +103,7 @@ function metrics:increment(key, increment)
     increment = increment or 1
 
     local value, err, forcible = self.cache:incr("metrics_" .. key, increment, 0)
+    metrics:add_to_metrics(key)
     if err then
         ngx.log(ngx.ERR, "failed to increment key: ", err)
     end
@@ -124,7 +125,14 @@ function metrics:add_to_metrics(key)
     local metrics_all = self.cache:get("metrics_all") or ""
     if not metrics_all:find(key) then
         metrics_all = metrics_all .. key .. ","
-        self.cache:set("metrics_all", metrics_all)
+        local success, err, forcible = self.cache:set("metrics_all", metrics_all)
+        if not success then
+          ngx.log(ngx.ERR, "failed to set key metrics_all: ", err)
+        end
+        if forcible then
+          ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+        end
+
     end
 end
 
