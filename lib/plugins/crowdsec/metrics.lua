@@ -76,6 +76,7 @@
 local cjson = require "cjson"
 local http = require "resty.http"
 local utils = require "plugins.crowdsec.utils"
+local osinfo = require "plugins.crowdsec.osinfo"
 local metrics = {}
 
 metrics.__index = metrics
@@ -84,11 +85,12 @@ metrics.cache = ngx.shared.crowdsec_cache
 
 -- Constructor for the store
 function metrics:new(userAgent)
+  local osinfo = osinfo.get_os_info()
   self.cache:set("metrics_data", cjson.encode({
     version = userAgent,
     os = {
-      name = "",
-      version = ""
+      name = osinfo["NAME"];
+      version = osinfo["VERSION_ID"];
     },
 --    feature_flags = {}, none for now, but this should be an array of strings
     type="lua-bouncer",

@@ -178,7 +178,12 @@ local function Setup_metrics()
   end
   local started = runtime.cache:get("metrics_startup_time")
   if ngx.time() - started >= runtime.conf["METRICS_PERIOD"] then
-    metrics:sendMetrics(runtime.conf["API_URL"],{['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},runtime.conf["SSL_VERIFY"], runtime.conf["METRICS_PERIOD"])
+    metrics:sendMetrics(
+      runtime.conf["API_URL"],
+      {['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"]},
+      runtime.conf["SSL_VERIFY"],
+      runtime.conf["METRICS_PERIOD"]
+    )
     runtime.cache:set("metrics_startup_time",ngx.time()) --TODO add err handling
     --TODO rename the cache key
     Setup_metrics_timer()
@@ -266,10 +271,21 @@ function csmod.allowIp(ip)
   local key_type = key_parts[1]
   if key_type == "normal" then
     local decision_string, flag_id = runtime.cache:get(key)
-    local  remediation, origin = utils.split_on_first_slash(decision_string)
-    metrics:increment(origin,1)
+    local  t = utils.split_on_delimiter(decision_string,"/")
+    if t == nil then
+      return true, nil, "Failed to split decision string"
+    end
+    ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
+
+    local remediation = ""
+    if t[2] ~= nil then
+      metrics:increment(t[2],1)
+    end
+    if t[1] ~= nil then
+      remediation = t[1]
+    end
     if decision_string ~= nil then -- we have it in cache
-      ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache")
+
       return flag_id == 1, remediation, nil
     end
   end
