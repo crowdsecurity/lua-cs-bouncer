@@ -87,7 +87,9 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
     if forcible then
       ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
     end
+    -- debug: wip
     ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds")
+    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds")
     return false, decision.type, decision.origin, nil
   else
     return true, nil, nil, nil
