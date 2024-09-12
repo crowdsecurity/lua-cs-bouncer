@@ -228,7 +228,7 @@ function csmod.SetupStream()
   if runtime.timer_started == false and runtime.conf["MODE"] == "stream" then
     local ok, err
     ok, err = ngx.timer.at(
-      0, --let's start execute the stream_query function as soon as possible
+      1, --let's start execute the stream_query function as soon as possible
       stream.stream_query,
       runtime.conf["API_URL"],
       runtime.conf["STREAM_REQUEST_TIMEOUT"],
