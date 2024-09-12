@@ -57,7 +57,7 @@ function stream:stream_query(premature, api_url, timeout, api_key_header, api_ke
 
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
-  ngx.log(ngx.INFO, "DEBUG1:" .. api_url)
+  ngx.log(ngx.INFO, "DEBUG1:" .. bouncing_on_type)
 
   if api_url == "" then
     return
