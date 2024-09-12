@@ -231,6 +231,8 @@ function csmod.GetCaptchaBackendKey()
 end
 
 function csmod.SetupStream()
+  -- wip: debug
+  ngx.log(ngx.INFO, "SetupStream")
   -- if it stream mode and startup start timer
   if runtime.conf["API_URL"] == "" then
     return
@@ -317,10 +319,14 @@ function csmod.allowIp(ip)
       end
       local remediation = ""
       if t[2] ~= nil then
-        metrics:increment(t[2],1)
+        metrics:increment(t[2],1) -- origin: at this point we are pretty sure there's one
+        -- and that the decision is a blocking
       end
       if t[1] ~= nil then
-        remediation = t[1]
+        remediation = t[1] -- remediation
+      end
+      if flag_id == 1 then
+        metrics:increment("blocked",1)
       end
       return flag_id == 1, remediation, nil
     end
