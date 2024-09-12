@@ -57,18 +57,19 @@ function stream:stream_query(premature, api_url, timeout, api_key_header, api_ke
 
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
-ngx.log(ngx.INFO, "DEBUG")
+  ngx.log(ngx.INFO, "DEBUG1")
 
   if api_url == "" then
     return
   end
-  ngx.log(ngx.INFO, "DEBUG")
+  ngx.log(ngx.INFO, "DEBUG2")
   ngx.log(ngx.DEBUG, "running timers: " .. tostring(ngx.timer.running_count()) .. " | pending timers: " .. tostring(ngx.timer.pending_count()))
 
   if premature then
     ngx.log(ngx.DEBUG, "premature run of the timer, returning")
     return
   end
+  ngx.log(ngx.INFO, "DEBUG3")
 
   local refreshing = runtime.cache:get("refreshing")
 
