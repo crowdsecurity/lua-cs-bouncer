@@ -67,6 +67,8 @@ function stream:stream_query(premature, api_url, timeout, api_key_header, api_ke
 
   if premature then
     ngx.log(ngx.DEBUG, "premature run of the timer, returning")
+    ngx.log(ngx.INFO, "DEBUGpremature")
+
     return
   end
   ngx.log(ngx.INFO, "DEBUG3")
