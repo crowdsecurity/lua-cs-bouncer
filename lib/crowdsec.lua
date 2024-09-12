@@ -230,6 +230,7 @@ function csmod.SetupStream()
     ok, err = ngx.timer.at(
       1, --let's start execute the stream_query function as soon as possible
       stream.stream_query,
+      stream,
       runtime.conf["API_URL"],
       runtime.conf["STREAM_REQUEST_TIMEOUT"],
       REMEDIATION_API_KEY_HEADER,
