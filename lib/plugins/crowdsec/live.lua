@@ -15,14 +15,7 @@ live.cache = ngx.shared.crowdsec_cache
 -- @param api_key_header string: the header to use for the API key
 -- @return live: the live object
 
-function live:new(api_url)
-  local succ, err, forcible = live.cache:set("api_url", api_url)
-  if not succ then
-    ngx.log(ngx.ERR, "failed to add key about captcha for ip '" .. ip .. "' in cache: "..err)
-  end
-  if forcible then
-    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-  end
+function live:new()
   return self
 end
 

@@ -85,12 +85,12 @@ metrics.cache = ngx.shared.crowdsec_cache
 
 -- Constructor for the store
 function metrics:new(userAgent)
-  local osinfo = osinfo.get_os_info()
+  local info = osinfo.get_os_info()
   self.cache:set("metrics_data", cjson.encode({
     version = userAgent,
     os = {
-      name = osinfo["NAME"];
-      version = osinfo["VERSION_ID"];
+      name = info["NAME"];
+      version = info["VERSION_ID"];
     },
 --    feature_flags = {}, none for now, but this should be an array of strings
     type="lua-bouncer",
@@ -155,11 +155,13 @@ function metrics:toJson(window)
                      value = value,
                      unit = "number of requests",
       })
-      local success, err = self.cache:delete(cache_key)
-      if success then
-         ngx.log(ngx.INFO, "Cache key '", cache_key, "' deleted successfully")
-      else
-         ngx.log(ngx.INFO, "Failed to delete cache key '", cache_key, "': ", err)
+      if key ~= "metrics_actives_decisions" then
+        local success, err = self.cache:delete(cache_key)
+        if success then
+          ngx.log(ngx.INFO, "Cache key '", cache_key, "' deleted successfully")
+        else
+          ngx.log(ngx.INFO, "Failed to delete cache key '", cache_key, "': ", err)
+        end
       end
       data_exists = true
     end

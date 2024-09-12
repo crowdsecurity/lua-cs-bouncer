@@ -18,25 +18,8 @@ if _VERSION == "Lua 5.1" then bit = require "bit" else bit = require "bit32" end
 
 -- contain runtime = {}
 local runtime = {}
--- remediations are stored in cache as int (shared dict tags)
--- we need to translate IDs to text with this.
-runtime.remediations = {}
-runtime.remediations["1"] = "ban"
-runtime.remediations["2"] = "captcha"
-
--- origins are stored in cache as int (shared dict tags)
--- with the same tag as remediations but on the 5th
-runtime.origins = {}
-runtime.origins["0"] = "CAPI"
-runtime.origins["1"] = "LAPI"
-runtime.origins["2"] = "cscli"
-runtime.origins["3"] = "unknown"
-
-
-
 local csmod = {}
 
-local PASSTHROUGH = "passthrough"
 local DENY = "deny"
 
 local APPSEC_API_KEY_HEADER = "x-crowdsec-appsec-api-key"
@@ -154,6 +137,8 @@ function csmod.init(configFile, userAgent)
 
   if runtime.conf["MODE"] == "live" then
     live:new()
+  else
+    stream:new()
   end
   return true, nil
 end
@@ -240,7 +225,18 @@ function csmod.SetupStream()
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
   if runtime.timer_started == false and runtime.conf["MODE"] == "stream" then
     local ok, err
-    ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], stream:stream_query())
+    ok, err = ngx.timer.at(
+      runtime.conf["UPDATE_FREQUENCY"],
+      stream.stream_query,
+      runtime.conf["API_URL"],
+      runtime.conf["STREAM_REQUEST_TIMEOUT"],
+      REMEDIATION_API_KEY_HEADER,
+      runtime.conf["API_KEY"],
+      runtime.userAgent,
+      runtime.conf["SSL_VERIFY"],
+      runtime.conf["BOUNCING_ON_TYPE"],
+      runtime.conf["UPDATE_FREQUENCY"]
+    )
     if not ok then
       return true, nil, "Failed to create the timer: " .. (err or "unknown")
     end
@@ -326,7 +322,7 @@ function csmod.allowIp(ip)
         remediation = t[1] -- remediation
       end
       if flag_id == 1 then
-        metrics:increment("blocked",1)
+        metrics:increment("dropped",1)
       end
       return flag_id == 1, remediation, nil
     end

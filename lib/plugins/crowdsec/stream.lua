@@ -1,6 +1,9 @@
 local utils = require "plugins.crowdsec.utils"
 local cjson = require "cjson"
 local runtime = {}
+local stream = {}
+
+stream.__index = stream
 
 runtime.cache = ngx.shared.crowdsec_cache
 
@@ -38,8 +41,20 @@ local function parse_duration(duration)
 end
 
 
+function stream:new()
+  local succ, err, forcible = runtime.cache:set("metrics_actives_decisions", 0)
+  if not succ then
+    ngx.log(ngx.ERR, "failed to add captcha state key in cache: "..err)
+  end
+  if forcible then
+    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+  end
 
-function stream_query(premature, api_url, update_frequency, bouncing_on_type)
+  return self
+end
+
+function stream:stream_query(premature, api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type, update_frequency)
+
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
@@ -58,7 +73,7 @@ function stream_query(premature, api_url, update_frequency, bouncing_on_type)
 
   if refreshing == true then
     ngx.log(ngx.DEBUG, "another worker is refreshing the data, returning")
-    local ok, err = ngx.timer.at(update_frequency, stream_query)
+    local ok, err = ngx.timer.at(update_frequency, self.stream_query, api_url, update_frequency, bouncing_on_type)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
     end
@@ -71,7 +86,7 @@ function stream_query(premature, api_url, update_frequency, bouncing_on_type)
       local now = ngx.time()
       if now - last_refresh < update_frequency then
         ngx.log(ngx.DEBUG, "last refresh was less than " .. update_frequency .. " seconds ago, returning")
-        local ok, err = ngx.timer.at(update_frequency, stream_query)
+        local ok, err = ngx.timer.at(update_frequency, self.stream_query, api_url, update_frequency, bouncing_on_type
         if not ok then
           error("Failed to create the timer: " .. (err or "unknown"))
         end
@@ -83,10 +98,15 @@ function stream_query(premature, api_url, update_frequency, bouncing_on_type)
 
   local is_startup = runtime.cache:get("startup")
   ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup) .. " | premature: " .. tostring(premature))
-  local link = runtime.conf["API_URL"] .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
-  local res, err = utils.get_remediation_http_request(link)
+  local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
+  local res, err = utils.get_remediation_http_request(link,
+                                                      timeout,
+                                                      api_key_header,
+                                                      api_key,
+                                                      user_agent,
+                                                      ssl_verify)
   if not res then
-    local ok, err2 = ngx.timer.at(update_frequency, StreamQuery)
+    local ok, err2 = ngx.timer.at(update_frequency, self.stream_query,, api_url, update_frequency, bouncing_on_type)
     if not ok then
       set_refreshing(false)
       error("Failed to create the timer: " .. (err2 or "unknown"))
@@ -109,7 +129,7 @@ function stream_query(premature, api_url, update_frequency, bouncing_on_type)
   ngx.log(ngx.DEBUG, "Response:" .. tostring(status) .. " | " .. tostring(body))
 
   if status~=200 then
-    local ok, err = ngx.timer.at(update_frequency, StreamQuery)
+    local ok, err = ngx.timer.at(update_frequency, self.stream_query)
     if not ok then
       set_refreshing(false)
       error("Failed to create the timer: " .. (err or "unknown"))
@@ -119,21 +139,26 @@ function stream_query(premature, api_url, update_frequency, bouncing_on_type)
   end
 
   local decisions = cjson.decode(body)
+
   -- process deleted decisions
+  local deleted = 0
   if type(decisions.deleted) == "table" then
-      for i, decision in pairs(decisions.deleted) do
-        if decision.type == "captcha" then
-          runtime.cache:delete("captcha_" .. decision.value)
-        end
-        local key = utils.item_to_string(decision.value, decision.scope)
-        runtime.cache:delete(key)
-        ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
+    for i, decision in pairs(decisions.deleted) do
+      deleted = deleted + 1
+      if decision.type == "captcha" then
+        runtime.cache:delete("captcha_" .. decision.value)
       end
+      local key = utils.item_to_string(decision.value, decision.scope)
+      runtime.cache:delete(key)
+      ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
+    end
   end
 
   -- process new decisions
+  local added = 0
   if type(decisions.new) == "table" then
     for i, decision in pairs(decisions.new) do
+      added = added + 1
       if bouncing_on_type == decision.type or bouncing_on_type == "all" then
         local ttl, err = parse_duration(decision.duration)
         if err ~= nil then
@@ -141,7 +166,7 @@ function stream_query(premature, api_url, update_frequency, bouncing_on_type)
         end
         local key = utils.item_to_string(decision.value, decision.scope)
         local succ, err, forcible = runtime.cache:set(key, decision.type .. "/" .. decision.origin, ttl, 0)
-        ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds " .. tostring(remediation_id+origin_id*4)) -- debug
+        ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds " .. decision.type .. "/" .. decision.origin) -- debug
         if not succ then
           ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
         end
@@ -151,7 +176,17 @@ function stream_query(premature, api_url, update_frequency, bouncing_on_type)
 
       end
     end
+    local metrics_actives_decisions = runtime.cache:get("metrics_actives_decisions") or 0
+    local succ, err, forcible = runtime.cache:set("metrics_active_decisions",metrics_actives_decisions+added-deleted)
+    if not succ then
+      ngx.log(ngx.ERR, "failed to add ".. metrics_actives_decisions .." : "..err)
+        end
+    if forcible then
+      ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+    end
   end
+
+
 
   -- not startup anymore after first callback
   local succ, err, forcible = runtime.cache:set("startup", false)
@@ -163,7 +198,7 @@ function stream_query(premature, api_url, update_frequency, bouncing_on_type)
   end
 
 
-  local ok, err = ngx.timer.at(update_frequency, StreamQuery)
+  local ok, err = ngx.timer.at(update_frequency, stream_query)
   if not ok then
     set_refreshing(false)
     error("Failed to create the timer: " .. (err or "unknown"))
@@ -173,3 +208,5 @@ function stream_query(premature, api_url, update_frequency, bouncing_on_type)
   ngx.log(ngx.DEBUG, "end of stream_query")
   return nil
 end
+
+return stream
