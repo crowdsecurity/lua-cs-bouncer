@@ -61,7 +61,7 @@ function stream:stream_query(premature, api_url, timeout, api_key_header, api_ke
   if api_url == "" then
     return
   end
-
+  ngx.log(ngx.INFO, "DEBUG")
   ngx.log(ngx.DEBUG, "running timers: " .. tostring(ngx.timer.running_count()) .. " | pending timers: " .. tostring(ngx.timer.pending_count()))
 
   if premature then
