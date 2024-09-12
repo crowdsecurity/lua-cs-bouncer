@@ -219,7 +219,7 @@ end
 
 function csmod.SetupStream()
   -- wip: debug
-  ngx.log(ngx.INFO, "SetupStream")
+  ngx.log(ngx.INFO, "SetupStream" .. runtime.conf["API_URL"])
   -- if it stream mode and startup start timer
   if runtime.conf["API_URL"] == "" then
     return
