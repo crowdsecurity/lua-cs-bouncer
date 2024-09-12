@@ -73,7 +73,7 @@ function stream:stream_query(premature, api_url, timeout, api_key_header, api_ke
 
   if refreshing == true then
     ngx.log(ngx.DEBUG, "another worker is refreshing the data, returning")
-    local ok, err = ngx.timer.at(update_frequency, self.stream_query, api_url, update_frequency, bouncing_on_type)
+    local ok, err = ngx.timer.at(update_frequency, self.stream_query, api_url, api_url, timeout, api_key_header, api_key, ssl_verify, bouncing_on_type, update_frequency)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
     end
@@ -86,7 +86,7 @@ function stream:stream_query(premature, api_url, timeout, api_key_header, api_ke
       local now = ngx.time()
       if now - last_refresh < update_frequency then
         ngx.log(ngx.DEBUG, "last refresh was less than " .. update_frequency .. " seconds ago, returning")
-        local ok, err = ngx.timer.at(update_frequency, self.stream_query, api_url, update_frequency, bouncing_on_type
+        local ok, err = ngx.timer.at(update_frequency, self.stream_query, api_url, timeout, api_key_header, api_key, ssl_verify, bouncing_on_type, update_frequency)
         if not ok then
           error("Failed to create the timer: " .. (err or "unknown"))
         end
@@ -106,7 +106,7 @@ function stream:stream_query(premature, api_url, timeout, api_key_header, api_ke
                                                       user_agent,
                                                       ssl_verify)
   if not res then
-    local ok, err2 = ngx.timer.at(update_frequency, self.stream_query,, api_url, update_frequency, bouncing_on_type)
+    local ok, err2 = ngx.timer.at(update_frequency, self.stream_query,api_url, api_url, timeout, api_key_header, api_key, ssl_verify, bouncing_on_type, update_frequency)
     if not ok then
       set_refreshing(false)
       error("Failed to create the timer: " .. (err2 or "unknown"))
