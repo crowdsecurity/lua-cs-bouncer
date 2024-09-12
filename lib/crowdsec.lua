@@ -16,8 +16,10 @@ local bit
 
 if _VERSION == "Lua 5.1" then bit = require "bit" else bit = require "bit32" end
 
--- contain runtime = {}
 local runtime = {}
+
+runtime.timer_started = false
+
 local csmod = {}
 
 local DENY = "deny"
