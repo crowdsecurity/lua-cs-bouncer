@@ -226,7 +226,6 @@ function csmod.SetupStream()
   end
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
   if runtime.timer_started == false and runtime.conf["MODE"] == "stream" then
-    ngx.log(ngx.INFO, "DEBUG")
     local ok, err
     ok, err = ngx.timer.at(
       runtime.conf["UPDATE_FREQUENCY"],
