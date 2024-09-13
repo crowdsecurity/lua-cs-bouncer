@@ -289,6 +289,9 @@ function csmod.allowIp(ip)
   if runtime.conf["API_URL"] == "" then
     return true, nil, nil
   end
+
+  ngx.log(ngx.INFO, "DEBUG: allowIp")
+
   if runtime.conf["mode"] == "stream" then
     ngx.log(ngx.INFO, "stream mode")
     SetupStream()
