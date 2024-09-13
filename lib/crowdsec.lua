@@ -290,6 +290,7 @@ function csmod.allowIp(ip)
     return true, nil, nil
   end
   if runtime.conf["mode"] == "stream" then
+    ngx.log(ngx.INFO, "stream mode")
     SetupStream()
   end
   metrics:increment("processed",1)
