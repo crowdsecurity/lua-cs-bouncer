@@ -252,10 +252,24 @@ local function SetupStream()
       end
   end
 
+  err = stream:stream_query(
+    runtime.conf["API_URL"],
+    runtime.conf["REQUEST_TIMEOUT"],
+    REMEDIATION_API_KEY_HEADER,
+    runtime.conf["API_KEY"],
+    runtime.userAgent,
+    runtime.conf["SSL_VERIFY"],
+    runtime.conf["BOUNCING_ON_TYPE"],
+    runtime.conf["UPDATE_FREQUENCY"]
+  )
+  if err ~=nil then
+    ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
+    error("Failed to query the stream: " .. err)
+  end
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
-  if runtime.timer_started == false and runtime.conf["MODE"] == "stream" then
+  if not runtime.timer_started then
     local ok, err
-    ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"],stream.stream_query)
+    ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"],SetupStream)
     if not ok then
       return true, nil, "Failed to create the timer: " .. (err or "unknown")
     end

@@ -51,25 +51,20 @@ function stream:new()
   return self
 end
 
-function stream:stream_query(premature, api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type, update_frequency)
+function stream:stream_query(api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type, update_frequency)
 
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
   if api_url == "" then
-    return
+    return "No API URL defined"
   end
 
-  if premature then
-    ngx.log(ngx.DEBUG, "premature run of the timer, returning")
-
-    return
-  end
 
   set_refreshing(true)
 
   local is_startup = stream.cache:get("startup")
-  ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup) .. " | premature: " .. tostring(premature))
+  ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup) .. " | premature: ")
   local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
   local res, err = utils.get_remediation_http_request(link,
                                                       timeout,
@@ -78,18 +73,13 @@ function stream:stream_query(premature, api_url, timeout, api_key_header, api_ke
                                                       user_agent,
                                                       ssl_verify)
   if not res then
-    local ok, err2 = ngx.timer.at(update_frequency, self.stream_query,api_url, api_url, timeout, api_key_header, api_key, ssl_verify, bouncing_on_type, update_frequency)
-    if not ok then
-      set_refreshing(false)
-      error("Failed to create the timer: " .. (err2 or "unknown"))
-    end
     set_refreshing(false)
-    error("request failed: ".. err)
+    return "request failed: " .. err
   end
 
   local succ, err, forcible = stream.cache:set("last_refresh", ngx.time())
   if not succ then
-    error("Failed to set last_refresh key in cache: "..err)
+    ngx.log(ngx.ERR, "Failed to set last_refresh key in cache: " .. err)
   end
   if forcible then
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
@@ -101,13 +91,8 @@ function stream:stream_query(premature, api_url, timeout, api_key_header, api_ke
   ngx.log(ngx.DEBUG, "Response:" .. tostring(status) .. " | " .. tostring(body))
 
   if status~=200 then
-    local ok, err = ngx.timer.at(update_frequency, self.stream_query)
-    if not ok then
-      set_refreshing(false)
-      error("Failed to create the timer: " .. (err or "unknown"))
-    end
     set_refreshing(false)
-    error("HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")")
+    return "HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")"
   end
 
   local decisions = cjson.decode(body)
