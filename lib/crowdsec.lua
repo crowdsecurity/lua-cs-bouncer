@@ -113,7 +113,6 @@ function csmod.init(configFile, userAgent)
 
 
   if runtime.conf["MODE"] == "stream" then
-    ngx.log(ngx.INFO, "DEBUG: stream mode")
     local succ, err, forcible = runtime.cache:set("startup", true)
     if not succ then
       ngx.log(ngx.ERR, "failed to add startup key in cache: "..err)
@@ -291,9 +290,7 @@ function csmod.allowIp(ip)
     return true, nil, nil
   end
 
-  ngx.log(ngx.INFO, "DEBUG: allowIp:" .. runtime.conf["mode"])
-
-  if runtime.conf["mode"] == "stream" then
+  if runtime.conf["MODE"] == "stream" then
     ngx.log(ngx.INFO, "stream mode")
     SetupStream()
   end
