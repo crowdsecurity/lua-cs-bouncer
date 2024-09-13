@@ -217,29 +217,45 @@ function csmod.GetCaptchaBackendKey()
   return captcha.GetCaptchaBackendKey()
 end
 
-function csmod.SetupStream()
+local function SetupStream()
   -- wip: debug
   ngx.log(ngx.INFO, "SetupStream" .. runtime.conf["API_URL"])
   -- if it stream mode and startup start timer
   if runtime.conf["API_URL"] == "" then
     return
   end
+
+  ngx.log(ngx.DEBUG, "running timers: " .. tostring(ngx.timer.running_count()) .. " | pending timers: " .. tostring(ngx.timer.pending_count()))
+  local refreshing = stream.cache:get("refreshing")
+
+  if refreshing == true then
+    ngx.log(ngx.DEBUG, "another worker is refreshing the data, returning")
+    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], csmod.SetupStream)
+    if not ok then
+      error("Failed to create the timer: " .. (err or "unknown"))
+    end
+    return
+  end
+
+
+  local last_refresh = stream.cache:get("last_refresh")
+  if last_refresh ~= nil then
+      -- local last_refresh_time = tonumber(last_refresh)
+      local now = ngx.time()
+      if now - last_refresh < runtime.conf["UPDATE_FREQUENCY"] then
+        ngx.log(ngx.DEBUG, "last refresh was less than " .. runtime.conf["UPDATE_FREQUENCY"] .. " seconds ago, returning")
+        local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStream)
+        if not ok then
+          error("Failed to create the timer: " .. (err or "unknown"))
+        end
+        return
+      end
+  end
+
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
   if runtime.timer_started == false and runtime.conf["MODE"] == "stream" then
     local ok, err
-    ok, err = ngx.timer.at(
-      1, --let's start execute the stream_query function as soon as possible
-      stream.stream_query,
-      stream,
-      runtime.conf["API_URL"],
-      runtime.conf["STREAM_REQUEST_TIMEOUT"],
-      REMEDIATION_API_KEY_HEADER,
-      runtime.conf["API_KEY"],
-      runtime.userAgent,
-      runtime.conf["SSL_VERIFY"],
-      runtime.conf["BOUNCING_ON_TYPE"],
-      runtime.conf["UPDATE_FREQUENCY"]
-    )
+    ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"],stream.stream_query)
     if not ok then
       return true, nil, "Failed to create the timer: " .. (err or "unknown")
     end
@@ -259,7 +275,9 @@ function csmod.allowIp(ip)
   if runtime.conf["API_URL"] == "" then
     return true, nil, nil
   end
-  csmod.SetupStream()
+  if runtime.conf["mode"] == "stream" then
+    SetupStream()
+  end
   metrics:increment("processed",1)
 
   local key = utils.item_to_string(ip, "ip")
