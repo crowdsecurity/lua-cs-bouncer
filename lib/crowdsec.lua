@@ -290,7 +290,7 @@ function csmod.allowIp(ip)
     return true, nil, nil
   end
 
-  ngx.log(ngx.INFO, "DEBUG: allowIp")
+  ngx.log(ngx.INFO, "DEBUG: allowIp:" .. runtime.conf["mode"])
 
   if runtime.conf["mode"] == "stream" then
     ngx.log(ngx.INFO, "stream mode")
