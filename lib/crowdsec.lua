@@ -322,7 +322,7 @@ function csmod.allowIp(ip)
       remediation = t[1]
     end
     if decision_string ~= nil then -- we have it in cache
-
+      metrics:increment("dropped",1)
       return flag_id == 1, remediation, nil
     end
   end
