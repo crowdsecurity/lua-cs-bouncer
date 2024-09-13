@@ -51,7 +51,16 @@ function stream:new()
   return self
 end
 
-function stream:stream_query(api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type, update_frequency)
+--- Query the local API to get the decisions
+-- @param api_url string: the URL of the local API
+-- @param timeout number: the timeout for the request
+-- @param api_key_header string: the header to use for the API key
+-- @param api_key string: the API key to use for the request
+-- @param user_agent string: the user agent to use for the request
+-- @param ssl_verify boolean: whether to verify the SSL certificate or not
+-- @param bouncing_on_type string: the type of decision to bounce on
+-- @return string: the error message if any
+function stream:stream_query(api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
 
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
@@ -122,7 +131,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
           ngx.log(ngx.ERR, "[Crowdsec] failed to parse ban duration '" .. decision.duration .. "' : " .. err)
         end
         local key = utils.item_to_string(decision.value, decision.scope)
-        local succ, err, forcible = stream.cache:set(key, decision.type .. "/" .. decision.origin, ttl, 0)
+        local succ, err, forcible = stream.cache:set(key, decision.type .. "/" .. decision.origin, ttl, 0) -- 0 means the it's a true remediation decision
         ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds " .. decision.type .. "/" .. decision.origin) -- debug
         if not succ then
           ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
@@ -130,9 +139,9 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
         if forcible then
           ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
         end
-
       end
     end
+
     local metrics_actives_decisions = stream.cache:get("metrics_actives_decisions") or 0
     local succ, err, forcible = stream.cache:set("metrics_active_decisions",metrics_actives_decisions+added-deleted)
     if not succ then

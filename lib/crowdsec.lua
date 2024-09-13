@@ -259,8 +259,7 @@ local function SetupStream()
     runtime.conf["API_KEY"],
     runtime.userAgent,
     runtime.conf["SSL_VERIFY"],
-    runtime.conf["BOUNCING_ON_TYPE"],
-    runtime.conf["UPDATE_FREQUENCY"]
+    runtime.conf["BOUNCING_ON_TYPE"]
   )
   if err ~=nil then
     ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
@@ -281,6 +280,11 @@ local function SetupStream()
 end
 
 ---
+--- Allow the IP
+--- @param ip the IP to check
+--- @return boolean: true if the IP is allowed, false otherwise
+--- @return string: the remediation to apply
+--- @return string: the error message if any
 function csmod.allowIp(ip)
   if runtime.conf == nil then
     return true, nil, "Configuration is bad, cannot run properly"
@@ -323,8 +327,8 @@ function csmod.allowIp(ip)
     end
     if decision_string ~= nil then -- we have it in cache
       metrics:increment("dropped",1)
-      return flag_id == 1, remediation, nil
     end
+    return flag_id == 1, remediation, nil
   end
 
   local ip_network_address = key_parts[3]
