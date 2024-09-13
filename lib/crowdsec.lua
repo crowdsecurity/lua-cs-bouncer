@@ -252,7 +252,7 @@ local function SetupStream()
       end
   end
 
-  err = stream:stream_query(
+  local err = stream:stream_query(
     runtime.conf["API_URL"],
     runtime.conf["REQUEST_TIMEOUT"],
     REMEDIATION_API_KEY_HEADER,
