@@ -17,6 +17,7 @@ M.HTTP_CODE["403"] = ngx.HTTP_FORBIDDEN
 M.HTTP_CODE["404"] = ngx.HTTP_NOT_FOUND
 M.HTTP_CODE["405"] = ngx.HTTP_NOT_ALLOWED
 M.HTTP_CODE["406"] = ngx.HTTP_NOT_ACCEPTABLE
+M.HTTP_CODE["444"] = ngx.HTTP_CLOSE
 M.HTTP_CODE["500"] = ngx.HTTP_INTERNAL_SERVER_ERROR
 
 function M.read_file(path)
@@ -124,4 +125,5 @@ function M.split_on_delimiter(str, delimiter)
 end
 
 return M
+
 
