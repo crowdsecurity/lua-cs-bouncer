@@ -108,10 +108,14 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   local decisions = cjson.decode(body)
 
   -- process deleted decisions
-  local deleted = 0
+  local deleted = {}
   if type(decisions.deleted) == "table" then
     for i, decision in pairs(decisions.deleted) do
-      deleted = deleted + 1
+      if deleted[decision.origin] == nil then
+        deleted[decision.origin] = 0
+      else
+        deleted[decision.origin] = deleted[decision.origin] + 1
+      end
       if decision.type == "captcha" then
         stream.cache:delete("captcha_" .. decision.value)
       end
@@ -122,10 +126,14 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   end
 
   -- process new decisions
-  local added = 0
+  local added = {}
   if type(decisions.new) == "table" then
     for i, decision in pairs(decisions.new) do
-      added = added + 1
+      if deleted[decision.origin] == nil then
+        deleted[decision.origin] = 0
+      else
+        added[decision.origin] = added[decision.origin] + 1
+      end
       if bouncing_on_type == decision.type or bouncing_on_type == "all" then
         local ttl, err = parse_duration(decision.duration)
         if err ~= nil then
@@ -143,14 +151,22 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
       end
     end
 
-    local metrics_actives_decisions = stream.cache:get("metrics_active_decisions") or 0
-    metrics:add_to_metrics("active_decisions")
-    local succ, err, forcible = stream.cache:set("metrics_active_decisions",metrics_actives_decisions+added-deleted)
-    if not succ then
-      ngx.log(ngx.ERR, "failed to add ".. metrics_actives_decisions .." : "..err)
-        end
-    if forcible then
-      ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+    for origin, count in pairs(added) do
+      if deleted[origin] ~= nil then
+        added[origin] = count - deleted[origin]
+      end
+      local og_count = stream.cache:get("metrics_active_decisions_" .. origin)
+      if og_count == nil then
+        og_count = 0
+      end
+      metrics:add_to_metrics("active_decisions" .. origin)
+      local succ, err, forcible = stream.cache:set("metrics_active_decisions_" .. origin, og_count + added[origin])
+      if not succ then
+        ngx.log(ngx.ERR, "failed to add "..  "metrics_active_decisions_" .. origin .." : "..err)
+      end
+      if forcible then
+        ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+      end
     end
   end
 
