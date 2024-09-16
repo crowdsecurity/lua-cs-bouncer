@@ -478,7 +478,7 @@ function csmod.Allow(ip)
     ngx.exit(ngx.DECLINED)
   end
 
-  if ngx.req.is_internal() then
+  if runtime.conf["ENABLE_INTERNAL"] == "false" and ngx.req.is_internal() then
     ngx.exit(ngx.DECLINED)
   end
 
