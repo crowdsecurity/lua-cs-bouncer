@@ -1,5 +1,6 @@
 local utils = require "plugins.crowdsec.utils"
 local cjson = require "cjson"
+local metrics = require "plugins.crowdsec.metrics"
 local stream = {}
 
 stream.__index = stream
@@ -142,7 +143,8 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
       end
     end
 
-    local metrics_actives_decisions = stream.cache:get("metrics_actives_decisions") or 0
+    local metrics_actives_decisions = stream.cache:get("metrics_active_decisions") or 0
+    metrics:add_to_metrics("active_decisions")
     local succ, err, forcible = stream.cache:set("metrics_active_decisions",metrics_actives_decisions+added-deleted)
     if not succ then
       ngx.log(ngx.ERR, "failed to add ".. metrics_actives_decisions .." : "..err)
