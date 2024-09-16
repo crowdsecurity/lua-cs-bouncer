@@ -143,7 +143,7 @@ local function get_information_on_key(key)
     return "dropped" , table[2]
   elseif table[1] == "processed" then
     return "processed", nil
-  elseif table[1] == "active_decisions" and table[2] ~ nil then
+  elseif table[1] == "active_decisions" and table[2] ~= nil then
     return "active_decisions", table[2]
   end
 end
