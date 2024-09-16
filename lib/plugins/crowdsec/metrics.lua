@@ -138,7 +138,10 @@ function metrics:add_to_metrics(key)
 end
 
 local function get_information_on_key(key)
-  table = utils.split_on_delimiter(key, "/")
+  local table = utils.split_on_delimiter(key, "/")
+  if table == nil then
+    return nil, nil
+  end
   if table[1] == "dropped" and table[2] ~= nil then
     return "dropped" , table[2]
   elseif table[1] == "processed" then
@@ -173,7 +176,7 @@ function metrics:toJson(window)
                        unit = "request",
         })
       elseif final_key == "active_decisions" then
-      table.insert(metrics_array, {
+        table.insert(metrics_array, {
                        name = final_key,
                        value = value,
                        unit = "number",
@@ -182,14 +185,14 @@ function metrics:toJson(window)
                        }
         })
       else
-              table.insert(metrics_array, {
+        table.insert(metrics_array, {
                        name = final_key,
                        value = value,
                        unit = "request",
                        labels = {
                          origin = label
                        }
-              })
+        })
 
       end
       if not key:find("metrics_active_decisions", 1, true) then
