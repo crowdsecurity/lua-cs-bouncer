@@ -195,7 +195,7 @@ function metrics:toJson(window)
         })
 
       end
-      if not key:find("metrics_active_decisions", 1, true) then
+      if final_key ~= "active_decisions" then
         local success, err = self.cache:delete(cache_key)
         if success then
           ngx.log(ngx.INFO, "Cache key '", cache_key, "' deleted successfully")
