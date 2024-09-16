@@ -320,7 +320,7 @@ function csmod.allowIp(ip)
 
     local remediation = ""
     if t[2] ~= nil then
-      metrics:increment("dropped_" .. t[2],1)
+      metrics:increment("dropped/" .. t[2],1)
     end
     if t[1] ~= nil then
       remediation = t[1]
@@ -353,14 +353,11 @@ function csmod.allowIp(ip)
       end
       local remediation = ""
       if t[2] ~= nil then
-        metrics:increment(t[2],1) -- origin: at this point we are pretty sure there's one
+        metrics:increment("dropped/" .. t[2],1) -- origin: at this point we are pretty sure there's one
         -- and that the decision is a blocking
       end
       if t[1] ~= nil then
         remediation = t[1] -- remediation
-      end
-      if flag_id == 0 or flag_id == nil then
-        metrics:increment("dropped",1)
       end
       -- flag_id is 1 if the decision is a not blocking one
       return flag_id == 1, remediation, nil
