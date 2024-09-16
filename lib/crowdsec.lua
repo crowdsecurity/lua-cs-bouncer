@@ -311,6 +311,7 @@ function csmod.allowIp(ip)
 
   local key_type = key_parts[1]
   if key_type == "normal" then
+    ngx.log(ngx.INFO, "normal key")
     local decision_string, flag_id = runtime.cache:get(key)
     local  t = utils.split_on_delimiter(decision_string,"/")
     if t == nil then
