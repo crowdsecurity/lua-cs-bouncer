@@ -170,6 +170,8 @@ function metrics:toJson(window)
                        }
         })
       else
+        ngx.log(ngx.INFO, "final_key: " .. final_key)
+        ngx.log(ngx.INFO, "value: " .. value)
         table.insert(metrics_array, {
                        name = final_key,
                        value = value,
