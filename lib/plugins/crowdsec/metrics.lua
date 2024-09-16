@@ -163,24 +163,34 @@ function metrics:toJson(window)
       ngx.log(ngx.INFO, "final_key: " .. final_key)
       ngx.log(ngx.INFO, "value: " .. value)
       if label ~= nil then
-        ngx.log(ngx.INFO, "label" .. label)
+        ngx.log(ngx.INFO, "label: " .. label)
       end
 
-      if final_key ~= "processed" then
+      if final_key == "processed" then
         table.insert(metrics_array, {
+                       name = "processed",
+                       value = value,
+                       unit = "request",
+        })
+      elseif final_key == "active_decisions" then
+      table.insert(metrics_array, {
+                       name = final_key,
+                       value = value,
+                       unit = "number",
+                       labels = {
+                         origin = label
+                       }
+        })
+      else
+              table.insert(metrics_array, {
                        name = final_key,
                        value = value,
                        unit = "request",
                        labels = {
                          origin = label
                        }
-        })
-      else
-        table.insert(metrics_array, {
-                       name = "processed",
-                       value = value,
-                       unit = "request",
-        })
+              })
+
       end
       if not key:find("metrics_active_decisions", 1, true) then
         local success, err = self.cache:delete(cache_key)
