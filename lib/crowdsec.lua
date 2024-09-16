@@ -338,9 +338,11 @@ function csmod.allowIp(ip)
     local item
     if key_type == "ipv4" then
       item = key_type.."_"..netmask.."_"..iputils.ipv4_band(ip_network_address, netmask)
+      ngx.log(ngx.INFO, "ipv4 key")
     end
     if key_type == "ipv6" then
       item = key_type.."_"..table.concat(netmask, ":").."_"..iputils.ipv6_band(ip_network_address, netmask)
+      ngx.log(ngx.INFO, "ipv6 key")
     end
     local decision_string, flag_id = runtime.cache:get(item)
     if decision_string ~= nil then -- we have it in cache
