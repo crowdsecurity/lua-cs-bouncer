@@ -311,7 +311,6 @@ function csmod.allowIp(ip)
 
   local key_type = key_parts[1]
   if key_type == "normal" then
-    ngx.log(ngx.INFO, "normal key")
     local decision_string, flag_id = runtime.cache:get(key)
     local  t = utils.split_on_delimiter(decision_string,"/")
     if t == nil then
@@ -338,11 +337,9 @@ function csmod.allowIp(ip)
     local item
     if key_type == "ipv4" then
       item = key_type.."_"..netmask.."_"..iputils.ipv4_band(ip_network_address, netmask)
-      ngx.log(ngx.INFO, "ipv4 key")
     end
     if key_type == "ipv6" then
       item = key_type.."_"..table.concat(netmask, ":").."_"..iputils.ipv6_band(ip_network_address, netmask)
-      ngx.log(ngx.INFO, "ipv6 key")
     end
     local decision_string, flag_id = runtime.cache:get(item)
     if decision_string ~= nil then -- we have it in cache
@@ -365,6 +362,7 @@ function csmod.allowIp(ip)
       if t[1] ~= nil then
         remediation = t[1] -- remediation
       end
+      ngx.log(ngx.INFO, "decision: " .. decision_string .. " | flag_id: " .. flag_id)
       if flag_id == 1 then
         metrics:increment("dropped",1)
       end
