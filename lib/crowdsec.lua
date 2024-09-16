@@ -342,7 +342,6 @@ function csmod.allowIp(ip)
       item = key_type.."_"..table.concat(netmask, ":").."_"..iputils.ipv6_band(ip_network_address, netmask)
     end
     local decision_string, flag_id = runtime.cache:get(item)
-    ngx.log(ngx.INFO, "decision: " .. decision_string .. " | flag_id: " .. flag_id)
     if decision_string ~= nil then -- we have it in cache
       if decision_string == "none" then
         ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache with value'" .. decision_string .. "'")
@@ -363,9 +362,10 @@ function csmod.allowIp(ip)
       if t[1] ~= nil then
         remediation = t[1] -- remediation
       end
-      if flag_id == 1 then
+      if flag_id == 0 or flag_id == nil then
         metrics:increment("dropped",1)
       end
+      -- flag_id is 1 if the decision is a not blocking one
       return flag_id == 1, remediation, nil
     end
   end
