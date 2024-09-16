@@ -160,6 +160,12 @@ function metrics:toJson(window)
     ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key)))--debug
     if value ~= nil then
       local final_key, label = get_information_on_key(key)
+      ngx.log(ngx.INFO, "final_key: " .. final_key)
+      ngx.log(ngx.INFO, "value: " .. value)
+      if label ~= nil then
+        ngx.log(ngx.INFO, "label" .. label)
+      end
+
       if final_key ~= "processed" then
         table.insert(metrics_array, {
                        name = final_key,
@@ -170,8 +176,6 @@ function metrics:toJson(window)
                        }
         })
       else
-        ngx.log(ngx.INFO, "final_key: " .. final_key)
-        ngx.log(ngx.INFO, "value: " .. value)
         table.insert(metrics_array, {
                        name = "processed",
                        value = value,
