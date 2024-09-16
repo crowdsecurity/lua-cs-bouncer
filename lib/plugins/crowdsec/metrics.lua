@@ -118,7 +118,6 @@ end
 -- Get all metrics as a table (key-value pairs)
 function metrics:get_all_keys()
     local keys = metrics.cache:get("metrics_all")
-
     return utils.split_on_delimiter(keys, ",")
 end
 
@@ -138,6 +137,16 @@ function metrics:add_to_metrics(key)
     end
 end
 
+function get_information_on_key(key)
+  table = utils.split_on_delimiter(key, "/")
+  if table[1] == "dropped" and table[2] ~ nil then
+    return "dropped" , table[2]
+  elseif table[1] == "processed" then
+    return "processed", nil
+  elseif table[1] == "active_decisions" and table[2] ~ nil then
+    return "active_decisions", table[2]
+  end
+end
 
 -- Export the store data to JSON
 function metrics:toJson(window)
@@ -150,12 +159,24 @@ function metrics:toJson(window)
     local value = self.cache:get(cache_key)
     ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key)))--debug
     if value ~= nil then
-      table.insert(metrics_array, {
-                     name = key,
-                     value = value,
-                     unit = "number of requests",
-      })
-      if key ~= "metrics_active_decisions" then
+      local final_key, label = get_information_on_key(key)
+      if final_key ~= "processed" then
+        table.insert(metrics_array, {
+                       name = final_key,
+                       value = value,
+                       unit = "request",
+                       labels = {
+                         origin = label
+                       }
+        })
+      else
+        table.insert(metrics_array, {
+                       name = final_key,
+                       value = value,
+                       unit = "request",
+        })
+      end
+      if not key:find("metrics_active_decisions", 1, true) then
         local success, err = self.cache:delete(cache_key)
         if success then
           ngx.log(ngx.INFO, "Cache key '", cache_key, "' deleted successfully")
