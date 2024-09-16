@@ -137,9 +137,9 @@ function metrics:add_to_metrics(key)
     end
 end
 
-function get_information_on_key(key)
+local function get_information_on_key(key)
   table = utils.split_on_delimiter(key, "/")
-  if table[1] == "dropped" and table[2] ~ nil then
+  if table[1] == "dropped" and table[2] ~= nil then
     return "dropped" , table[2]
   elseif table[1] == "processed" then
     return "processed", nil
