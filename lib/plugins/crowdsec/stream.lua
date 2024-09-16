@@ -41,14 +41,6 @@ end
 
 
 function stream:new()
-  local succ, err, forcible = stream.cache:set("metrics_actives_decisions", 0)
-  if not succ then
-    ngx.log(ngx.ERR, "failed to add captcha state key in cache: "..err)
-  end
-  if forcible then
-    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-  end
-
   return self
 end
 
@@ -155,12 +147,12 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
       if deleted[origin] ~= nil then
         added[origin] = count - deleted[origin]
       end
-      local og_count = stream.cache:get("metrics_active_decisions_" .. origin)
+      local og_count = stream.cache:get("metrics_active_decisions/" .. origin)
       if og_count == nil then
         og_count = 0
       end
-      metrics:add_to_metrics("active_decisions" .. origin)
-      local succ, err, forcible = stream.cache:set("metrics_active_decisions_" .. origin, og_count + added[origin])
+      metrics:add_to_metrics("active_decisions/" .. origin)
+      local succ, err, forcible = stream.cache:set("metrics_active_decisions/" .. origin, og_count + added[origin])
       if not succ then
         ngx.log(ngx.ERR, "failed to add "..  "metrics_active_decisions_" .. origin .." : "..err)
       end
