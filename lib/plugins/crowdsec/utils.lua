@@ -118,6 +118,7 @@ function M.split_on_delimiter(str, delimiter)
   local pattern = "([^" .. delimiter .. "]+)"  -- Create a pattern to match between delimiters
 
   for word in string.gmatch(str, pattern) do
+    ngx.log(ngx.INFO, "value: " .. word)
     table.insert(result, word)  -- Insert the split parts into the result table
   end
 
