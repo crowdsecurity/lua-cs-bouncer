@@ -102,7 +102,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   -- process deleted decisions
   local deleted = {}
   if type(decisions.deleted) == "table" then
-    for i, decision in pairs(decisions.deleted) do
+    for _, decision in pairs(decisions.deleted) do
       if deleted[decision.origin] == nil then
         deleted[decision.origin] = 0
       else
@@ -120,7 +120,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   -- process new decisions
   local added = {}
   if type(decisions.new) == "table" then
-    for i, decision in pairs(decisions.new) do
+    for _, decision in pairs(decisions.new) do
       if added[decision.origin] == nil then
         added[decision.origin] = 0
       else
@@ -144,6 +144,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
     end
 
     for origin, count in pairs(added) do
+      ngx.log(ngx.INFO, "Adding " .. count .. " decisions for " .. origin)
       if deleted[origin] ~= nil then
         added[origin] = count - deleted[origin]
       end
