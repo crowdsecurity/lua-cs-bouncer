@@ -129,8 +129,8 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   local added = {}
   if type(decisions.new) == "table" then
     for i, decision in pairs(decisions.new) do
-      if deleted[decision.origin] == nil then
-        deleted[decision.origin] = 0
+      if added[decision.origin] == nil then
+        added[decision.origin] = 0
       else
         added[decision.origin] = added[decision.origin] + 1
       end
