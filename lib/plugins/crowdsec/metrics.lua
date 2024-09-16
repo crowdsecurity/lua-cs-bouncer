@@ -172,6 +172,7 @@ function metrics:toJson(window)
       else
         ngx.log(ngx.INFO, "final_key: " .. final_key)
         ngx.log(ngx.INFO, "value: " .. value)
+        ngx.log(ngx.INFO , "prout" .. cjson.encode(metrics_array))
         table.insert(metrics_array, {
                        name = final_key,
                        value = value,
