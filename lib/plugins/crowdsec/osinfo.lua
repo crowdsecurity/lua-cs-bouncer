@@ -54,7 +54,7 @@ function osinfo.get_os_info()
 	-- so we need to check if the first character is a quote
 	-- and remove it if it is
 	for k, _ in pairs(os_info) do
-		if string.sub(os_info[k], 1) == '"' then
+		if string.sub(os_info[k], 1, 1) == '"' then
 			os_info[k] = string.sub(os_info[k], 2, -1)
 		end
 		if string.sub(os_info[k], -1) == '"' then
