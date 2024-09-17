@@ -53,11 +53,11 @@ function osinfo.get_os_info()
 	-- this is not the case for all distros
 	-- so we need to check if the first character is a quote
 	-- and remove it if it is
- 	for k, _ in pairs(os_info) do
+	for k, _ in pairs(os_info) do
 		if string.sub(os_info[k], 1, 1) == '"' then
 			os_info[k] = string.sub(os_info[k], 2, -1)
 		end
-		ngx.log(ngx.ERR, "removing last quote: " .. os_info)
+		ngx.log(ngx.ERR, "removing last quote: " .. os_info[k])
 		if string.sub(os_info[k], -2, -1) == '"' then
 			os_info[k] = string.sub(os_info[k], 1, -2)
 		end
