@@ -267,8 +267,9 @@ function metrics:toJson(window)
     metrics_data.metrics = {}
     table.insert(metrics_data.metrics, t)
   end
-  local remediation_components = {}
-  remediation_components.feature_flags = {}
+  local remediation_components = {
+    feature_flags = {}
+  }
   table.insert(remediation_components,
                metrics_data)
 
