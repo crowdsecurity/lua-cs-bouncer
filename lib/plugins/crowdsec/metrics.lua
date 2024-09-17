@@ -268,10 +268,9 @@ function metrics:toJson(window)
     table.insert(metrics_data.metrics, t)
   end
   local remediation_components = {
-    feature_flags = setmetatable({}, cjson.array_mt)
+    feature_flags = setmetatable({}, cjson.array_mt),
+    metrics = metrics_data
   }-- Empty array
-  table.insert(remediation_components,
-               metrics_data)
 
   return cjson.encode({log_processors = cjson.null, remediation_components=remediation_components})
 end
