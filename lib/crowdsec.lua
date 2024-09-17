@@ -167,7 +167,7 @@ local function Setup_metrics()
   if ngx.time() - started >= runtime.conf["METRICS_PERIOD"] then
     metrics:sendMetrics(
       runtime.conf["API_URL"],
-      {['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"],["Content-Type"]= "application/json"}
+      {['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"],["Content-Type"]="application/json"},
       runtime.conf["SSL_VERIFY"],
       runtime.conf["METRICS_PERIOD"]
     )
