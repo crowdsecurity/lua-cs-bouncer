@@ -230,7 +230,7 @@ local function SetupStream()
 
   if refreshing == true then
     ngx.log(ngx.DEBUG, "another worker is refreshing the data, returning")
-    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], csmod.SetupStream)
+    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStream)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
     end
