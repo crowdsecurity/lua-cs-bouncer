@@ -1,76 +1,120 @@
 -- expected
 -- {
---   "remediation_components": [
---     {
---       "version": "string",
---       "meta": {
---         "window_size_seconds": 0,
---         "utc_startup_timestamp": 0,
---         "utc_now_timestamp": 0
---       },
---       "os": {
---         "name": "string",
---         "version": "string"
---       },
---       "metrics": [
---         {
---           "name": "string",
---           "value": 0,
---           "unit": "string",
---           "labels": {
---             "additionalProp1": "string",
---             "additionalProp2": "string",
---             "additionalProp3": "string"
---           }
---         }
---       ],
---       "feature_flags": [
---         "string"
---       ],
---       "type": "string",
---       "name": "string",
---       "last_pull": 0
---     }
---   ]
--- }
-
--- {
---   "remediation_components": [
---     {
---       "version": "string",
---       "os": {
---         "name": "string",
---         "version": "string"
---       },
+--   "log_processors": null,                                                                                                                                                                                                                        "remediation_components": [                                                                                                                                                                                                                      {
+--       "feature_flags": [],
 --       "metrics": [
 --         {
 --           "items": [
 --             {
---               "name": "string",
---               "value": 0,
---               "unit": "string",
 --               "labels": {
---                 "additionalProp1": "string",
---                 "additionalProp2": "string",
---                 "additionalProp3": "string"
---               }
+--                 "ip_type": "ipv4",
+--                 "origin": "CAPI"
+--               },
+--               "name": "active_decisions",
+--               "unit": "ip",
+--               "value": 46576
+--             },
+--             {
+--               "labels": {
+--                 "ip_type": "ipv6",
+--                 "origin": "CAPI"
+--               },
+--               "name": "active_decisions",
+--               "unit": "ip",
+--               "value": 546
+--             },
+--             {
+--               "labels": {
+--                 "ip_type": "ipv4",
+--                 "origin": "CAPI"
+--               },
+--               "name": "dropped",
+--               "unit": "byte",
+--               "value": 84
+--             },
+--             {
+--               "labels": {
+--                 "ip_type": "ipv6",
+--                 "origin": "CAPI"
+--               },
+--               "name": "dropped",
+--               "unit": "byte",
+--               "value": 0
+--             },
+--             {
+--               "labels": {                                       "origin": "CAPI"                                                                                                                                                                                              20:20:39 [51/116]
+--               },
+--               "name": "dropped",
+--               "unit": "byte",
+--               "value": 0
+--             },
+--             {
+--               "labels": {
+--                 "ip_type": "ipv4",
+--                 "origin": "CAPI"
+--               },
+--               "name": "dropped",
+--               "unit": "packet",
+--               "value": 2
+--             },
+--             {
+--               "labels": {
+--                 "ip_type": "ipv6",
+--                 "origin": "CAPI"
+--               },
+--               "name": "dropped",
+--               "unit": "packet",
+--               "value": 0
+--             },
+--             {
+--               "labels": {
+--                 "ip_type": "ipv4"
+--               },
+--               "name": "processed",
+--               "unit": "byte",
+--               "value": 100836
+--             },
+--             {
+--               "labels": {
+--                 "ip_type": "ipv6"
+--               },
+--               "name": "processed",
+--               "unit": "byte",
+--               "value": 0
+--             },
+--             {
+--               "labels": {
+--                 "ip_type": "ipv4"
+--               },
+--               "name": "processed",
+--               "unit": "packet",
+--               "value": 748
+--             },
+--             {
+--               "labels": {
+--                 "ip_type": "ipv6"
+--               },
+--               "name": "processed",
+--               "unit": "packet",
+--               "value": 0
 --             }
 --           ],
 --           "meta": {
---             "window_size_seconds": 0,
---             "utc_now_timestamp": 0
+--             "utc_now_timestamp": 1726593109,
+--             "window_size_seconds": 900
 --           }
 --         }
 --       ],
---       "feature_flags": [
---         "string"
---       ],
---       "utc_startup_timestamp": 0,
---       "type": "string",
---       "name": "string",
---       "last_pull": 0
+--       "os": {
+--         "name": "Debian GNU/Linux",
+--         "version": "12"
+--       },
+--       "utc_startup_timestamp": 1726584109,
+--       "version": "v0.0.30-debian-pragmatic-amd64-3f592b52075a80734b4fc291d5a08043d433c8fe",
+--       "type": "crowdsec-firewall-bouncer"
 --     }
---   ],
+--   ]
+-- }
 
 
 local cjson = require "cjson"
