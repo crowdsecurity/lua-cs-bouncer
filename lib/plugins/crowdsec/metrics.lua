@@ -223,7 +223,7 @@ function metrics:toJson(window)
         table.insert(metrics_array, {
                        name = final_key,
                        value = value,
-                       unit = "number",
+                       unit = "ip",
                        labels = {
                          origin = label
                        }
