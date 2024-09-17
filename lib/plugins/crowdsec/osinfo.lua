@@ -58,6 +58,7 @@ function osinfo.get_os_info()
 			os_info[k] = string.sub(os_info[k], 2, -1)
 		end
 		if string.sub(os_info[k], -2, -1) == '"' then
+			ngx.log(ngx.ERR, "removing last quote: " .. os_info[k])
 			os_info[k] = string.sub(os_info[k], 1, -2)
 		end
 	end
