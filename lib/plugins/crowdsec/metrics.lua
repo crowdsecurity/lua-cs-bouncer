@@ -140,7 +140,6 @@ function metrics:new(userAgent)
     type="lua-bouncer",
     name="nginx bouncer",
     utc_startup_timestamp = ngx.time(),
-    last_pull = 0
   }))
 end
 
@@ -272,7 +271,7 @@ function metrics:toJson(window)
   table.insert(remediation_components,
                metrics_data)
 
-  return cjson.encode({remediation_components=remediation_components})
+  return cjson.encode({remediation_components=remediation_components, log_processors = nil})
 end
 
 function metrics:sendMetrics(link, headers, ssl, window)
