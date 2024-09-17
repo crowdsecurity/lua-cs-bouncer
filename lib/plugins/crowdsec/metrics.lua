@@ -271,7 +271,7 @@ function metrics:toJson(window)
   table.insert(remediation_components,
                metrics_data)
 
-  return cjson.encode({remediation_components=remediation_components, log_processors = nil})
+  return cjson.encode({log_processors = nil, remediation_components=remediation_components})
 end
 
 function metrics:sendMetrics(link, headers, ssl, window)
