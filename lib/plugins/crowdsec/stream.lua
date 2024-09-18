@@ -112,7 +112,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
       if decision.type == "captcha" then
         stream.cache:delete("captcha_" .. decision.value)
       end
-      local key = utils.item_to_string(decision.value, decision.scope)
+      local key,_ = utils.item_to_string(decision.value, decision.scope)
       stream.cache:delete(key)
       ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
     end
@@ -132,7 +132,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
         if err ~= nil then
           ngx.log(ngx.ERR, "[Crowdsec] failed to parse ban duration '" .. decision.duration .. "' : " .. err)
         end
-        local key = utils.item_to_string(decision.value, decision.scope)
+        local key,_ = utils.item_to_string(decision.value, decision.scope)
         local succ, err, forcible = stream.cache:set(key, decision.type .. "/" .. decision.origin, ttl, 0) -- 0 means the it's a true remediation decision
         ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds " .. decision.type .. "/" .. decision.origin) -- debug
         if not succ then

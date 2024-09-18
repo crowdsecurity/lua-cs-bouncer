@@ -300,7 +300,7 @@ function csmod.allowIp(ip)
   end
   metrics:increment("processed",1)
 
-  local key = utils.item_to_string(ip, "ip")
+  local key,_ = utils.item_to_string(ip, "ip")
   if key == nil then
     return true, nil, "Check failed '" .. ip .. "' has no valid IP address"
   end

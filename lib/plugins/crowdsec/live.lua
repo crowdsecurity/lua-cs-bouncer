@@ -53,7 +53,7 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
   end
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
-    local key = utils.item_to_string(ip, "ip")
+    local key,_ = utils.item_to_string(ip, "ip")
     local succ, err, forcible = live.cache:set(key, "none", cache_expiration, 1)
     --
     ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds") --debug
@@ -72,7 +72,7 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
   ngx.log(ngx.INFO, "Bouncing on type: " .. bouncing_on_type)
   if bouncing_on_type == decision.type or bouncing_on_type == "all" then
     local cache_value = decision.type .. "/" .. decision.origin
-    local key = utils.item_to_string(decision.value, decision.scope)
+    local key,_ = utils.item_to_string(decision.value, decision.scope)
     local succ, err, forcible = live.cache:set(key, cache_value, cache_expiration, 0)
     ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds with decision type'" .. decision.type .. "'with origin'" .. decision.origin ) --debug
     if not succ then
