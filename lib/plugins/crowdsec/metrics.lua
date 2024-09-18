@@ -263,9 +263,9 @@ function metrics:toJson(window)
         }
       },
     })
-    for k, v in pairs(metrics_data) do
-      remediation_components[k] = v
-    end
+    -- for k, v in pairs(metrics_data) do
+    --   remediation_components[k] = v
+    -- end
   else
     remediation_components = cjson.null
   end
