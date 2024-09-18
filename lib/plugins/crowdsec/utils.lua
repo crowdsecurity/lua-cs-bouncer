@@ -88,7 +88,7 @@ function M.item_to_string(item, scope)
     return "normal_"..item
   end
   local ip_netmask = iputils.cidrToInt(cidr, ip_version)
-  return ip_version.."_"..ip_netmask.."_"..ip_network_address
+  return ip_version.."_"..ip_netmask.."_"..ip_network_address, ip_version
 end
 
 function M.get_remediation_http_request(link,timeout, api_key_header, api_key, user_agent,ssl_verify)
