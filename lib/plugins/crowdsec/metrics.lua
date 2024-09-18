@@ -263,7 +263,9 @@ function metrics:toJson(window)
         }
       },
     })
-    table.insert(remediation_components[1], metrics_data)
+    for k, v in pairs(metrics_data) do
+      remediation_components[k] = v
+    end
   else
     remediation_components = cjson.null
   end
