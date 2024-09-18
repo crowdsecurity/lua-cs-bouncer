@@ -251,27 +251,17 @@ function metrics:toJson(window)
   end
 
   if data_exists then
-    metrics_data.metrics = {}
-    metrics_data.metrics.items = {}
-    table.insert(metrics_data.metrics.items, metrics_array)
-    local meta = {
-      window_size_seconds = window,
-      utc_now_timestamp = ngx.time(),
+    remediation_components = {
+      feature_flags = setmetatable({}, cjson.array_mt),
+      metrics = {
+        items = metrics_array,
+        meta = {
+          window_size_seconds = window,
+          utc_now_timestamp = ngx.time(),
+        }
+      }
     }
-
-    local items = {}
-    local t = {}
-    t.items = metrics_array
-    t.meta = meta
-
-    metrics_data.metrics = {}
-    table.insert(metrics_data.metrics, t)
   end
-  local remediation_components = {
-    feature_flags = setmetatable({}, cjson.array_mt),
-    metrics = metrics_data
-  }-- Empty array
-
   return cjson.encode({log_processors = cjson.null, remediation_components=remediation_components})
 end
 
