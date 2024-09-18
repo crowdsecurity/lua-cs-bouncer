@@ -249,7 +249,7 @@ function metrics:toJson(window)
     end
   end
 
-  local remediation_components = metrics_data
+  local remediation_components = setmetatable(metrics_data, cjson.array_mt)
   if data_exists then
     table.insert(remediation_components,{
       feature_flags = setmetatable({}, cjson.array_mt),
