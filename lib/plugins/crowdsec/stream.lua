@@ -153,6 +153,9 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
       if og_count == nil then
         og_count = 0
       end
+      if origin == "cscli" then
+        ngx.log(ngx.INFO, "Adding " .. added[origin] .. " decisions for " .. origin)
+      end
       metrics:add_to_metrics("active_decisions/" .. origin)
       local succ, err, forcible = stream.cache:set("metrics_active_decisions/" .. origin, og_count + added[origin])
       if not succ then
