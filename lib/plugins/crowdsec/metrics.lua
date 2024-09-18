@@ -250,17 +250,17 @@ function metrics:toJson(window)
     end
   end
 
+  local remediation_components = cjson.null
   if data_exists then
     remediation_components = {
       feature_flags = setmetatable({}, cjson.array_mt),
-      metrics = {
-        items = metrics_array,
-        meta = {
-          window_size_seconds = window,
-          utc_now_timestamp = ngx.time(),
-        }
+      metrics = setmetatable({
+          items = metrics_array,
+          meta = {
+            window_size_seconds = window,
+            utc_now_timestamp = ngx.time(),
+          }},cjson.array_mt)
       }
-    }
   end
   return cjson.encode({log_processors = cjson.null, remediation_components=remediation_components})
 end
