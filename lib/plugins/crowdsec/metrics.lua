@@ -263,7 +263,7 @@ function metrics:toJson(window)
         }
       },
     })
-    table.insert(remediation_components, metrics_data)
+    table.insert(remediation_components[1], metrics_data)
   else
     remediation_components = cjson.null
   end
