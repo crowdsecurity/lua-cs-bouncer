@@ -250,7 +250,7 @@ function metrics:toJson(window)
   end
 
   local remediation_components = {
-    metrics_array
+    metrics_data
   }
   if data_exists then
     table.insert(remediation_components,{
