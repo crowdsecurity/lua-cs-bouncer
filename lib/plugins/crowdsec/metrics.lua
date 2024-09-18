@@ -252,18 +252,16 @@ function metrics:toJson(window)
   --setmetatable(metrics_data, cjson.array_mt)
   local remediation_components = metrics_data
   if data_exists then
-    table.insert(remediation_components,{
-      feature_flags = setmetatable({}, cjson.array_mt),
-      metrics = {
-        {
-          items = metrics_array,
-          meta = {
-            utc_now_timestamp = ngx.time(),
-            window_size_seconds = window
-          }
+    remediation_components["feature_flags"] = setmetatable({}, cjson.array_mt)
+    remediation_components["metrics"]= {
+      {
+        items = metrics_array,
+        meta = {
+          utc_now_timestamp = ngx.time(),
+          window_size_seconds = window
         }
-      },
-    })
+      }
+    }
     -- for k, v in pairs(metrics_data) do
     --   remediation_components[k] = v
     -- end
