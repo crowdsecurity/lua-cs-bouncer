@@ -136,7 +136,6 @@ function metrics:new(userAgent)
       name = info["NAME"];
       version = info["VERSION_ID"];
     },
---    feature_flags = {}, none for now, but this should be an array of strings
     type="lua-bouncer",
     name="nginx bouncer",
     utc_startup_timestamp = ngx.time(),
@@ -263,6 +262,7 @@ function metrics:toJson(window)
           }
         }
       },
+      self.metrics_data,
     })
   else
     remediation_components = cjson.null
