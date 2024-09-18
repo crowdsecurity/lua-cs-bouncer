@@ -250,10 +250,11 @@ function metrics:toJson(window)
   end
 
   --setmetatable(metrics_data, cjson.array_mt)
-  local remediation_components = metrics_data
+  local remediation_components = {}
+  local remediation_component = metrics_data
   if data_exists then
-    remediation_components["feature_flags"] = setmetatable({}, cjson.array_mt)
-    remediation_components["metrics"]= {
+    remediation_component["feature_flags"] = setmetatable({}, cjson.array_mt)
+    remediation_component["metrics"]= {
       {
         items = metrics_array,
         meta = {
@@ -265,6 +266,7 @@ function metrics:toJson(window)
     -- for k, v in pairs(metrics_data) do
     --   remediation_components[k] = v
     -- end
+    remediation_components = table.insert(remediation_components, remediation_component)
   else
     remediation_components = cjson.null
   end
