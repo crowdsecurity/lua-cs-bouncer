@@ -19,3 +19,8 @@ jobs:
     - name: "install nginx perl test suite"
       run: |
         sudo cpan Test::Nginx
+    - name: "run tests"
+      run: |
+        for i in t/*.t do
+           prove $i
+        done
