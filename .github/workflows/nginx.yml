@@ -18,4 +18,4 @@ jobs:
     steps:
     - name: "install nginx perl test suite"
       run: |
-        cpan Test::Nginx
+        sudo cpan Test::Nginx
