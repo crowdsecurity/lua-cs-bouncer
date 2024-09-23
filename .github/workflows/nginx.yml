@@ -16,6 +16,11 @@ jobs:
     name: "Nginx test suite"
     runs-on: ubuntu-latest
     steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: false
     - name: "install nginx perl test suite"
       run: |
         sudo cpan Test::Nginx
