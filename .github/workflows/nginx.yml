@@ -28,5 +28,5 @@ jobs:
     - name: "run tests"
       run: |
         for i in t/*.t; do
-           prove $i ;
+           sudo prove $i ;
         done
