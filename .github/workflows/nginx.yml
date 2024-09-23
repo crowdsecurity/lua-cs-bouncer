@@ -1,0 +1,21 @@
+name: lua ca bouncer nginx test
+
+on:
+  push:
+    branches:
+      - main
+      - releases/**
+  pull_request:
+    branches:
+      - main
+      - releases/**
+
+
+jobs:
+  tests:
+    name: "Nginx test suite"
+    runs-on: ubuntu-latest
+    steps:
+    - name: "install nginx perl test suite"
+      run: |
+        cpan Test::Nginx
