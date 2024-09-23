@@ -22,5 +22,5 @@ jobs:
     - name: "run tests"
       run: |
         for i in t/*.t do
-           prove $i
+           prove $i ;
         done
