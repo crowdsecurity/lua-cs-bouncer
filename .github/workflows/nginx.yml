@@ -21,13 +21,12 @@ jobs:
       with:
         fetch-depth: 0
         submodules: false
-    - name: "install nginx perl test suite"
+    - name: "install nginx & nginx perl test suite"
       run: |
         sudo cpan Test::Nginx
+        sudo apt-get install -y nginx
     - name: "run tests"
       run: |
-        ls -al .
-        ls -al ..
         for i in t/*.t; do
            prove $i ;
         done
