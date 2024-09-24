@@ -13,8 +13,11 @@ on:
 
 jobs:
   tests:
-    name: "Nginx test suite"
     runs-on: ubuntu-latest
+    name: "Nginx test suite"
+    container:
+      image: nginx:stable-bookworm-perl
+
     steps:
     - name: Check out repository
       uses: actions/checkout@v4
@@ -23,8 +26,8 @@ jobs:
         submodules: false
     - name: "install nginx & nginx perl test suite"
       run: |
-        sudo cpan Test::Nginx
-        sudo apt-get install -y nginx
+        apt-get install -y make gcc
+        cpan Test::Nginx
     - name: "run tests"
       run: |
         for i in t/*.t; do
