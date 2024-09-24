@@ -30,6 +30,7 @@ jobs:
         apt-get update
         apt-get install -y make gcc
         cpan Test::Nginx
+        cpan Test::Nginx::Socket
     - name: "run tests"
       run: |
         cat /etc/os-release
