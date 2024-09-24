@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     name: "Nginx test suite"
     container:
-      image: nginx:stable-bookworm-perl
+      image: debian:latest
 
     steps:
     - name: Check out repository
@@ -28,10 +28,14 @@ jobs:
       run: |
         cat /etc/os-release
         apt-get update
-        apt-get install -y make gcc
+        apt-get install -y make gcc nginx libnginx-mod-http-lua
         cpan Test::Nginx
         cpan Test::Nginx::Socket
         echo "Installation done"
+
+    - name: "Run tests"
+      run: |
+        export PERL5LIB=/root/.cpan/build/Test-Nginx-0.30-3/blib/lib
         for i in t/*.t; do
            prove $i ;
         done
