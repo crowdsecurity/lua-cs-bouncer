@@ -31,9 +31,7 @@ jobs:
         apt-get install -y make gcc
         cpan Test::Nginx
         cpan Test::Nginx::Socket
-    - name: "run tests"
-      run: |
-        cat /etc/os-release
+        echo "Installation done"
         for i in t/*.t; do
            prove $i ;
         done
