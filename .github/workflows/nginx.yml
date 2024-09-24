@@ -26,6 +26,7 @@ jobs:
         submodules: false
     - name: "install nginx & nginx perl test suite"
       run: |
+        apt-get update
         apt-get install -y make gcc
         cpan Test::Nginx
     - name: "run tests"
