@@ -26,11 +26,13 @@ jobs:
         submodules: false
     - name: "install nginx & nginx perl test suite"
       run: |
+        cat /etc/os-release
         apt-get update
         apt-get install -y make gcc
         cpan Test::Nginx
     - name: "run tests"
       run: |
+        cat /etc/os-release
         for i in t/*.t; do
-           sudo prove $i ;
+           prove $i ;
         done
