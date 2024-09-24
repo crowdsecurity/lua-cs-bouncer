@@ -28,7 +28,9 @@ jobs:
       run: |
         cat /etc/os-release
         apt-get update
-        apt-get install -y make gcc nginx libnginx-mod-http-lua perl ca-certificates
+        apt-get install -y make gcc nginx libnginx-mod-http-lua perl ca-certificates luarocks
+        luarocks install lua-cjson 2.1.0.10-1
+        luarocks install lua-resty-http  0.17.1-0
         cpan Test::Nginx
         cpan Test::Nginx::Socket
         echo "Installation done"
