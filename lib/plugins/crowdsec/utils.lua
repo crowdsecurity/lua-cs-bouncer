@@ -23,7 +23,8 @@ function M.read_file(path)
    io.input(file)
    local content = io.read("*a")
    io.close(file)
-   return content
+   ngx.log(ngx.ALERT,"content: " .. content:sub(1,-2))
+   return content:sub(1,-2)
  end
 
 function M.file_exist(path)
