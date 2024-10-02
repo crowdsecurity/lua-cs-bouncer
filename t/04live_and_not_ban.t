@@ -4,7 +4,7 @@ run_tests();
 
 __DATA__
 
-=== TEST 3: Test body response on block
+=== TEST 4: Test body response on a not blocked request
 
 --- main_config
 load_module /usr/share/nginx/modules/ndk_http_module.so;
@@ -67,11 +67,11 @@ location = /t {
 }
 
 --- more_headers
-X-Forwarded-For: 1.1.1.1
+X-Forwarded-For: 1.1.1.2
 --- request
 GET /t
 --- response_body
 
-Nope
+Hello, world
 
---- error_code: 403
+--- error_code: 200
