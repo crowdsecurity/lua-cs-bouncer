@@ -1,0 +1,43 @@
+name: lua ca bouncer nginx test
+
+on:
+  push:
+    branches:
+      - main
+      - releases/**
+  pull_request:
+    branches:
+      - main
+      - releases/**
+
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    name: "Nginx test suite"
+    container:
+      image: debian:latest
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: false
+    - name: "install nginx & nginx perl test suite"
+      run: |
+        cat /etc/os-release
+        apt-get update
+        apt-get install -y make gcc nginx libnginx-mod-http-lua perl ca-certificates luarocks
+        luarocks install lua-cjson 2.1.0.10-1
+        luarocks install lua-resty-http  0.17.1-0
+        cpan Test::Nginx
+        cpan Test::Nginx::Socket
+        echo "Installation done"
+
+    - name: "Run tests"
+      run: |
+        export PERL5LIB=/root/.cpan/build/Test-Nginx-0.30-3/blib/lib
+        for i in t/*.t; do
+           prove $i ;
+        done
