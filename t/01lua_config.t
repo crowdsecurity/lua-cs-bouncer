@@ -21,11 +21,6 @@ init_by_lua_block {
         ngx.log(ngx.ALERT, "[Crowdsec] Initialisation done")
 }
 
-map $server_addr $unix {
-        default       0;
-        "~unix:" 1;
-}
-
 access_by_lua_block {
         local cs = require "crowdsec"
         if ngx.var.unix == "1" then
