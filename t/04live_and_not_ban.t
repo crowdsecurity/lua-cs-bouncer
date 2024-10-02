@@ -47,7 +47,7 @@ server {
             if args.ip == "1.1.1.1" then
                ngx.say('[{"duration":"1h00m00s","id":4091593,"origin":"CAPI","scenario":"crowdsecurity/vpatch-CVE-2024-4577","scope":"Ip","type":"ban","value":"1.1.1.1"}]')
             else
-               ngx.say('[{}]')
+               ngx.print('null')
             end
             }
       }
