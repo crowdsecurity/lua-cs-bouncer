@@ -26,7 +26,7 @@ function M.read_file(path)
    io.input(file)
    local content = io.read("*a")
    io.close(file)
-   return content
+   return content:sub(1,-2)
  end
 
 function M.file_exist(path)
