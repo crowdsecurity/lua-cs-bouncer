@@ -4,7 +4,7 @@ run_tests();
 
 __DATA__
 
-=== TEST 2: lua configuration
+=== TEST 1: Load lua configuration
 
 --- main_config
 load_module /usr/share/nginx/modules/ndk_http_module.so;
