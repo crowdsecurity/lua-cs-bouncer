@@ -25,6 +25,7 @@ local function get_decisions_count()
         goto continue
       end
       if table_count[t[3]] == nil then
+        ngx.log(ngx.INFO, "Adding '" .. t[3] .. "' in table_count") --debug
         table_count[t[3]] = 1
       else
         table_count[t[3]] = table_count[t[3]] + 1
