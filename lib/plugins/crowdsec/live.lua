@@ -71,6 +71,9 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
   ngx.log(ngx.INFO, "Decision: " .. decision.type .. " | " .. decision.value .. " | " .. decision.origin .. " | " .. decision.duration)
   ngx.log(ngx.INFO, "Bouncing on type: " .. bouncing_on_type)
   if bouncing_on_type == decision.type or bouncing_on_type == "all" then
+    if decision.origin == "lists" and decision.scenario ~= nil then
+      decision.origin = "lists:" .. decision.scenario
+    end
     local cache_value = decision.type .. "/" .. decision.origin
     local key,_ = utils.item_to_string(decision.value, decision.scope)
     local succ, err, forcible = live.cache:set(key, cache_value, cache_expiration, 0)

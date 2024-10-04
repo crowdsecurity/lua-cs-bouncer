@@ -311,7 +311,7 @@ function csmod.allowIp(ip)
 
   local key_type = key_parts[1]
   if key_type == "normal" then
-    local decision_string, flag_id = runtime.cache:get(key)
+    local decision_string, flag_id = runtime.cache:get("decision_cache/" .. key)
     local  t = utils.split_on_delimiter(decision_string,"/")
     if t == nil then
       return true, nil, "Failed to split decision string"
@@ -338,7 +338,7 @@ function csmod.allowIp(ip)
     if key_type == "ipv6" then
       item = key_type.."_"..table.concat(netmask, ":").."_"..iputils.ipv6_band(ip_network_address, netmask)
     end
-    local decision_string, flag_id = runtime.cache:get(item)
+    local decision_string, flag_id = runtime.cache:get("decision_cache/" .. item)
     if decision_string ~= nil then -- we have it in cache
       if decision_string == "none" then
         ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache with value'" .. decision_string .. "'")

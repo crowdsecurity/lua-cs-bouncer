@@ -6,6 +6,32 @@ local stream = {}
 stream.__index = stream
 stream.cache = ngx.shared.crowdsec_cache
 
+local function get_decisions_count()
+  local table_count = {}
+  local keys = stream.cache:get_keys(0)
+  for _, key in ipairs(keys) do
+    if string.starts_with(key, "decision_cache/") then
+      local decision_string = stream.cache:get(key)
+      local  t = utils.split_on_delimiter(decision_string,"/")
+      if t == nil then
+        ngx.log(ngx.ERR, "decision string without /" .. decision_string)
+      end
+      if t[1] ~= nil then
+        ngx.log(ngx.ERR, "decision string without remediation" .. decision_string)
+      end
+      if t[2] ~= nil then
+        ngx.log(ngx.ERR, "decision string without origin" .. decision_string)
+      end
+      if table_count[t[2]] == nil then
+        table_count[t[2]] = 1
+      else
+        table_count[t[2]] = table_count[t[2]] + 1
+      end
+    end
+  end
+  return table_count
+end
+
 local function set_refreshing(value)
   local succ, err, forcible = stream.cache:set("refreshing", value)
   if not succ then
@@ -39,6 +65,30 @@ local function parse_duration(duration)
   return ttl, nil
 end
 
+--- Set a value in the stream cache
+--- wrapper around ngx.shared.DICT:set using only a prefix to the key
+function stream:set(key, value, exptime, flags)
+  local succ, err, forcible = stream.cache:set("decision_cache/" .. key, value, exptime, flags)
+  if not succ then
+    ngx.log(ngx.ERR, "Failed to set key '" .. key .. "' in cache: " .. err)
+  end
+  if forcible then
+    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+  end
+  return succ, err, forcible
+end
+
+--- Delete a value from the stream cache
+--- wrapper around ngx.shared.DICT:delete using only a prefix to the key
+function stream:delete(key)
+  return stream.cache:delete("decision_cache/" .. key)
+end
+
+--- Get a value from the stream cache
+---
+function stream:get(key)
+  return stream.cache:get("decision_cache/" .. key)
+end
 
 function stream:new()
   return self
@@ -104,16 +154,24 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   local deleted = {}
   if type(decisions.deleted) == "table" then
     for _, decision in pairs(decisions.deleted) do
-      if deleted[decision.origin] == nil then
-        deleted[decision.origin] = 1
-      else
-        deleted[decision.origin] = deleted[decision.origin] + 1
+      if decision.origin == "lists" and decisions.scenario ~= nil then
+        decision.origin = "lists:" .. decision.scenario
       end
+
+      self:delete(utils.item_to_string(decision.value, decision.scope))
       if decision.type == "captcha" then
         stream.cache:delete("captcha_" .. decision.value)
       end
       local key,_ = utils.item_to_string(decision.value, decision.scope)
-      stream.cache:delete(key)
+      local cache_value = stream.cache:get(key)
+      if cache_value ~= nil then
+        stream.cache:delete(key)
+        if deleted[decision.origin] == nil then
+          deleted[decision.origin] = 1
+        else
+          deleted[decision.origin] = deleted[decision.origin] + 1
+        end
+      end
       ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
     end
   end
@@ -122,10 +180,8 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   local added = {}
   if type(decisions.new) == "table" then
     for _, decision in pairs(decisions.new) do
-      if added[decision.origin] == nil then
-        added[decision.origin] = 1
-      else
-        added[decision.origin] = added[decision.origin] + 1
+      if decision.origin == "lists" and decisions.scenario ~= nil then
+        decision.origin = "lists:" .. decision.scenario
       end
       if bouncing_on_type == decision.type or bouncing_on_type == "all" then
         local ttl, err = parse_duration(decision.duration)
@@ -133,7 +189,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
           ngx.log(ngx.ERR, "[Crowdsec] failed to parse ban duration '" .. decision.duration .. "' : " .. err)
         end
         local key,_ = utils.item_to_string(decision.value, decision.scope)
-        local succ, err, forcible = stream.cache:set(key, decision.type .. "/" .. decision.origin, ttl, 0) -- 0 means the it's a true remediation decision
+        local succ, err, forcible = self:set(key, decision.type .. "/" .. decision.origin, ttl, 0) -- 0 means the it's a true remediation decision
         ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds " .. decision.type .. "/" .. decision.origin) -- debug
         if not succ then
           ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
@@ -144,26 +200,17 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
       end
     end
 
-    for origin, count in pairs(added) do
-      ngx.log(ngx.INFO, "Adding " .. count .. " decisions for " .. origin)
-      if deleted[origin] ~= nil then
-        added[origin] = count - deleted[origin]
-      end
-      local og_count = stream.cache:get("metrics_active_decisions/" .. origin)
-      if og_count == nil then
-        og_count = 0
-      end
-      if origin == "cscli" then
-        ngx.log(ngx.INFO, "Adding " .. added[origin] .. " decisions for " .. origin)
-      end
+    local table_count = get_decisions_count()
+    for origin, count in pairs(table_count) do
       metrics:add_to_metrics("active_decisions/" .. origin)
-      local succ, err, forcible = stream.cache:set("metrics_active_decisions/" .. origin, og_count + added[origin])
+      local succ, err, forcible = stream.cache:set("metrics_active_decisions/" .. origin, count)
       if not succ then
         ngx.log(ngx.ERR, "failed to add "..  "metrics_active_decisions_" .. origin .." : "..err)
       end
       if forcible then
         ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
       end
+
     end
   end
 
