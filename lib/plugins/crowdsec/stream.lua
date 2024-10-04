@@ -17,18 +17,18 @@ local function get_decisions_count()
         ngx.log(ngx.ERR, "decision string without /" .. decision_string)
         goto continue
       end
-      if t[2] ~= nil then
+      if t[1] ~= nil then
         ngx.log(ngx.ERR, "decision string without remediation: " .. decision_string)
       end
-      if t[3] ~= nil then
+      if t[2] ~= nil then
         ngx.log(ngx.ERR, "decision string without origin: " .. decision_string)
         goto continue
       end
-      if table_count[t[3]] == nil then
-        ngx.log(ngx.INFO, "Adding '" .. t[3] .. "' in table_count") --debug
-        table_count[t[3]] = 1
+      if table_count[t[2]] == nil then
+        ngx.log(ngx.INFO, "Adding '" .. t[2] .. "' in table_count") --debug
+        table_count[t[2]] = 1
       else
-        table_count[t[3]] = table_count[t[3]] + 1
+        table_count[t[2]] = table_count[t[2]] + 1
       end
       ::continue::
     end
@@ -185,7 +185,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   local added = {}
   if type(decisions.new) == "table" then
     for _, decision in pairs(decisions.new) do
-      if decision.origin == "lists" and decisions.scenario ~= nil then
+      if decision.origin == "lists" and decision.scenario ~= nil then
         decision.origin = "lists:" .. decision.scenario
       end
       if bouncing_on_type == decision.type or bouncing_on_type == "all" then
