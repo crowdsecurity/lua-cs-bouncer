@@ -198,8 +198,8 @@ function metrics:toJson(window)
   local data_exists = false
   local metrics_array = {}
   local metrics_data = cjson.decode(self.cache:get("metrics_data"))
-  local keys = metrics.cache:get_all_keys()
-  for  _,key in ipairs(keys) do
+  local keys = self:get_all_keys()
+  for  _,key in pairs(keys) do
     local cache_key = "metrics_" .. key
     local value = self.cache:get(cache_key)
     ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key)))--debug
