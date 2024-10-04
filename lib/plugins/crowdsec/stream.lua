@@ -10,23 +10,26 @@ local function get_decisions_count()
   local table_count = {}
   local keys = stream.cache:get_keys(0)
   for _, key in ipairs(keys) do
-    if string.starts_with(key, "decision_cache/") then
+    if utils.starts_with(key, "decision_cache/") then
       local decision_string = stream.cache:get(key)
       local  t = utils.split_on_delimiter(decision_string,"/")
       if t == nil then
         ngx.log(ngx.ERR, "decision string without /" .. decision_string)
-      end
-      if t[1] ~= nil then
-        ngx.log(ngx.ERR, "decision string without remediation" .. decision_string)
+        goto continue
       end
       if t[2] ~= nil then
+        ngx.log(ngx.ERR, "decision string without remediation" .. decision_string)
+      end
+      if t[3] ~= nil then
         ngx.log(ngx.ERR, "decision string without origin" .. decision_string)
+        goto continue
       end
-      if table_count[t[2]] == nil then
-        table_count[t[2]] = 1
+      if table_count[t[3]] == nil then
+        table_count[t[3]] = 1
       else
-        table_count[t[2]] = table_count[t[2]] + 1
+        table_count[t[3]] = table_count[t[3]] + 1
       end
+      ::continue::
     end
   end
   return table_count
