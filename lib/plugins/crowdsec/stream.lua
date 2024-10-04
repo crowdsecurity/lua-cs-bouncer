@@ -18,10 +18,10 @@ local function get_decisions_count()
         goto continue
       end
       if t[2] ~= nil then
-        ngx.log(ngx.ERR, "decision string without remediation" .. decision_string)
+        ngx.log(ngx.ERR, "decision string without remediation: " .. decision_string)
       end
       if t[3] ~= nil then
-        ngx.log(ngx.ERR, "decision string without origin" .. decision_string)
+        ngx.log(ngx.ERR, "decision string without origin: " .. decision_string)
         goto continue
       end
       if table_count[t[3]] == nil then
