@@ -6,6 +6,8 @@ local stream = {}
 stream.__index = stream
 stream.cache = ngx.shared.crowdsec_cache
 
+--- Get the number of decisions in the cache for each origin
+--- return a table with the origin as key and the number of decisions as value
 local function get_decisions_count()
   local table_count = {}
   local keys = stream.cache:get_keys(0)
@@ -46,6 +48,10 @@ local function set_refreshing(value)
   end
 end
 
+--- Parse a golang duration string and return the number of seconds
+--- @param duration string: the duration string to parse
+--- @return number: the number of seconds
+--- @return string: the error message if any
 local function parse_duration(duration)
   local match, err = ngx.re.match(duration, "^((?<hours>[0-9]+)h)?((?<minutes>[0-9]+)m)?(?<seconds>[0-9]+)")
   local ttl = 0

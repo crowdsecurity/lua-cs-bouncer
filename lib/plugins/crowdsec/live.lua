@@ -8,11 +8,6 @@ live.cache = ngx.shared.crowdsec_cache
 
 --- Create a new live object
 -- Create a new live object to query the live API
--- @param api_url string: the URL of the live API
--- @param cache_expiration number: the expiration time of the cache
--- @param bouncing_on_type string: the type of decision to bounce on
--- @param time_out number: the time out of the http lapi request
--- @param api_key_header string: the header to use for the API key
 -- @return live: the live object
 
 function live:new()
