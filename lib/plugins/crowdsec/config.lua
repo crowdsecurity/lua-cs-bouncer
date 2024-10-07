@@ -40,7 +40,7 @@ function config.loadConfig(file)
     end
     local conf = {}
     local valid_params = {'ENABLED', 'ENABLE_INTERNAL', 'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'APPSEC_URL', 'APPSEC_FAILURE_ACTION', 'ALWAYS_SEND_TO_APPSEC', 'SSL_VERIFY'}
-    local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'APPSEC_CONNECT_TIMEOUT', 'APPSEC_SEND_TIMEOUT', 'APPSEC_PROCESS_TIMEOUT', 'STREAM_REQUEST_TIMEOUT'}
+    local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'APPSEC_CONNECT_TIMEOUT', 'APPSEC_SEND_TIMEOUT', 'APPSEC_PROCESS_TIMEOUT', 'STREAM_REQUEST_TIMEOUT', 'METRICS_PERIOD'}
     local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
     local valid_truefalse_values = {'false', 'true'}
     local default_values = {
@@ -64,7 +64,7 @@ function config.loadConfig(file)
         ['APPSEC_FAILURE_ACTION'] = "passthrough",
         ['SSL_VERIFY'] = "true",
         ['ALWAYS_SEND_TO_APPSEC'] = "false",
-
+        ['METRICS_PERIOD'] = 300,
     }
     for line in io.lines(file) do
         local isOk = false
