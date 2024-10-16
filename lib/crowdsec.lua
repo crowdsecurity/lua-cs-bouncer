@@ -218,6 +218,21 @@ function csmod.GetCaptchaBackendKey()
 end
 
 local function SetupStream()
+  local function query_wrapper()
+    local err = stream:stream_query(
+      runtime.conf["API_URL"],
+      runtime.conf["REQUEST_TIMEOUT"],
+      REMEDIATION_API_KEY_HEADER,
+      runtime.conf["API_KEY"],
+      runtime.userAgent,
+      runtime.conf["SSL_VERIFY"],
+      runtime.conf["BOUNCING_ON_TYPE"]
+    )
+    if err ~=nil then
+      ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
+      error("Failed to query the stream: " .. err)
+    end
+  end
   -- if it stream mode and startup start timer
   if runtime.conf["API_URL"] == "" then
     return
@@ -253,7 +268,7 @@ local function SetupStream()
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
   if not runtime.timer_started then
     local ok, err
-    ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"],SetupStream)
+    ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"],query_wrapper)
     if not ok then
       return true, nil, "Failed to create the timer: " .. (err or "unknown")
     end
@@ -361,6 +376,7 @@ function csmod.allowIp(ip)
       runtime.conf["SSL_VERIFY"],
       runtime.conf["BOUNCING_ON_TYPE"]
     )
+    -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
     if remediation ~= nil and remediation ~= "none" then
       metrics:increment(origin,1)

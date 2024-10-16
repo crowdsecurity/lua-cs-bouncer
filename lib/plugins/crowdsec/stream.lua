@@ -113,7 +113,6 @@ end
 -- @param user_agent string: the user agent to use for the request
 -- @param ssl_verify boolean: whether to verify the SSL certificate or not
 -- @param bouncing_on_type string: the type of decision to bounce on
--- @return string: the error message if any
 function stream:stream_query(api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
 
   -- As this function is running inside coroutine (with ngx.timer.at),
@@ -138,7 +137,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
                                                       ssl_verify)
   if not res then
     set_refreshing(false)
-    return "request failed: " .. err
+    ngx.log(ngx.ERR, "request failed: " .. err)
   end
 
   local succ, err, forcible = stream.cache:set("last_refresh", ngx.time())
@@ -156,7 +155,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
 
   if status~=200 then
     set_refreshing(false)
-    return "HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")"
+    ngx.log(ngx.ERR, "HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")")
   end
 
   local decisions = cjson.decode(body)
