@@ -218,8 +218,6 @@ function csmod.GetCaptchaBackendKey()
 end
 
 local function SetupStream()
-  -- wip: debug
-  ngx.log(ngx.INFO, "SetupStream" .. runtime.conf["API_URL"])
   -- if it stream mode and startup start timer
   if runtime.conf["API_URL"] == "" then
     return
@@ -261,8 +259,6 @@ local function SetupStream()
     end
     runtime.timer_started = true
     ngx.log(ngx.DEBUG, "Timer launched")
-    --wip debug
-    ngx.log(ngx.INFO, "Timer launched")
   end
 end
 
@@ -365,7 +361,6 @@ function csmod.allowIp(ip)
       runtime.conf["SSL_VERIFY"],
       runtime.conf["BOUNCING_ON_TYPE"]
     )
-    -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
     if remediation ~= nil and remediation ~= "none" then
       metrics:increment(origin,1)
