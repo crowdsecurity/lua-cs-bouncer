@@ -254,7 +254,10 @@ function metrics:toJson(window)
   end
   --setmetatable(metrics_data, cjson.array_mt)
   local remediation_components = metrics_data
-  remediation_components = cjson.encode({
+    -- for k, v in pairs(metrics_data) do
+    --   remediation_components[k] = v
+    -- end
+  return cjson.encode({log_processors = cjson.null, remediation_components=cjson.encode({
       feature_flags = setmetatable({}, cjson.array_mt),
       metrics = {
         {
@@ -265,11 +268,7 @@ function metrics:toJson(window)
           }
         }
       },
-    })
-    -- for k, v in pairs(metrics_data) do
-    --   remediation_components[k] = v
-    -- end
-  return cjson.encode({log_processors = cjson.null, remediation_components=remediation_components})
+    })})
 end
 
 function metrics:sendMetrics(link, headers, ssl, window)
