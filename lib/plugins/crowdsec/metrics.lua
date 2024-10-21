@@ -255,19 +255,22 @@ function metrics:toJson(window)
     -- for k, v in pairs(metrics_data) do
     --   remediation_components[k] = v
     -- end
-  return cjson.encode({log_processors = cjson.null, remediation_components = {
-                         cjson.decode(metrics_data),
-                         feature_flags = setmetatable({}, cjson.array_mt),
-                         metrics = {
-                           {
-                             items = metrics_array,
-                             meta = {
-                               utc_now_timestamp = ngx.time(),
-                               window_size_seconds = window
-                             }
-                           }
-                         },
-                     }})
+    --
+
+  local remediation_components = {}
+  local remediation_component = metrics_data
+  remediation_component["feature_flags"] = setmetatable({}, cjson.array_mt)
+  remediation_component["metrics"]= {
+    {
+      items = metrics_array,
+      meta = {
+        utc_now_timestamp = ngx.time(),
+        window_size_seconds = window
+      }
+    }
+  }
+  table.insert(remediation_components, remediation_component)
+  return cjson.encode({log_processors = cjson.null, remediation_components = remediation_components})
 end
 
 function metrics:sendMetrics(link, headers, ssl, window)
