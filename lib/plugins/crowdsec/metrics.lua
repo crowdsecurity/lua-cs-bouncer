@@ -253,7 +253,6 @@ function metrics:toJson(window)
     end
   end
   --setmetatable(metrics_data, cjson.array_mt)
-  local remediation_components = metrics_data
     -- for k, v in pairs(metrics_data) do
     --   remediation_components[k] = v
     -- end
