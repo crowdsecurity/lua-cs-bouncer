@@ -258,7 +258,7 @@ function metrics:toJson(window)
     --
 
   local remediation_components = {}
-  local remediation_component = metrics_data
+  local remediation_component = cjson.decode(metrics_data)
   remediation_component["feature_flags"] = setmetatable({}, cjson.array_mt)
   remediation_component["metrics"]= {
     {
