@@ -256,7 +256,7 @@ function metrics:toJson(window)
     -- for k, v in pairs(metrics_data) do
     --   remediation_components[k] = v
     -- end
-  return cjson.encode({log_processors = cjson.null, {
+  return cjson.encode({log_processors = cjson.null, remediation_components = {
       feature_flags = setmetatable({}, cjson.array_mt),
       metrics = {
         {
