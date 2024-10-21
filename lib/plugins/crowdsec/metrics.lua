@@ -198,13 +198,15 @@ function metrics:toJson(window)
   local data_exists = false
   local metrics_array = {}
   local metrics_data = cjson.decode(self.cache:get("metrics_data"))
-  local keys = self:get_all_keys()
-  for  _,key in pairs(keys) do
+  local keys = metrics:get_all_keys()
+  for  _,key in ipairs(keys) do
     local cache_key = "metrics_" .. key
     local value = self.cache:get(cache_key)
     ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key)))--debug
     if value ~= nil then
       local final_key, label = get_information_on_key(key)
+      ngx.log(ngx.INFO, "final_key: " .. final_key)
+      ngx.log(ngx.INFO, "value: " .. value)
       if label ~= nil then
         ngx.log(ngx.INFO, "label: " .. label)
       end
@@ -235,39 +237,36 @@ function metrics:toJson(window)
         })
 
       end
-      if final_key ~= "active_decisions" then
+      if final_key ~= "active_decisions" and final_key ~= "processed" then
         local success, err = self.cache:delete(cache_key)
         if success then
           ngx.log(ngx.INFO, "Cache key '", cache_key, "' deleted successfully")
         else
           ngx.log(ngx.INFO, "Failed to delete cache key '", cache_key, "': ", err)
         end
+      else if final_key == "processed" then
+          self.cache:set(cache_key, 0)
       end
-      data_exists = true
     end
   end
 
   --setmetatable(metrics_data, cjson.array_mt)
-  local remediation_components = {}
-  local remediation_component = metrics_data
-  if data_exists then
-    remediation_component["feature_flags"] = setmetatable({}, cjson.array_mt)
-    remediation_component["metrics"]= {
-      {
-        items = metrics_array,
-        meta = {
-          utc_now_timestamp = ngx.time(),
-          window_size_seconds = window
+  local remediation_components = metrics_data
+  remediation_components = cjson.encode({
+      feature_flags = setmetatable({}, cjson.array_mt),
+      metrics = {
+        {
+          items = metrics_array,
+          meta = {
+            utc_now_timestamp = ngx.time(),
+            window_size_seconds = window
+          }
         }
-      }
-    }
+      },
+    })
     -- for k, v in pairs(metrics_data) do
     --   remediation_components[k] = v
     -- end
-    table.insert(remediation_components, remediation_component)
-  else
-    remediation_components = cjson.null
-  end
   return cjson.encode({log_processors = cjson.null, remediation_components=remediation_components})
 end
 
