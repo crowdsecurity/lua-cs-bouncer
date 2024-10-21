@@ -237,6 +237,7 @@ function metrics:toJson(window)
         })
 
       end
+
       if final_key ~= "active_decisions" and final_key ~= "processed" then
         local success, err = self.cache:delete(cache_key)
         if success then
@@ -244,12 +245,13 @@ function metrics:toJson(window)
         else
           ngx.log(ngx.INFO, "Failed to delete cache key '", cache_key, "': ", err)
         end
-      else if final_key == "processed" then
+      else
+        if final_key == "processed" then
           self.cache:set(cache_key, 0)
+        end
       end
     end
   end
-
   --setmetatable(metrics_data, cjson.array_mt)
   local remediation_components = metrics_data
   remediation_components = cjson.encode({
