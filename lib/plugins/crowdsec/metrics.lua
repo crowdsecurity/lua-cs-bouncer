@@ -195,9 +195,8 @@ end
 
 -- Export the store data to JSON
 function metrics:toJson(window)
-  local data_exists = false
   local metrics_array = {}
-  local metrics_data = cjson.decode(self.cache:get("metrics_data"))
+  local metrics_data = self.cache:get("metrics_data")
   local keys = metrics:get_all_keys()
   for  _,key in ipairs(keys) do
     local cache_key = "metrics_" .. key
@@ -257,17 +256,18 @@ function metrics:toJson(window)
     --   remediation_components[k] = v
     -- end
   return cjson.encode({log_processors = cjson.null, remediation_components = {
-      feature_flags = setmetatable({}, cjson.array_mt),
-      metrics = {
-        {
-          items = metrics_array,
-          meta = {
-            utc_now_timestamp = ngx.time(),
-            window_size_seconds = window
-          }
-        }
-      },
-  }})
+                         metrics_data = cjson.decode(metrics_data),
+                         feature_flags = setmetatable({}, cjson.array_mt),
+                         metrics = {
+                           {
+                             items = metrics_array,
+                             meta = {
+                               utc_now_timestamp = ngx.time(),
+                               window_size_seconds = window
+                             }
+                           }
+                         },
+                     }})
 end
 
 function metrics:sendMetrics(link, headers, ssl, window)
