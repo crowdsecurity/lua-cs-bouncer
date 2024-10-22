@@ -375,8 +375,8 @@ function csmod.allowIp(ip)
     )
     -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
-    if remediation ~= nil and remediation ~= "none" then
-      metrics:increment(origin,1)
+    if remediation ~= nil and remediation == "ban" then
+      metrics:increment("dropped/" .. origin,1)
     return ok, remediation, err
     end
   end
