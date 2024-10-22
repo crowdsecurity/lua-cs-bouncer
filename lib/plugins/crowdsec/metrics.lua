@@ -203,6 +203,7 @@ function metrics:toJson(window)
     local value = self.cache:get(cache_key)
     ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key)))--debug
     if value ~= nil then
+      ngx.log(ngx.INFO, "key: " .. key)
       local final_key, label = get_information_on_key(key)
       ngx.log(ngx.INFO, "final_key: " .. final_key)
       ngx.log(ngx.INFO, "value: " .. value)
