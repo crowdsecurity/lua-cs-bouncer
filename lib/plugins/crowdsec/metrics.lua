@@ -183,13 +183,8 @@ local function get_information_on_key(key)
   local table = utils.split_on_delimiter(key, "/")
   if table == nil then
     return nil, nil
-  end
-  if table[1] == "dropped" and table[2] ~= nil then
-    return "dropped" , table[2]
-  elseif table[1] == "processed" then
-    return "processed", nil
-  elseif table[1] == "active_decisions" and table[2] ~= nil then
-    return "active_decisions", table[2]
+  else
+    return table[1], table[2]
   end
 end
 
