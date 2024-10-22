@@ -31,6 +31,7 @@ local APPSEC_VERB_HEADER = "x-crowdsec-appsec-verb"
 local APPSEC_URI_HEADER = "x-crowdsec-appsec-uri"
 local APPSEC_USER_AGENT_HEADER = "x-crowdsec-appsec-user-agent"
 local REMEDIATION_API_KEY_HEADER = 'x-api-key'
+local METRICS_PERIOD = 300
 
 
 --- init function
@@ -84,10 +85,6 @@ function csmod.init(configFile, userAgent)
     runtime.conf["SSL_VERIFY"] = false
   else
     runtime.conf["SSL_VERIFY"] = true
-  end
-
-  if runtime.conf["METRICS_PERIOD"] == "" or runtime.conf["METRICS_PERIOD"] == nil then
-    runtime.conf["METRICS_PERIOD"] = 300
   end
 
   runtime.cache:set("metrics_startup_time", ngx.time())  -- to make sure we have only one thread sending metrics
@@ -148,11 +145,11 @@ end
 
 local function Setup_metrics()
   local function Setup_metrics_timer()
-    local ok, err = ngx.timer.at(runtime.conf["METRICS_PERIOD"], Setup_metrics)
+    local ok, err = ngx.timer.at(METRICS_PERIOD, Setup_metrics)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
     else
-      ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(runtime.conf["METRICS_PERIOD"]) .. " seconds")
+      ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(METRICS_PERIOD) .. " seconds")
     end
   end
   local first_run = runtime.cache:get("metrics_first_run")
@@ -164,12 +161,12 @@ local function Setup_metrics()
     return
   end
   local started = runtime.cache:get("metrics_startup_time")
-  if ngx.time() - started >= runtime.conf["METRICS_PERIOD"] then
+  if ngx.time() - started >= METRICS_PERIOD then
     metrics:sendMetrics(
       runtime.conf["API_URL"],
       {['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"],["Content-Type"]="application/json"},
       runtime.conf["SSL_VERIFY"],
-      runtime.conf["METRICS_PERIOD"]
+      METRICS_PERIOD
     )
     runtime.cache:set("metrics_startup_time",ngx.time()) --TODO add err handling
     --TODO rename the cache key
