@@ -1,3 +1,6 @@
+local iputils = require "plugins.crowdsec.iputils"
+local http = require "resty.http"
+
 local M = {}
 
 
@@ -55,4 +58,71 @@ function M.table_len(table)
    return count
 end
 
+function M.item_to_string(item, scope)
+  local ip, cidr, ip_version
+  if scope:lower() == "ip" then
+    ip = item
+  end
+  if scope:lower() == "range" then
+    ip, cidr = iputils.splitRange(item, scope)
+  end
+
+  local ip_network_address, is_ipv4 = iputils.parseIPAddress(ip)
+  if ip_network_address == nil then
+    return nil
+  end
+  if is_ipv4 then
+    ip_version = "ipv4"
+    if cidr == nil then
+      cidr = 32
+    end
+  else
+    ip_version = "ipv6"
+    ip_network_address = ip_network_address.uint32[3]..":"..ip_network_address.uint32[2]..":"..ip_network_address.uint32[1]..":"..ip_network_address.uint32[0]
+    if cidr == nil then
+      cidr = 128
+    end
+  end
+
+  if ip_version == nil then
+    return "normal_"..item
+  end
+  local ip_netmask = iputils.cidrToInt(cidr, ip_version)
+  return ip_version.."_"..ip_netmask.."_"..ip_network_address, ip_version
+end
+
+function M.get_remediation_http_request(link,timeout, api_key_header, api_key, user_agent,ssl_verify)
+  local httpc = http.new()
+  httpc:set_timeout(timeout)
+  local res, err = httpc:request_uri(link, {
+    method = "GET",
+    headers = {
+      ['Connection'] = 'close',
+      [api_key_header] = api_key,
+      ['User-Agent'] = user_agent
+    },
+    ssl_verify = ssl_verify
+  })
+  httpc:close()
+  return res, err
+end
+
+function M.split_on_delimiter(str, delimiter)
+  if str == nil then
+    return nil
+  end
+
+  ngx.log(ngx.INFO, "split_on_delimiter: " .. str .. " using delimiter: " .. delimiter)
+
+  local result = {}
+  local pattern = "([^" .. delimiter .. "]+)"  -- Create a pattern to match between delimiters
+
+  for word in string.gmatch(str, pattern) do
+    table.insert(result, word)  -- Insert the split parts into the result table
+  end
+
+  return result  -- Return the split parts as a table
+end
+
 return M
+
