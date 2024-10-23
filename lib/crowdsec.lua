@@ -348,7 +348,7 @@ function csmod.allowIp(ip)
       end
       local remediation = ""
       if t[2] ~= nil then
-        metrics:increment("dropped/" .. t[2],1) -- origin: at this point we are pretty sure there's one
+        metrics:increment("dropped/" .. t[2] .. "/" .. key_type,1) -- origin: at this point we are pretty sure there's one
         -- and that the decision is a blocking
       end
       if t[1] ~= nil then
@@ -375,8 +375,9 @@ function csmod.allowIp(ip)
     )
     -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
+    local _,_, ip_type = utils.item_to_string(ip, "ip")
     if remediation ~= nil and remediation == "ban" then
-      metrics:increment("dropped/" .. origin,1)
+      metrics:increment("dropped/" .. origin .. "/" .. ip_type ,1)
     return ok, remediation, err
     end
   end

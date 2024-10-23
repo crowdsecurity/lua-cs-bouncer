@@ -69,7 +69,7 @@ function M.item_to_string(item, scope)
 
   local ip_network_address, is_ipv4 = iputils.parseIPAddress(ip)
   if ip_network_address == nil then
-    return nil
+    return nil, nil
   end
   if is_ipv4 then
     ip_version = "ipv4"
@@ -85,7 +85,7 @@ function M.item_to_string(item, scope)
   end
 
   if ip_version == nil then
-    return "normal_"..item
+    return "normal_"..item, ip_version
   end
   local ip_netmask = iputils.cidrToInt(cidr, ip_version)
   return ip_version.."_"..ip_netmask.."_"..ip_network_address, ip_version

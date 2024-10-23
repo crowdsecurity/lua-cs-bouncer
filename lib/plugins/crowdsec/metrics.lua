@@ -179,12 +179,22 @@ function metrics:add_to_metrics(key)
     end
 end
 
-local function get_information_on_key(key)
+local function get_labels_from_key(key)
   local table = utils.split_on_delimiter(key, "/")
   if table == nil then
     return nil, nil
   else
-    return table[1], table[2]
+    if table[2] == nil then
+      local ret2 = nil
+    else
+      ret2 = table[2]
+    end
+    if table[3] == nil then
+      local ret3 = nil
+    else
+      ret3 = table[3]
+    end
+    return table[1], {origin=ret2, ip_type=ret3}
   end
 end
 
@@ -199,11 +209,11 @@ function metrics:toJson(window)
     ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key)))--debug
     if value ~= nil then
       ngx.log(ngx.INFO, "key: " .. key)
-      local final_key, label = get_information_on_key(key)
+      local final_key, labels = get_labels_from_key(key)
       ngx.log(ngx.INFO, "final_key: " .. final_key)
       ngx.log(ngx.INFO, "value: " .. value)
-      if label ~= nil then
-        ngx.log(ngx.INFO, "label: " .. label)
+      if labels ~= nil then
+        ngx.log(ngx.INFO, "label: " .. labels["origin"] .. " " .. labels["ip_type"])
       end
 
       if final_key == "processed" then
@@ -217,18 +227,14 @@ function metrics:toJson(window)
                        name = final_key,
                        value = value,
                        unit = "ip",
-                       labels = {
-                         origin = label
-                       }
+                       labels = labels
         })
       else
         table.insert(metrics_array, {
                        name = final_key,
                        value = value,
                        unit = "request",
-                       labels = {
-                         origin = label
-                       }
+                       labels = labels
         })
 
       end
