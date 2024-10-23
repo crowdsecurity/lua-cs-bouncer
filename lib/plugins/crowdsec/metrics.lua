@@ -214,7 +214,9 @@ function metrics:toJson(window)
       ngx.log(ngx.INFO, "value: " .. value)
       if labels ~= nil then
         ngx.log(ngx.INFO, "labels: " .. tostring(labels))
-        ngx.log(ngx.INFO, "label: " .. labels["origin"] .. " " .. labels["ip_type"])
+        for k, v in pairs(labels) do
+          ngx.log(ngx.INFO, "label: " .. k .. " " .. v)
+        end
       end
 
       if final_key == "processed" then
