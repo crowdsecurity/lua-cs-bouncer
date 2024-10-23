@@ -224,6 +224,7 @@ function metrics:toJson(window)
                        name = "processed",
                        value = value,
                        unit = "request",
+                       labels = labels
         })
       elseif final_key == "active_decisions" then
         table.insert(metrics_array, {
