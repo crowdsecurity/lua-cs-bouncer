@@ -213,6 +213,7 @@ function metrics:toJson(window)
       ngx.log(ngx.INFO, "final_key: " .. final_key)
       ngx.log(ngx.INFO, "value: " .. value)
       if labels ~= nil then
+        ngx.log(ngx.INFO, "labels: " .. tostring(labels))
         ngx.log(ngx.INFO, "label: " .. labels["origin"] .. " " .. labels["ip_type"])
       end
 
