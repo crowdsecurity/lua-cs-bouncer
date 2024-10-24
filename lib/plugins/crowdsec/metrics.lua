@@ -184,17 +184,14 @@ local function get_labels_from_key(key)
   if table == nil then
     return nil, nil
   else
-    if table[2] == nil then
-      local ret2 = nil
-    else
-      ret2 = table[2]
+    local labels = {}
+    if table[2] ~= nil then
+      labels["origin"] = table[2]
     end
-    if table[3] == nil then
-      local ret3 = nil
-    else
-      ret3 = table[3]
+    if table[3] ~= nil then
+      labels["ip_version"] = table[3]
     end
-    return table[1], {origin=ret2, ip_type=ret3}
+    return table[1], labels
   end
 end
 

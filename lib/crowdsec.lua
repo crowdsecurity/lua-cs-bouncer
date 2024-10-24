@@ -293,9 +293,8 @@ function csmod.allowIp(ip)
     ngx.log(ngx.INFO, "stream mode")
     SetupStream()
   end
-  metrics:increment("processed",1)
 
-  local key,_ = utils.item_to_string(ip, "ip")
+  local key, ip_version = utils.item_to_string(ip, "ip")
   if key == nil then
     return true, nil, "Check failed '" .. ip .. "' has no valid IP address"
   end
@@ -303,6 +302,8 @@ function csmod.allowIp(ip)
   for i in key.gmatch(key, "([^_]+)") do
     table.insert(key_parts, i)
   end
+
+  metrics:increment("processed" .. "/" .. ip_version,1)
 
   local key_type = key_parts[1]
   if key_type == "normal" then
