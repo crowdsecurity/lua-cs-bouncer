@@ -142,10 +142,16 @@ function metrics:new(userAgent)
   }))
 end
 
--- Increment the value of a key or initialize it if it does not exist
-function metrics:increment(key, increment)
-    increment = increment or 1
 
+-- Increment the value of a key or initialize it if it does not exist
+-- @param key: the key to increment
+-- @param increment: the value to increment the key by
+-- @param labels: a table of labels to add to the key
+-- @return the new value of the key
+function metrics:increment(key, increment, labels)
+    increment = increment or 1
+    table.sort(labels)
+    key = key .. "/" .. table.concat(labels, "|")
     local value, err, forcible = self.cache:incr("metrics_" .. key, increment, 0)
     metrics:add_to_metrics(key)
     if err then
@@ -179,19 +185,31 @@ function metrics:add_to_metrics(key)
     end
 end
 
+--- Get the labels from a cache key
+--- As labels are stored in the cache key
+--- we need to extract them from the key
+--- @param key string key: the cache key to extract the labels from
+--- @return string the key without the labels and the labels as a table
+--- @return table labels as a table
 local function get_labels_from_key(key)
   local table = utils.split_on_delimiter(key, "/")
   if table == nil then
-    return nil, nil
+    return "", {}
   else
     local labels = {}
+    local labels_tmp = {}
     if table[2] ~= nil then
-      labels["origin"] = table[2]
+      labels_tmp = utils.split_on_delimiter(table[2], "|")
     end
-    if table[3] ~= nil then
-      labels["ip_version"] = table[3]
-    end
-    return table[1], labels
+    if labels_tmp ~= nil then
+      for i, label in pairs(labels_tmp) do
+        -- labels name and value are encoded the same way
+        -- if the label is odd, it's a name, if it's even, it's a value
+        if i % 2 == 1 and labels_tmp[i + 1] ~= nil then -- if the label is odd and the next label is not nil
+          labels[label] = labels_tmp[i + 1]
+        end
+      end
+    end    return table[1], labels
   end
 end
 
@@ -210,7 +228,6 @@ function metrics:toJson(window)
       ngx.log(ngx.INFO, "final_key: " .. final_key)
       ngx.log(ngx.INFO, "value: " .. value)
       if labels ~= nil then
-        ngx.log(ngx.INFO, "labels: " .. tostring(labels))
         for k, v in pairs(labels) do
           ngx.log(ngx.INFO, "label: " .. k .. " " .. v)
         end
