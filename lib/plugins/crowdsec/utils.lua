@@ -1,5 +1,6 @@
 local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
+local cjson = require "cjson"
 
 local M = {}
 
@@ -122,6 +123,28 @@ function M.split_on_delimiter(str, delimiter)
   end
 
   return result  -- Return the split parts as a table
+end
+
+--- Convert a key, value table to a string.
+--- @param t table to convert.
+--- @return table ordered table
+function M.table_to_string(t)
+    local sorted_keys = {}
+
+    -- Collect all keys and sort them
+    for key in pairs(t) do
+        table.insert(sorted_keys, key)
+    end
+    table.sort(sorted_keys)
+
+    -- Build an ordered version of the table
+    local ordered_t = {}
+    for _, key in ipairs(sorted_keys) do
+        ordered_t[key] = t[key]
+    end
+
+    -- Convert ordered table to JSON string
+    return cjson.encode(ordered_t)
 end
 
 return M

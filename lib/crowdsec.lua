@@ -303,7 +303,7 @@ function csmod.allowIp(ip)
     table.insert(key_parts, i)
   end
 
-  metrics:increment("processed/", 1,  {"ip_version", ip_version})
+  metrics:increment("processed", 1,  {ip_version=ip_version})
 
   local key_type = key_parts[1]
   if key_type == "normal" then
@@ -316,7 +316,7 @@ function csmod.allowIp(ip)
 
     local remediation = ""
     if t[2] ~= nil then
-      metrics:increment("dropped/" ,1, {"ip_version",ip_version, "origin", t[2]})
+      metrics:increment("dropped" ,1, {ip_version=ip_version, origin=t[2]})
     end
     if t[1] ~= nil then
       remediation = t[1]
@@ -349,7 +349,7 @@ function csmod.allowIp(ip)
       end
       local remediation = ""
       if t[2] ~= nil then
-        metrics:increment("dropped/", 1, {"ip_version", ip_version, "origin", t[2]}) -- origin: at this point we are pretty sure there's one
+        metrics:increment("dropped", 1, {ip_version=ip_version, origin=t[2]}) -- origin: at this point we are pretty sure there's one
         -- and that the decision is a blocking
       end
       if t[1] ~= nil then
@@ -379,7 +379,7 @@ function csmod.allowIp(ip)
 
     local _,_, ip_type = utils.item_to_string(ip, "ip")
     if remediation ~= nil and remediation == "ban" then
-      metrics:increment("dropped/", 1, {"ip_version", ip_type, "origin", origin} ) -- TODO: ip_type is the exact same as ip_version, sth is off
+      metrics:increment("dropped", 1, {"ip_version", ip_type, "origin", origin} ) -- TODO: ip_type is the exact same as ip_version, sth is off
     return ok, remediation, err
     end
   end

@@ -158,8 +158,7 @@ function metrics:increment(key, increment, labels)
         ngx.log(ngx.INFO, "no labels")
       end
 
-    table.sort(labels)
-    key = key .. "/" .. table.concat(labels, "|")
+    key = key .. "/" .. utils.table_to_string(labels)
     local value, err, forcible = self.cache:incr("metrics_" .. key, increment, 0)
     metrics:add_to_metrics(key)
     if err then
@@ -201,24 +200,15 @@ end
 --- @return table labels as a table
 local function get_labels_from_key(key)
   local table = utils.split_on_delimiter(key, "/")
+  local labels = {}
   if table == nil then
     return "", {}
   else
-    local labels = {}
-    local labels_tmp = {}
     if table[2] ~= nil then
-      labels_tmp = utils.split_on_delimiter(table[2], "|")
+      labels = cjson.decode(table[2])
     end
-    if labels_tmp ~= nil then
-      for i, label in pairs(labels_tmp) do
-        -- labels name and value are encoded the same way
-        -- if the label is odd, it's a name, if it's even, it's a value
-        if i % 2 == 1 and labels_tmp[i + 1] ~= nil then -- if the label is odd and the next label is not nil
-          labels[label] = labels_tmp[i + 1]
-        end
-      end
-    end    return table[1], labels
   end
+  return table[1], labels
 end
 
 -- Export the store data to JSON
