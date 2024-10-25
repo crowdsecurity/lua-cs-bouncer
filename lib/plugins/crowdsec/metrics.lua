@@ -150,6 +150,14 @@ end
 -- @return the new value of the key
 function metrics:increment(key, increment, labels)
     increment = increment or 1
+      if labels ~= nil then
+        for k, v in pairs(labels) do
+          ngx.log(ngx.INFO, "label: " .. k .. " " .. v)
+        end
+      else
+        ngx.log(ngx.INFO, "no labels")
+      end
+
     table.sort(labels)
     key = key .. "/" .. table.concat(labels, "|")
     local value, err, forcible = self.cache:incr("metrics_" .. key, increment, 0)
