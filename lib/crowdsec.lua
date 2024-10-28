@@ -376,6 +376,7 @@ function csmod.allowIp(ip)
     )
     -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
+    ngx.log(ngx.INFO, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
 
     local _,_, ip_type = utils.item_to_string(ip, "ip")
     if remediation ~= nil and remediation == "ban" then
