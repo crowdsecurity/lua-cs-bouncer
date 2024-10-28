@@ -152,13 +152,14 @@ end
 function M.string_to_table(str)
   local t = {}
   if str == nil then
-    return nil
+    return {}
   end
   local labels_string = M.split_on_delimiter(str, "&")
   if labels_string == nil then
-    return nil
+    return {}
   end
   for _, v in pairs(labels_string) do
+    ngx.log(ngx.INFO, "dealing with:" .. v)
     local key, value = M.split_on_delimiter(v, "=")
     if key == nil or value == nil then
       goto continue
