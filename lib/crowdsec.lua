@@ -316,6 +316,7 @@ function csmod.allowIp(ip)
 
     local remediation = ""
     if t[2] ~= nil then
+      ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. t[2] .. "' is counted")
       metrics:increment("dropped" ,1, {ip_version=ip_version, origin=t[2]})
     end
     if t[1] ~= nil then
@@ -349,6 +350,7 @@ function csmod.allowIp(ip)
       end
       local remediation = ""
       if t[2] ~= nil then
+        ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. t[2] .. "' is counted")
         metrics:increment("dropped", 1, {ip_version=ip_version, origin=t[2]}) -- origin: at this point we are pretty sure there's one
         -- and that the decision is a blocking
       end
@@ -378,6 +380,7 @@ function csmod.allowIp(ip)
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
     local _,_, ip_type = utils.item_to_string(ip, "ip")
     if remediation ~= nil and remediation == "ban" then
+      ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_type .. " origin: " .. origin .. "' is counted")
       metrics:increment("dropped", 1, {ip_version=ip_type, origin=origin} ) -- TODO: ip_type is the exact same as ip_version, sth is off
     return ok, remediation, err
     end
