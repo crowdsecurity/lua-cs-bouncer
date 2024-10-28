@@ -160,12 +160,10 @@ function M.string_to_table(str)
   end
   for _, v in pairs(labels_string) do
     ngx.log(ngx.INFO, "dealing with:" .. v)
-    local key, value = M.split_on_delimiter(v, "=")
-    if key == nil or value == nil then
-      goto continue
+    local label = M.split_on_delimiter(v, "=")
+    if label ~= nil and  #label == 2 then
+      t[label[1]] = label[2]
     end
-    t[key] = value
-    ::continue::
   end
   return t
 end
