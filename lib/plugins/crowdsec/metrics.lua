@@ -209,6 +209,7 @@ local function get_labels_from_key(key)
       labels = utils.string_to_table(table[2])
     end
   end
+  ngx.log(ngx.INFO, "key: " .. table[1] .. " labels: " .. cjson.encode(labels))
   return table[1], labels
 end
 
