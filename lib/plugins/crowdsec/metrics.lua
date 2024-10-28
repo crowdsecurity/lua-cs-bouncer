@@ -159,6 +159,7 @@ function metrics:increment(key, increment, labels)
       end
 
     key = key .. "/" .. utils.table_to_string(labels)
+    ngx.log(ngx.INFO, "incrementing value on key: " .. key)
     local value, err, forcible = self.cache:incr("metrics_" .. key, increment, 0)
     metrics:add_to_metrics(key)
     if err then
