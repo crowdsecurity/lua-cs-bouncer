@@ -378,11 +378,16 @@ function csmod.allowIp(ip)
     )
     -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
-    local _,_, ip_type = utils.item_to_string(ip, "ip")
-    ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_type)
+    local _, is_ipv4 = iputils.ParseIPAddress(ip)
+    if is_ipv4 then
+      ip_version = "ipv4"
+    else
+      ip_version = "ipv6"
+    end
+
     if remediation ~= nil and remediation == "ban" then
-      ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_type .. " origin: " .. origin .. "' is counted")
-      metrics:increment("dropped", 1, {ip_version=ip_type, origin=origin} ) -- TODO: ip_type is the exact same as ip_version, sth is off
+      ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. origin .. "' is counted")
+      metrics:increment("dropped", 1, {ip_version=ip_version, origin=origin} ) -- TODO: ip_type is the exact same as ip_version, sth is off
     return ok, remediation, err
     end
   end
