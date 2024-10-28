@@ -206,7 +206,7 @@ local function get_labels_from_key(key)
     return "", {}
   else
     if table[2] ~= nil then
-      labels = cjson.decode(table[2])
+      labels = utils.string_to_table(table[2])
     end
   end
   return table[1], labels
