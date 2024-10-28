@@ -378,7 +378,7 @@ function csmod.allowIp(ip)
     )
     -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
-    local _, is_ipv4 = iputils.ParseIPAddress(ip)
+    local _, is_ipv4 = iputils.parseIPAddress(ip)
     if is_ipv4 then
       ip_version = "ipv4"
     else
