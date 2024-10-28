@@ -387,7 +387,7 @@ function csmod.allowIp(ip)
 
     if remediation ~= nil and remediation == "ban" then
       ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. origin .. "' is counted")
-      metrics:increment("dropped", 1, {ip_version=ip_version, origin=origin} ) -- TODO: ip_type is the exact same as ip_version, sth is off
+      metrics:increment("dropped", 1, {ip_version=ip_version, origin=origin} )
     return ok, remediation, err
     end
   end

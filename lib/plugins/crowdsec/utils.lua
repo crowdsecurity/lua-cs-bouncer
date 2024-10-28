@@ -133,14 +133,15 @@ function M.table_to_string(t)
 
     -- Collect all keys and sort them
     for key in pairs(t) do
-        table.insert(sorted_keys, key)
+      table.insert(sorted_keys, key)
     end
     table.sort(sorted_keys)
 
     -- Build an ordered version of the table
     local ordered_t = {}
-    for _, key in ipairs(sorted_keys) do
-        ordered_t[key] = t[key]
+    for _, key in pairs(sorted_keys) do
+      ngx.log(ngx.INFO, "key: " .. key)
+      ordered_t[key] = t[key]
     end
 
     -- Convert ordered table to JSON string
