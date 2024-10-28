@@ -1,6 +1,5 @@
 local iputils = require "plugins.crowdsec.iputils"
 local http = require "resty.http"
-local cjson = require "cjson"
 
 local M = {}
 
@@ -125,7 +124,7 @@ function M.split_on_delimiter(str, delimiter)
   return result  -- Return the split parts as a table
 end
 
---- Convert a key, value table to a string.
+--- Convert a labels key, value table to a string.
 --- @param t table to convert.
 --- @return table ordered table
 function M.table_to_string(t)
@@ -138,14 +137,36 @@ function M.table_to_string(t)
     table.sort(sorted_keys)
 
     -- Build an ordered version of the table
-    local ordered_t = {}
-    for _, key in pairs(sorted_keys) do
-      ngx.log(ngx.INFO, "key: " .. key)
-      ordered_t[key] = t[key]
+    local ret = ""
+    for  _, key in pairs(sorted_keys) do
+      ret = ret .. key .. "=" .. t[key] .. "&"
     end
 
     -- Convert ordered table to JSON string
-    return cjson.encode(ordered_t)
+    return ret
+end
+
+--- Convert a string to a labels key, value table.
+--- @param str string to convert.
+--- @return table ordered table
+function M.string_to_table(str)
+  local t = {}
+  if str == nil then
+    return nil
+  end
+  local labels_string = M.split_on_delimiter(str, "&")
+  if labels_string == nil then
+    return nil
+  end
+  for _, v in pairs(labels_string) do
+    local key, value = M.split_on_delimiter(v, "=")
+    if key == nil or value == nil then
+      goto continue
+    end
+    t[key] = value
+    ::continue::
+  end
+  return t
 end
 
 return M
