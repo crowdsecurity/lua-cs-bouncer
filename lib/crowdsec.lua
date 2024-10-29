@@ -303,7 +303,7 @@ function csmod.allowIp(ip)
     table.insert(key_parts, i)
   end
 
-  metrics:increment("processed", 1,  {ip_version=ip_version})
+  metrics:increment("processed", 1,  {ip_type=ip_version})
 
   local key_type = key_parts[1]
   if key_type == "normal" then
@@ -317,7 +317,7 @@ function csmod.allowIp(ip)
     local remediation = ""
     if t[2] ~= nil then
       ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. t[2] .. "' is counted")
-      metrics:increment("dropped" ,1, {ip_version=ip_version, origin=t[2]})
+      metrics:increment("dropped" ,1, {ip_type=ip_version, origin=t[2]})
     end
     if t[1] ~= nil then
       remediation = t[1]
@@ -351,7 +351,7 @@ function csmod.allowIp(ip)
       local remediation = ""
       if t[2] ~= nil then
         ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. t[2] .. "' is counted")
-        metrics:increment("dropped", 1, {ip_version=ip_version, origin=t[2]}) -- origin: at this point we are pretty sure there's one
+        metrics:increment("dropped", 1, {ip_type=ip_version, origin=t[2]}) -- origin: at this point we are pretty sure there's one
         -- and that the decision is a blocking
       end
       if t[1] ~= nil then
@@ -387,7 +387,7 @@ function csmod.allowIp(ip)
 
     if remediation ~= nil and remediation == "ban" then
       ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. origin .. "' is counted")
-      metrics:increment("dropped", 1, {ip_version=ip_version, origin=origin} )
+      metrics:increment("dropped", 1, {ip_type=ip_version, origin=origin} )
     return ok, remediation, err
     end
   end
