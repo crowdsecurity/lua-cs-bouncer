@@ -219,9 +219,8 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
     local table_count = get_decisions_count()
     for ip_type, table_origin in pairs(table_count) do
       for origin, count in pairs(table_origin) do
-        ngx.log(ngx.INFO, "Adding origin_type:" .. type(origin) .. " |origin count " .. type(ip_type))
         metrics:add_to_metrics("active_decisions/" .. origin .. "/" .. ip_type)
-        local succ, err, forcible = stream.cache:set("metrics_active_decisions/" .. origin "/" .. ip_type, count)
+        local succ, err, forcible = stream.cache:set("metrics_active_decisions/" .. origin .. "/" .. ip_type, count)
         if not succ then
           ngx.log(ngx.ERR, "failed to add "..  "metrics_active_decisions_" .. origin .. "/" .. ip_type .. ": ".. err)
         end
