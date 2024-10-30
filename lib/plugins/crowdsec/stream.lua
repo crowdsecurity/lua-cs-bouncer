@@ -30,6 +30,9 @@ local function get_decisions_count()
         ngx.log(ngx.ERR, "decision string without ip type: " .. decision_string)
         goto continue
       end
+      if table_count[t[2]] == nil then
+        table_count[t[2]] = {}
+      end
       if table_count[t[2]][t[3]] == nil then
         ngx.log(ngx.INFO, "Adding '" .. t[2] .. "/" .. t[3] .. "' in table_count") --debug
         table_count[t[2]][t[3]] = 1
