@@ -142,10 +142,24 @@ function metrics:new(userAgent)
   }))
 end
 
--- Increment the value of a key or initialize it if it does not exist
-function metrics:increment(key, increment)
-    increment = increment or 1
 
+-- Increment the value of a key or initialize it if it does not exist
+-- @param key: the key to increment
+-- @param increment: the value to increment the key by
+-- @param labels: a table of labels to add to the key
+-- @return the new value of the key
+function metrics:increment(key, increment, labels)
+    increment = increment or 1
+      if labels ~= nil then
+        for k, v in pairs(labels) do
+          ngx.log(ngx.INFO, "label: " .. k .. " " .. v)
+        end
+      else
+        ngx.log(ngx.INFO, "no labels")
+      end
+
+    key = key .. "/" .. utils.table_to_string(labels)
+    ngx.log(ngx.INFO, "incrementing value on key: " .. key)
     local value, err, forcible = self.cache:incr("metrics_" .. key, increment, 0)
     metrics:add_to_metrics(key)
     if err then
@@ -179,13 +193,23 @@ function metrics:add_to_metrics(key)
     end
 end
 
-local function get_information_on_key(key)
+--- Get the labels from a cache key
+--- As labels are stored in the cache key
+--- we need to extract them from the key
+--- @param key string key: the cache key to extract the labels from
+--- @return string the key without the labels and the labels as a table
+--- @return table labels as a table
+local function get_labels_from_key(key)
   local table = utils.split_on_delimiter(key, "/")
+  local labels = {}
   if table == nil then
-    return nil, nil
+    return "", {}
   else
-    return table[1], table[2]
+    if table[2] ~= nil then
+      labels = utils.string_to_table(table[2])
+    end
   end
+  return table[1], labels
 end
 
 -- Export the store data to JSON
@@ -199,11 +223,13 @@ function metrics:toJson(window)
     ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key)))--debug
     if value ~= nil then
       ngx.log(ngx.INFO, "key: " .. key)
-      local final_key, label = get_information_on_key(key)
+      local final_key, labels = get_labels_from_key(key)
       ngx.log(ngx.INFO, "final_key: " .. final_key)
       ngx.log(ngx.INFO, "value: " .. value)
-      if label ~= nil then
-        ngx.log(ngx.INFO, "label: " .. label)
+      if labels ~= nil then
+        for k, v in pairs(labels) do
+          ngx.log(ngx.INFO, "label: " .. k .. " " .. v)
+        end
       end
 
       if final_key == "processed" then
@@ -211,24 +237,21 @@ function metrics:toJson(window)
                        name = "processed",
                        value = value,
                        unit = "request",
+                       labels = labels
         })
       elseif final_key == "active_decisions" then
         table.insert(metrics_array, {
                        name = final_key,
                        value = value,
                        unit = "ip",
-                       labels = {
-                         origin = label
-                       }
+                       labels = labels
         })
       else
         table.insert(metrics_array, {
                        name = final_key,
                        value = value,
                        unit = "request",
-                       labels = {
-                         origin = label
-                       }
+                       labels = labels
         })
 
       end

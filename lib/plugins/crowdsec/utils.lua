@@ -69,7 +69,7 @@ function M.item_to_string(item, scope)
 
   local ip_network_address, is_ipv4 = iputils.parseIPAddress(ip)
   if ip_network_address == nil then
-    return nil
+    return nil, nil
   end
   if is_ipv4 then
     ip_version = "ipv4"
@@ -85,7 +85,7 @@ function M.item_to_string(item, scope)
   end
 
   if ip_version == nil then
-    return "normal_"..item
+    return "normal_"..item, ip_version
   end
   local ip_netmask = iputils.cidrToInt(cidr, ip_version)
   return ip_version.."_"..ip_netmask.."_"..ip_network_address, ip_version
@@ -122,6 +122,50 @@ function M.split_on_delimiter(str, delimiter)
   end
 
   return result  -- Return the split parts as a table
+end
+
+--- Convert a labels key, value table to a string.
+--- @param t table to convert.
+--- @return table ordered table
+function M.table_to_string(t)
+    local sorted_keys = {}
+
+    -- Collect all keys and sort them
+    for key in pairs(t) do
+      table.insert(sorted_keys, key)
+    end
+    table.sort(sorted_keys)
+
+    -- Build an ordered version of the table
+    local ret = ""
+    for  _, key in pairs(sorted_keys) do
+      ret = ret .. key .. "=" .. t[key] .. "&"
+    end
+
+    -- Convert ordered table to JSON string
+    return ret
+end
+
+--- Convert a string to a labels key, value table.
+--- @param str string to convert.
+--- @return table ordered table
+function M.string_to_table(str)
+  local t = {}
+  if str == nil then
+    return {}
+  end
+  local labels_string = M.split_on_delimiter(str, "&")
+  if labels_string == nil then
+    return {}
+  end
+  for _, v in pairs(labels_string) do
+    ngx.log(ngx.INFO, "dealing with:" .. v)
+    local label = M.split_on_delimiter(v, "=")
+    if label ~= nil and  #label == 2 then
+      t[label[1]] = label[2]
+    end
+  end
+  return t
 end
 
 return M

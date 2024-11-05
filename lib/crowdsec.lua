@@ -293,9 +293,8 @@ function csmod.allowIp(ip)
     ngx.log(ngx.INFO, "stream mode")
     SetupStream()
   end
-  metrics:increment("processed",1)
 
-  local key,_ = utils.item_to_string(ip, "ip")
+  local key, ip_version = utils.item_to_string(ip, "ip")
   if key == nil then
     return true, nil, "Check failed '" .. ip .. "' has no valid IP address"
   end
@@ -303,6 +302,8 @@ function csmod.allowIp(ip)
   for i in key.gmatch(key, "([^_]+)") do
     table.insert(key_parts, i)
   end
+
+  metrics:increment("processed", 1,  {ip_type=ip_version})
 
   local key_type = key_parts[1]
   if key_type == "normal" then
@@ -315,7 +316,8 @@ function csmod.allowIp(ip)
 
     local remediation = ""
     if t[2] ~= nil then
-      metrics:increment("dropped/" .. t[2],1)
+      ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. t[2] .. "' is counted")
+      metrics:increment("dropped" ,1, {ip_type=ip_version, origin=t[2]})
     end
     if t[1] ~= nil then
       remediation = t[1]
@@ -348,7 +350,8 @@ function csmod.allowIp(ip)
       end
       local remediation = ""
       if t[2] ~= nil then
-        metrics:increment("dropped/" .. t[2],1) -- origin: at this point we are pretty sure there's one
+        ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. t[2] .. "' is counted")
+        metrics:increment("dropped", 1, {ip_type=ip_version, origin=t[2]}) -- origin: at this point we are pretty sure there's one
         -- and that the decision is a blocking
       end
       if t[1] ~= nil then
@@ -375,8 +378,16 @@ function csmod.allowIp(ip)
     )
     -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
+    local _, is_ipv4 = iputils.parseIPAddress(ip)
+    if is_ipv4 then
+      ip_version = "ipv4"
+    else
+      ip_version = "ipv6"
+    end
+
     if remediation ~= nil and remediation == "ban" then
-      metrics:increment("dropped/" .. origin,1)
+      ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. origin .. "' is counted")
+      metrics:increment("dropped", 1, {ip_type=ip_version, origin=origin} )
     return ok, remediation, err
     end
   end
