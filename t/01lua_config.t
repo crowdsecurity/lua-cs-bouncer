@@ -10,10 +10,15 @@ __DATA__
 load_module /usr/share/nginx/modules/ndk_http_module.so;
 load_module /usr/share/nginx/modules/ngx_http_lua_module.so;
 
---- http
+--- http_config
+lua_package_path "./lib/?.lua;;";
+lua_shared_dict crowdsec_cache 50m;
+
+#  luacov -r lcov
+#  genhtml luacov.report.out -o destination_directory/
 init_by_lua_block {
         cs = require "crowdsec"
-        local ok, err = cs.init("/etc/crowdsec/bouncers/crowdsec-nginx-bouncer.conf", "crowdsec-nginx-bouncer/v1.0.8")
+        local ok, err = cs.init("t/conf_t/01_conf_crowdsec_nginx_bouncer.conf", "crowdsec-nginx-bouncer/v1.0.8")
         if ok == nil then
                 ngx.log(ngx.ERR, "[Crowdsec] " .. err)
                 error()
