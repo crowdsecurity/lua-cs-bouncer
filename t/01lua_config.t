@@ -14,10 +14,12 @@ load_module /usr/share/nginx/modules/ngx_http_lua_module.so;
 lua_package_path "./lib/?.lua;;";
 lua_shared_dict crowdsec_cache 50m;
 
+#  luacov -r lcov
+#  genhtml luacov.report.out -o destination_directory/
 init_by_lua_block {
         runner = require 'luacov.runner'
         runner.tick = true
-        runner.init({savestepsize = 25})
+        runner.init({statsfile = string.format("luacov_test1_%s.stats.out", ngx.worker.id()), savestepsize = 10})
         jit.off()
         cs = require "crowdsec"
         local ok, err = cs.init("t/conf_t/01_conf_crowdsec_nginx_bouncer.conf", "crowdsec-nginx-bouncer/v1.0.8")

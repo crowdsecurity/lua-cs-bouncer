@@ -19,6 +19,10 @@ lua_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
 
 init_by_lua_block
 {
+        runner = require 'luacov.runner'
+        runner.tick = true
+        runner.init({statsfile = string.format("luacov_test2_%d_%s.stats.out", ngx.worker.id(), tostring(coroutine.running())), savestepsize = 20})
+        jit.off()
         cs = require "crowdsec"
         local ok, err = cs.init("./t/conf_t/02_live_crowdsec_nginx_bouncer.conf", "crowdsec-nginx-bouncer/v1.0.8")
         if ok == nil then
@@ -29,13 +33,13 @@ init_by_lua_block
 }
 
 access_by_lua_block {
+        runner = require 'luacov.runner'
+        runner.tick = true
+        runner.init({statsfile = "prout", savestepsize = 1})
+        jit.off()
         local cs = require "crowdsec"
+        ngx.log(ngx.ERR,"Prout")
         cs.Allow(ngx.var.remote_addr)
-                if ngx.var.unix == "1" then
-                ngx.log(ngx.DEBUG, "[Crowdsec] Unix socket request ignoring...")
-        else
-                cs.Allow(ngx.var.remote_addr)
-        end
 }
 
 server {
