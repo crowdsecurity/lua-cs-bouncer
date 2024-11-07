@@ -31,11 +31,6 @@ init_by_lua_block
 access_by_lua_block {
         local cs = require "crowdsec"
         cs.Allow(ngx.var.remote_addr)
-                if ngx.var.unix == "1" then
-                ngx.log(ngx.DEBUG, "[Crowdsec] Unix socket request ignoring...")
-        else
-                cs.Allow(ngx.var.remote_addr)
-        end
 }
 
 server {
