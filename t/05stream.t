@@ -70,7 +70,7 @@ GET /t
 
 --- response_body eval
 {
-    sleep(12);
+    sleep(15);
     return 'ok';
 }
 
