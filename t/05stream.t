@@ -1,12 +1,33 @@
 use Test::Nginx::Socket 'no_plan';
 
-$Test::Nginx::Util::NoNginxManager = 1;
-
 run_tests();
 
 __DATA__
 
 === TEST 5: Stream mode block test
+
+--- init
+
+use LWP::UserAgent;
+
+my $ua = LWP::UserAgent->new;
+my $url = 'http://127.0.0.1:1984/t';
+
+my $req = HTTP::Request->new(GET => $url);
+open my $out_fh, '>', 'pouet' or die $!;
+select $out_fh;
+$req->header('X-Forwarded-For' => '1.1.1.2');
+
+my $resp = $ua->request($req);
+if ($resp->is_success) {
+    my $message = $resp->decoded_content;
+    print "Received reply: $message";
+}
+else {
+    print "HTTP GET error code: ", $resp->code, "n";
+    print "HTTP GET error message: ", $resp->message, "n";
+}
+sleep(15)
 
 --- main_config
 load_module /usr/share/nginx/modules/ndk_http_module.so;
@@ -61,20 +82,6 @@ location = /t {
         ngx.print("ok")
     }
 }
-
---- more_headers
-X-Forwarded-For: 1.1.1.2
---- request
-GET /t
---- error_code: 200
-
---- response_body eval
-{
-    sleep(15);
-    return 'ok';
-}
-
-=== TEST 6: Stream mode block test
 
 --- more_headers
 X-Forwarded-For: 1.1.1.1
