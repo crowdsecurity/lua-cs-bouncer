@@ -14,7 +14,7 @@ my $ua = LWP::UserAgent->new;
 my $url = 'http://127.0.0.1:1984/t';
 
 my $req = HTTP::Request->new(GET => $url);
-open my $out_fh, '>', 'pouet' or die $!;
+open my $out_fh, '>', 't/servroot/logs/perl.init.log' or die $!;
 select $out_fh;
 $req->header('X-Forwarded-For' => '1.1.1.2');
 
