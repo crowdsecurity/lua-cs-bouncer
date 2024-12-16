@@ -16,7 +16,7 @@ my $url = 'http://127.0.0.1:1984/t';
 my $req = HTTP::Request->new(GET => $url);
 open my $out_fh, '>', 't/servroot/logs/perl.init.log' or die $!;
 select $out_fh;
-$req->header('X-Forwarded-For' => '1.1.1.2');
+$req->header('X-Forwarded-For' => '1.1.1.1');
 
 my $resp = $ua->request($req);
 if ($resp->is_success) {
@@ -63,7 +63,7 @@ server {
             content_by_lua_block {
             local args, err = ngx.req.get_uri_args()
             if args.startup == "true" then
-               ngx.say('{"deleted": [], "new": [{"duration":"1h00m00s","id":4091593,"origin":"CAPI","scenario":"crowdsecurity/vpatch-CVE-2024-4577","scope":"Ip","type":"ban","value":"1.1.1.1"}]}')
+               ngx.say('{"deleted": [], "new": [{"duration":"0h0m02s","id":4091593,"origin":"CAPI","scenario":"crowdsecurity/vpatch-CVE-2024-4577","scope":"Ip","type":"ban","value":"1.1.1.1"}]}')
             else
                ngx.say('[{}]')
             end
@@ -87,4 +87,4 @@ location = /t {
 X-Forwarded-For: 1.1.1.1
 --- request
 GET /t
---- error_code: 403
+--- error_code: 200
