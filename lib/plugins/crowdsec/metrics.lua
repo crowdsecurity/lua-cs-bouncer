@@ -1,122 +1,3 @@
--- expected
--- {
---   "log_processors": null,                                                                                                                                                                                                                        "remediation_components": [                                                                                                                                                                                                                      {
---       "feature_flags": [],
---       "metrics": [
---         {
---           "items": [
---             {
---               "labels": {
---                 "ip_type": "ipv4",
---                 "origin": "CAPI"
---               },
---               "name": "active_decisions",
---               "unit": "ip",
---               "value": 46576
---             },
---             {
---               "labels": {
---                 "ip_type": "ipv6",
---                 "origin": "CAPI"
---               },
---               "name": "active_decisions",
---               "unit": "ip",
---               "value": 546
---             },
---             {
---               "labels": {
---                 "ip_type": "ipv4",
---                 "origin": "CAPI"
---               },
---               "name": "dropped",
---               "unit": "byte",
---               "value": 84
---             },
---             {
---               "labels": {
---                 "ip_type": "ipv6",
---                 "origin": "CAPI"
---               },
---               "name": "dropped",
---               "unit": "byte",
---               "value": 0
---             },
---             {
---               "labels": {                                       "origin": "CAPI"                                                                                                                                                                                              20:20:39 [51/116]
---               },
---               "name": "dropped",
---               "unit": "byte",
---               "value": 0
---             },
---             {
---               "labels": {
---                 "ip_type": "ipv4",
---                 "origin": "CAPI"
---               },
---               "name": "dropped",
---               "unit": "packet",
---               "value": 2
---             },
---             {
---               "labels": {
---                 "ip_type": "ipv6",
---                 "origin": "CAPI"
---               },
---               "name": "dropped",
---               "unit": "packet",
---               "value": 0
---             },
---             {
---               "labels": {
---                 "ip_type": "ipv4"
---               },
---               "name": "processed",
---               "unit": "byte",
---               "value": 100836
---             },
---             {
---               "labels": {
---                 "ip_type": "ipv6"
---               },
---               "name": "processed",
---               "unit": "byte",
---               "value": 0
---             },
---             {
---               "labels": {
---                 "ip_type": "ipv4"
---               },
---               "name": "processed",
---               "unit": "packet",
---               "value": 748
---             },
---             {
---               "labels": {
---                 "ip_type": "ipv6"
---               },
---               "name": "processed",
---               "unit": "packet",
---               "value": 0
---             }
---           ],
---           "meta": {
---             "utc_now_timestamp": 1726593109,
---             "window_size_seconds": 900
---           }
---         }
---       ],
---       "os": {
---         "name": "Debian GNU/Linux",
---         "version": "12"
---       },
---       "utc_startup_timestamp": 1726584109,
---       "version": "v0.0.30-debian-pragmatic-amd64-3f592b52075a80734b4fc291d5a08043d433c8fe",
---       "type": "crowdsec-firewall-bouncer"
---     }
---   ]
--- }
-
-
 local cjson = require "cjson"
 local http = require "resty.http"
 local utils = require "plugins.crowdsec.utils"
@@ -150,16 +31,14 @@ end
 -- @return the new value of the key
 function metrics:increment(key, increment, labels)
     increment = increment or 1
-      if labels ~= nil then
-        for k, v in pairs(labels) do
-          ngx.log(ngx.INFO, "label: " .. k .. " " .. v)
-        end
-      else
-        ngx.log(ngx.INFO, "no labels")
-      end
+    if labels == nil then
+      ngx.log(ngx.INFO, "no labels")
+    end
 
+    -- keys could look like:
+    -- processed/ip_version=ipv4&
+    -- active_decisions/ip_version=ipv4&decision_type=ban&
     key = key .. "/" .. utils.table_to_string(labels)
-    ngx.log(ngx.INFO, "incrementing value on key: " .. key)
     local value, err, forcible = self.cache:incr("metrics_" .. key, increment, 0)
     metrics:add_to_metrics(key)
     if err then
@@ -294,8 +173,8 @@ end
 
 function metrics:sendMetrics(link, headers, ssl, window)
   local body = self:toJson(window) .. "\n"
-  ngx.log(ngx.INFO, "Sending metrics to " .. link .. "/v1/usage-metrics")
-  ngx.log(ngx.INFO, "metrics: " .. body)
+  ngx.log(ngx.DEBUG, "Sending metrics to " .. link .. "/v1/usage-metrics")
+  ngx.log(ngx.DEBUG, "metrics: " .. body)
   local httpc = http.new()
   local res, err = httpc:request_uri(link .. "/v1/usage-metrics", {
     body = body,

@@ -87,8 +87,20 @@ function csmod.init(configFile, userAgent)
     runtime.conf["SSL_VERIFY"] = true
   end
 
-  runtime.cache:set("metrics_startup_time", ngx.time())  -- to make sure we have only one thread sending metrics
-  runtime.cache:set("metrics_first_run",true) -- to avoid sending metrics before the first period
+  local succ, err, forcible = runtime.cache:set("metrics_startup_time", ngx.time())  -- to make sure we have only one thread sending metrics
+  if not succ then
+    ngx.log(ngx.ERR, "failed to add metrics_startup_time key in cache: "..err)
+  end
+  if forcible then
+    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+  end
+  local succ, err, forcible = runtime.cache:set("metrics_first_run",true) -- to avoid sending metrics before the first period
+  if not succ then
+    ngx.log(ngx.ERR, "failed to add metrics_first_run key in cache: "..err)
+  end
+  if forcible then
+    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+  end
 
   if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "false" then
     runtime.conf["ALWAYS_SEND_TO_APPSEC"] = false
@@ -149,12 +161,12 @@ local function Setup_metrics()
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
     else
-      ngx.log(ngx.ERR, "Metrics timer started in " .. tostring(METRICS_PERIOD) .. " seconds")
+      ngx.log(ngx.DEBUG, "Metrics timer started in " .. tostring(METRICS_PERIOD) .. " seconds")
     end
   end
   local first_run = runtime.cache:get("metrics_first_run")
   if first_run then
-    ngx.log(ngx.INFO, "First run for setup metrics ") --debug
+    ngx.log(ngx.DEBUG, "First run for setup metrics ")
     metrics:new(runtime.userAgent)
     runtime.cache:set("metrics_first_run",false)
     Setup_metrics_timer()
@@ -168,7 +180,14 @@ local function Setup_metrics()
       runtime.conf["SSL_VERIFY"],
       METRICS_PERIOD
     )
-    runtime.cache:set("metrics_startup_time",ngx.time()) --TODO add err handling
+    local succ, err, forcible = runtime.cache:set("metrics_startup_time", ngx.time())  -- to make sure we have only one thread sending metrics
+    if not succ then
+      ngx.log(ngx.ERR, "failed to add metrics_startup_time key in cache: "..err)
+    end
+    if forcible then
+      ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+    end
+    --
     --TODO rename the cache key
     Setup_metrics_timer()
   end
