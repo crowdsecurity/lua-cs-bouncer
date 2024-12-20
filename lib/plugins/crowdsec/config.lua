@@ -64,7 +64,6 @@ function config.loadConfig(file)
         ['APPSEC_FAILURE_ACTION'] = "passthrough",
         ['SSL_VERIFY'] = "true",
         ['ALWAYS_SEND_TO_APPSEC'] = "false",
-
     }
     for line in io.lines(file) do
         local isOk = false
