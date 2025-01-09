@@ -91,7 +91,7 @@ end
 --- Set a value in the stream cache
 --- wrapper around ngx.shared.DICT:set using only a prefix to the key
 function stream:set(key, value, exptime, flags)
-  ngx.log(ngx.ERR, "Setting key 'decision_cache/" .. key .. "' in cache with value '" .. value .. "'") -- debug
+  ngx.log(ngx.DEBUG, "Setting key 'decision_cache/" .. key .. "' in cache with value '" .. value .. "'") -- debug
   local succ, err, forcible = stream.cache:set("decision_cache/" .. key, value, exptime, flags)
   if not succ then
     ngx.log(ngx.ERR, "Failed to set key '" .. key .. "' in cache: " .. err)
