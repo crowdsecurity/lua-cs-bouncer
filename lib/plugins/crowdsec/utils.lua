@@ -112,7 +112,7 @@ function M.split_on_delimiter(str, delimiter)
     return nil
   end
 
-  ngx.log(ngx.INFO, "split_on_delimiter: " .. str .. " using delimiter: " .. delimiter)
+  ngx.log(ngx.DEBUG, "split_on_delimiter: " .. str .. " using delimiter: " .. delimiter)
 
   local result = {}
   local pattern = "([^" .. delimiter .. "]+)"  -- Create a pattern to match between delimiters
