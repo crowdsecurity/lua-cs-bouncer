@@ -358,18 +358,16 @@ function csmod.allowIp(ip)
     if decision_string ~= nil then -- we have it in cache
       if decision_string == "none" then
         ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache with value'" .. decision_string .. "'")
-        ngx.log(ngx.INFO, "'" .. key .. "' is allowed in cache")
         return true, nil, nil
       end
       ngx.log(ngx.DEBUG, "'" .. key .. "' is in cache with value'" .. decision_string .. "'")
-      ngx.log(ngx.INFO, "'" .. key .. "' is in cache with value'" .. decision_string .. "'")
       local  t = utils.split_on_delimiter(decision_string,"/")
       if t == nil then
         return true, nil, "Failed to split decision string"
       end
       local remediation = ""
       if t[2] ~= nil then
-        ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. t[2] .. "' is counted")
+        ngx.log(ngx.DEBUG, "'" .. "ipversion: " .. ip_version .. " origin: " .. t[2] .. "' is counted")
         metrics:increment("dropped", 1, {ip_type=ip_version, origin=t[2]}) -- origin: at this point we are pretty sure there's one
         -- and that the decision is a blocking
       end
