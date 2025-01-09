@@ -14,6 +14,7 @@ local function get_decisions_count()
   for _, key in ipairs(keys) do
     if utils.starts_with(key, "decision_cache/") then
       local decision_string = stream.cache:get(key)
+      ngx.log(ngx.INFO, "Decision string: " .. decision_string) --debug
       local  t = utils.split_on_delimiter(decision_string,"/")
       if t == nil then
         ngx.log(ngx.ERR, "decision string without /" .. decision_string)
