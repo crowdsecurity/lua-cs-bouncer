@@ -42,7 +42,7 @@ function metrics:increment(key, increment, labels)
     local value, err, forcible = self.cache:incr("metrics_" .. key, increment, 0)
     metrics:add_to_metrics(key)
     if err then
-        ngx.log(ngx.ERR, "failed to increment key: ", err)
+        ngx.log(ngx.ERR, "failed to increment key: " .. key, err)
     end
     if forcible then
       ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
@@ -149,11 +149,6 @@ function metrics:toJson(window)
       end
     end
   end
-  --setmetatable(metrics_data, cjson.array_mt)
-    -- for k, v in pairs(metrics_data) do
-    --   remediation_components[k] = v
-    -- end
-    --
 
   local remediation_components = {}
   local remediation_component = cjson.decode(metrics_data)
