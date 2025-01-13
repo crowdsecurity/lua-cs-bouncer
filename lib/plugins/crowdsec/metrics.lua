@@ -181,8 +181,8 @@ function metrics:sendMetrics(link, headers, ssl, window)
   if not res then
     ngx.log(ngx.ERR, "failed to send metrics: ", err)
   else
-    ngx.log(ngx.INFO, "metrics sent: " .. res.status)
-    ngx.log(ngx.INFO, "metrics response: " .. body)
+    ngx.log(ngx.DEBUG, "metrics status: " .. res.status)
+    ngx.log(ngx.DEBUG, "metrics response: " .. body)
   end
 
 end
