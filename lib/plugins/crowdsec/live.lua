@@ -37,13 +37,14 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
   if not res then
     return true, nil, nil, "request failed: ".. err
   end
-  -- debug: wip
+
   ngx.log(ngx.DEBUG, "request" .. res.body)
   local status = res.status
   local body = res.body
   if status~=200 then
     return true, nil, nil, "Http error " .. status .. " while talking to LAPI (" .. link .. ")"
   end
+
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
     local key,_ = utils.item_to_string(ip, "ip")
@@ -60,21 +61,20 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
   end
   local decision = cjson.decode(body)[1]
 
+  if decision.origin == "lists" and decision.scenario ~= nil then
+    decision.origin = "lists:" .. decision.scenario
+  end
+  local cache_value = decision.type .. "/" .. decision.origin
+  local key,_ = utils.item_to_string(decision.value, decision.scope)
+  local succ, err, forcible = live.cache:set(key, cache_value, cache_expiration, 0)
+  ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds with decision type'" .. decision.type .. "'with origin'" .. decision.origin ) --debug
+  if not succ then
+    ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
+  end
+  if forcible then
+    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+  end
   if bouncing_on_type == decision.type or bouncing_on_type == "all" then
-    if decision.origin == "lists" and decision.scenario ~= nil then
-      decision.origin = "lists:" .. decision.scenario
-    end
-    local cache_value = decision.type .. "/" .. decision.origin
-    local key,_ = utils.item_to_string(decision.value, decision.scope)
-    local succ, err, forcible = live.cache:set(key, cache_value, cache_expiration, 0)
-    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds with decision type'" .. decision.type .. "'with origin'" .. decision.origin ) --debug
-    if not succ then
-      ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
-    end
-    if forcible then
-      ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-    end
-    ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds")
     return false, decision.type, decision.origin, nil
   else
     return true, nil, nil, nil
