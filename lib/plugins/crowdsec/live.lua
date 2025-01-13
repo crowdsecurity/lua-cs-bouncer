@@ -33,14 +33,12 @@ end
 function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
 
   local link = api_url .. "/v1/decisions?ip=" .. ip
-  -- function M.get_remediation_http_request(link,timeout, api_key_header, api_key, user_agent,ssl_verify)
-
   local res, err = utils.get_remediation_http_request(link, timeout, api_key_header, api_key, user_agent, ssl_verify)
   if not res then
     return true, nil, nil, "request failed: ".. err
   end
   -- debug: wip
-  ngx.log(ngx.INFO, "request" .. res.body)
+  ngx.log(ngx.DEBUG, "request" .. res.body)
   local status = res.status
   local body = res.body
   if status~=200 then
@@ -51,7 +49,7 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
     local key,_ = utils.item_to_string(ip, "ip")
     local succ, err, forcible = live.cache:set(key, "none", cache_expiration, 1)
     --
-    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds") --debug
+    ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds") --debug
     if not succ then
       ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: ".. err)
     end
