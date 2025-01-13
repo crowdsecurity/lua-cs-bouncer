@@ -114,7 +114,7 @@ function metrics:toJson(window)
       table.insert(metrics_array, {
                      name = final_key,
                      value = value,
-                     unit = (final_key=="active_decisions" and "ip" or "request",)
+                     unit = (final_key=="active_decisions" and "ip" or "request"),
                      labels = labels
       })
 
