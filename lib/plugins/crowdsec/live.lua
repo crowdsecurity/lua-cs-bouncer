@@ -60,9 +60,6 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
   end
   local decision = cjson.decode(body)[1]
 
-  -- debug: wip
-  ngx.log(ngx.INFO, "Decision: " .. decision.type .. " | " .. decision.value .. " | " .. decision.origin .. " | " .. decision.duration)
-  ngx.log(ngx.INFO, "Bouncing on type: " .. bouncing_on_type)
   if bouncing_on_type == decision.type or bouncing_on_type == "all" then
     if decision.origin == "lists" and decision.scenario ~= nil then
       decision.origin = "lists:" .. decision.scenario
@@ -77,9 +74,7 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
     if forcible then
       ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
     end
-    -- debug: wip
     ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds")
-    ngx.log(ngx.INFO, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds")
     return false, decision.type, decision.origin, nil
   else
     return true, nil, nil, nil
