@@ -111,29 +111,12 @@ function metrics:toJson(window)
         end
       end
 
-      if final_key == "processed" then
-        table.insert(metrics_array, {
-                       name = "processed",
-                       value = value,
-                       unit = "request",
-                       labels = labels
-        })
-      elseif final_key == "active_decisions" then
-        table.insert(metrics_array, {
-                       name = final_key,
-                       value = value,
-                       unit = "ip",
-                       labels = labels
-        })
-      else
-        table.insert(metrics_array, {
-                       name = final_key,
-                       value = value,
-                       unit = "request",
-                       labels = labels
-        })
-
-      end
+      table.insert(metrics_array, {
+                     name = final_key,
+                     value = value,
+                     unit = (final_key=="active_decisions" and "ip" or "request",)
+                     labels = labels
+      })
 
       if final_key ~= "active_decisions" and final_key ~= "processed" then
         local success, err = self.cache:delete(cache_key)
