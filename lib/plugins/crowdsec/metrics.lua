@@ -32,7 +32,9 @@ end
 function metrics:increment(key, increment, labels)
     increment = increment or 1
     if labels == nil then
-      ngx.log(ngx.INFO, "no labels")
+      --- Very weird case, should not happen
+      --- but no need to crash the bouncer
+      ngx.log(ngx.ERR, "no labels")
     end
 
     -- keys could look like:
