@@ -101,15 +101,13 @@ function metrics:toJson(window)
   for  _,key in ipairs(keys) do
     local cache_key = "metrics_" .. key
     local value = self.cache:get(cache_key)
-    ngx.log(ngx.INFO, "cache_key: " .. cache_key .. " value: " .. tostring(self.cache:get(cache_key)))--debug
+    ngx.log(ngx.DEBUG, "getting data from cache_key: " .. cache_key .. " value: " .. tostring(value))
     if value ~= nil then
-      ngx.log(ngx.INFO, "key: " .. key)
       local final_key, labels = get_labels_from_key(key)
-      ngx.log(ngx.INFO, "final_key: " .. final_key)
-      ngx.log(ngx.INFO, "value: " .. value)
+      ngx.log(ngx.DEBUG, "Computed final_key: " .. final_key)
       if labels ~= nil then
         for k, v in pairs(labels) do
-          ngx.log(ngx.INFO, "label: " .. k .. " " .. v)
+          ngx.log(ngx.DEBUG, "label: " .. k .. " " .. v)
         end
       end
 
@@ -123,9 +121,9 @@ function metrics:toJson(window)
       if final_key ~= "active_decisions" and final_key ~= "processed" then
         local success, err = self.cache:delete(cache_key)
         if success then
-          ngx.log(ngx.INFO, "Cache key '", cache_key, "' deleted successfully")
+          ngx.log(ngx.DEBUG, "Cache key '", cache_key, "' deleted successfully")
         else
-          ngx.log(ngx.INFO, "Failed to delete cache key '", cache_key, "': ", err)
+          ngx.log(ngx.ERR, "Failed to delete cache key '", cache_key, "': ", err)
         end
       else
         if final_key == "processed" then
