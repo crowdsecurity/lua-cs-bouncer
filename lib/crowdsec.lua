@@ -155,6 +155,9 @@ function csmod.init(configFile, userAgent)
 end
 
 
+--- The idea here is to setup the timer that will trigger the metrics sending
+--- If first run then just fire the new timer to run the function again in METRICS_PERIOD
+--- If not send metrics and run the timer again in METRICS_PERIOD
 local function Setup_metrics()
   local function Setup_metrics_timer()
     local ok, err = ngx.timer.at(METRICS_PERIOD, Setup_metrics)
