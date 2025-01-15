@@ -159,7 +159,7 @@ function M.string_to_table(str)
     return {}
   end
   for _, v in pairs(labels_string) do
-    ngx.log(ngx.INFO, "dealing with:" .. v)
+    ngx.log(ngx.DEBUG, "dealing with:" .. v)
     local label = M.split_on_delimiter(v, "=")
     if label ~= nil and  #label == 2 then
       t[label[1]] = label[2]
