@@ -27,7 +27,7 @@ else {
     print "HTTP GET error code: ", $resp->code, "n";
     print "HTTP GET error message: ", $resp->message, "n";
 }
-sleep(15)
+sleep(11)
 
 --- main_config
 load_module /usr/share/nginx/modules/ndk_http_module.so;
