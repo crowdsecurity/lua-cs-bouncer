@@ -13,11 +13,6 @@ use LWP::UserAgent;
 my $ua = LWP::UserAgent->new;
 my $url = 'http://127.0.0.1:1984/t';
 
-my $req = HTTP::Request->new(GET => $url);
-open my $out_fh, '>', 't/servroot/logs/perl.init.log' or die $!;
-select $out_fh;
-$req->header('X-Forwarded-For' => '1.1.1.2');
-
 my $resp = $ua->request($req);
 if ($resp->is_success) {
     my $message = $resp->decoded_content;
