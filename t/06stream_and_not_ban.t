@@ -4,7 +4,7 @@ run_tests();
 
 __DATA__
 
-=== TEST 5: Stream mode block test
+=== TEST 6: Stream mode block test
 
 --- init
 
@@ -12,14 +12,21 @@ use LWP::UserAgent;
 
 my $ua = LWP::UserAgent->new;
 my $url = 'http://127.0.0.1:1984/t';
+my $req = HTTP::Request->new(GET => $url);
 
 my $resp = $ua->request($req);
+
+open my $out_fh, '>', 't/servroot/logs/perl.init.log' or die $!;
+select $out_fh;
+$req->header('X-Forwarded-For' => '1.1.1.2');
+
 if ($resp->is_success) {
     my $message = $resp->decoded_content;
     print "Received reply: $message";
 }
 else {
-    die "Initialization failed with HTTP code " . $resp->code " with " . $resp->message,
+    print "Initialization failed with HTTP code " . $resp->code . " with " . $resp->message,
+    exit 1
 }
 sleep(11)
 
@@ -77,8 +84,9 @@ location = /t {
     }
 }
 
---- more_headers
-X-Forwarded-For: 1.1.1.1
---- request
-GET /t
---- error_code: 403
+--- more_headers eval
+["X-Forwarded-For: 1.1.1.1", "X-Forwarded-For: 1.1.1.2"]
+--- pipelined_requests eval
+["GET /t", "GET /t"]
+--- error_code eval
+[403, 200]

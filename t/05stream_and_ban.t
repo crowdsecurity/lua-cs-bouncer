@@ -22,9 +22,9 @@ my $resp = $ua->request($req);
 if ($resp->is_success) {
     my $message = $resp->decoded_content;
     print "Received reply: $message";
-}
-else {
-    die "Initialization failed with HTTP code " . $resp->code " with " . $resp->message,
+} else {
+    print "Initialization failed with HTTP code " . $resp->code . " with " . $resp->message,
+    exit 1
 }
 sleep(11)
 
