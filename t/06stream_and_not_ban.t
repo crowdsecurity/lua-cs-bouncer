@@ -24,8 +24,7 @@ if ($resp->is_success) {
     print "Received reply: $message";
 }
 else {
-    print "HTTP GET error code: ", $resp->code, "n";
-    print "HTTP GET error message: ", $resp->message, "n";
+    die "Initialization failed with HTTP code " . $resp->code " with " . $resp->message,
 }
 sleep(11)
 

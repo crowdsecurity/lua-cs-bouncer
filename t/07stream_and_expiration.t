@@ -21,13 +21,12 @@ $req->header('X-Forwarded-For' => '1.1.1.1');
 my $resp = $ua->request($req);
 if ($resp->is_success) {
     my $message = $resp->decoded_content;
-    print "Received reply: $message";
+    die "Received reply: $message";
 }
 else {
-    print "HTTP GET error code: ", $resp->code, "n";
-    print "HTTP GET error message: ", $resp->message, "n";
+    die "Initialization failed with HTTP code " . $resp->code " with " . $resp->message,
 }
-sleep(15)
+sleep(11)
 
 --- main_config
 load_module /usr/share/nginx/modules/ndk_http_module.so;
