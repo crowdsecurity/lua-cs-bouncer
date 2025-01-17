@@ -82,6 +82,14 @@ location = /t {
     content_by_lua_block {
         ngx.print("ok")
     }
+    log_by_lua_block {
+        local cache = ngx.shared.crowdsec_cache
+        local keys = cache:get_keys(0)
+        for _, key in ipairs(keys) do
+            ngx.log(ngx.DEBUG, "DEBUG CACHE:" .. key .. ":" .. tostring(cache:get(key)))
+        end
+    }
+
 }
 
 --- more_headers eval
