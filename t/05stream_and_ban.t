@@ -22,12 +22,11 @@ my $resp = $ua->request($req);
 if ($resp->is_success) {
     my $message = $resp->decoded_content;
     print "Received reply: $message";
+} else {
+    print "Initialization failed with HTTP code " . $resp->code . " with " . $resp->message,
+    exit 1
 }
-else {
-    print "HTTP GET error code: ", $resp->code, "n";
-    print "HTTP GET error message: ", $resp->message, "n";
-}
-sleep(15)
+sleep(11)
 
 --- main_config
 load_module /usr/share/nginx/modules/ndk_http_module.so;
@@ -81,10 +80,36 @@ location = /t {
     content_by_lua_block {
         ngx.print("ok")
     }
+    log_by_lua_block {
+        local cache = ngx.shared.crowdsec_cache
+        local keys = cache:get_keys(0)
+        for _, key in ipairs(keys) do
+            if key ~= "last_refresh" then
+               print("DEBUG CACHE:" .. key .. ":" .. tostring(cache:get(key)))
+            end
+        end
+    }
+
 }
 
 --- more_headers
 X-Forwarded-For: 1.1.1.1
 --- request
 GET /t
+
+# 4294967295 (0xffffffff) is the netmask as an int
+# 16843009 (0x01010101) is the ip as an int
+
 --- error_code: 403
+--- grep_error_log eval
+qr/DEBUG CACHE:[^ ]*/
+--- grep_error_log_out
+DEBUG CACHE:startup:true
+DEBUG CACHE:first_run:true
+DEBUG CACHE:captcha_ok:false
+DEBUG CACHE:first_run:true
+DEBUG CACHE:startup:false
+DEBUG CACHE:refreshing:false
+DEBUG CACHE:ipv4_4294967295_16843009:false
+DEBUG CACHE:captcha_ok:false
+
