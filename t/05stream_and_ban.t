@@ -96,6 +96,10 @@ location = /t {
 X-Forwarded-For: 1.1.1.1
 --- request
 GET /t
+
+# 4294967295 (0xffffffff) is the netmask as an int
+# 16843009 (0x01010101) is the ip as an int
+
 --- error_code: 403
 --- grep_error_log eval
 qr/DEBUG CACHE:[^ ]*/
@@ -109,5 +113,3 @@ DEBUG CACHE:refreshing:false
 DEBUG CACHE:ipv4_4294967295_16843009:false
 DEBUG CACHE:captcha_ok:false
 
-## 4294967295 (0xffffffff) is the netmask as an int
-## 16843009 (0x01010101) is the ip as an int
