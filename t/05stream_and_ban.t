@@ -83,10 +83,17 @@ location = /t {
     log_by_lua_block {
         local cache = ngx.shared.crowdsec_cache
         local keys = cache:get_keys(0)
+        -- This dumps the crowdsec_cache to the error_log except for keys in the ignored_keys table
+        -- Those keys depend on timestamp, let's handle separatly in other tests if needed
+        ignored_keys = { "last_refresh", "metrics_startup_time", "metrics_data" }
         for _, key in ipairs(keys) do
-            if key ~= "last_refresh" then
-               print("DEBUG CACHE:" .. key .. ":" .. tostring(cache:get(key)))
+            for _, ignored_key in ipairs(ignored_keys) do
+                if key == ignored_key then
+                   goto continue
+                end
             end
+            print("DEBUG CACHE:" .. key .. ":" .. tostring(cache:get(key)))
+            ::continue::
         end
     }
 
@@ -106,10 +113,17 @@ qr/DEBUG CACHE:[^ ]*/
 --- grep_error_log_out
 DEBUG CACHE:startup:true
 DEBUG CACHE:first_run:true
+DEBUG CACHE:metrics_first_run:false
+DEBUG CACHE:metrics_processed/ip_type=ipv4&:1
+DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,
 DEBUG CACHE:captcha_ok:false
 DEBUG CACHE:first_run:true
+DEBUG CACHE:metrics_active_decisions/ip_type=CAPI&origin=ipv4&:1
 DEBUG CACHE:startup:false
+DEBUG CACHE:metrics_first_run:false
 DEBUG CACHE:refreshing:false
-DEBUG CACHE:ipv4_4294967295_16843009:false
+DEBUG CACHE:metrics_processed/ip_type=ipv4&:2
+DEBUG CACHE:decision_cache/ipv4_4294967295_16843009:ban/CAPI/ipv4
+DEBUG CACHE:metrics_dropped/ip_type=ipv4&origin=CAPI&:1
+DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,active_decisions/ip_type=CAPI&origin=ipv4&,dropped/ip_type=ipv4&origin=CAPI&,
 DEBUG CACHE:captcha_ok:false
-
