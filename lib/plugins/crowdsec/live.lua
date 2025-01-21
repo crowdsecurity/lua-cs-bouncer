@@ -38,7 +38,6 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
     return true, nil, nil, "request failed: ".. err
   end
 
-  ngx.log(ngx.DEBUG, "request" .. res.body)
   local status = res.status
   local body = res.body
   if status~=200 then

@@ -67,7 +67,7 @@ lua_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
 init_by_lua_block
 {
         cs = require "crowdsec"
-        local ok, err = cs.init("./t/conf_t/08_stream_crowdsec_nginx_bouncer.conf", "crowdsec-nginx-bouncer/v1.0.8")
+        local ok, err = cs.init("./t/conf_t/09_stream_crowdsec_nginx_bouncer.conf", "crowdsec-nginx-bouncer/v1.0.8")
         if ok == nil then
                 ngx.log(ngx.ERR, "[Crowdsec] " .. err)
                 error()
