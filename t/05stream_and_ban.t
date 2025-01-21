@@ -118,7 +118,7 @@ DEBUG CACHE:metrics_processed/ip_type=ipv4&:1
 DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,
 DEBUG CACHE:captcha_ok:false
 DEBUG CACHE:first_run:true
-DEBUG CACHE:metrics_active_decisions/ip_type=CAPI&origin=ipv4&:1
+DEBUG CACHE:metrics_active_decisions/ip_type=ipv4&origin=CAPI&:1
 DEBUG CACHE:startup:false
 DEBUG CACHE:metrics_first_run:false
 DEBUG CACHE:refreshing:false
