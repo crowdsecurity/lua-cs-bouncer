@@ -148,5 +148,5 @@ DEBUG CACHE:refreshing:false
 DEBUG CACHE:metrics_processed/ip_type=ipv4&:1
 DEBUG CACHE:decision_cache/ipv4_4294967295_16843009:ban/CAPI/ipv4
 DEBUG CACHE:metrics_dropped/ip_type=ipv4&origin=CAPI&:1
-DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,active_decisions/ip_type=CAPI&origin=ipv4&,dropped/ip_type=ipv4&origin=CAPI&,
+DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,active_decisions/ip_type=ipv4&origin=CAPI&,dropped/ip_type=ipv4&origin=CAPI&,
 DEBUG CACHE:captcha_ok:false
