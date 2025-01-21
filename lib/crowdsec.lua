@@ -152,8 +152,10 @@ function csmod.init(configFile, userAgent)
   end
 
   if runtime.conf["MODE"] == "live" then
+    ngx.log(ngx.INFO, "lua nginx bouncer enabled with live mode")
     live:new()
   else
+    ngx.log(ngx.INFO, "lua nginx bouncer enabled with stream mode")
     stream:new()
   end
   return true, nil
