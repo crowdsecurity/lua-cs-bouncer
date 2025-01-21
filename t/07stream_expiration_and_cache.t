@@ -32,7 +32,7 @@ if ($resp->is_success) {
     exit 1;
 }
 
-sleep(1);
+sleep(11);
 
 $req = HTTP::Request->new(GET => $url);
 $req->header('X-Forwarded-For' => '1.1.1.1');
@@ -51,7 +51,7 @@ if (!$resp->is_success) {
     exit 1;
 }
 
-sleep(7);
+sleep(5);
 
 print $out_fh "Initialization completed successfully.\n";
 close $out_fh or warn "Could not close filehandle: $!";
@@ -89,9 +89,9 @@ server {
             content_by_lua_block {
             local args, err = ngx.req.get_uri_args()
             if args.startup == "true" then
-               ngx.say('{"deleted": [], "new": [{"duration":"1h00m0s","id":4091593,"origin":"CAPI","scenario":"crowdsecurity/vpatch-CVE-2024-4577","scope":"Ip","type":"ban","value":"1.1.1.1"}]}')
+               ngx.say('{"deleted": [], "new": [{"duration":"3s","id":4091593,"origin":"CAPI","scenario":"crowdsecurity/vpatch-CVE-2024-4577","scope":"Ip","type":"ban","value":"1.1.1.1"}]}')
             else
-               ngx.say('[{}]')
+               ngx.say("null")
             end
             }
       }
@@ -131,7 +131,7 @@ X-Forwarded-For: 1.1.1.1
 --- request
 GET /t
 
---- error_code: 403
+--- error_code: 200
 --- grep_error_log eval
 qr/DEBUG CACHE:[^ ]*/
 --- grep_error_log_out
@@ -140,8 +140,8 @@ DEBUG CACHE:first_run:true
 DEBUG CACHE:metrics_first_run:false
 DEBUG CACHE:metrics_processed/ip_type=ipv4&:1
 DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,
-DEBUG CACHE:captcha_ok:false
-DEBUG CACHE:first_run:true
+DEBUG CACHE:captcha_ok:false while logging request,
+DEBUG CACHE:first_run:true while logging request,
 DEBUG CACHE:metrics_active_decisions/ip_type=ipv4&origin=CAPI&:1
 DEBUG CACHE:startup:false
 DEBUG CACHE:metrics_first_run:false
@@ -154,10 +154,9 @@ DEBUG CACHE:captcha_ok:false
 DEBUG CACHE:first_run:true
 DEBUG CACHE:metrics_active_decisions/ip_type=ipv4&origin=CAPI&:1
 DEBUG CACHE:startup:false
+DEBUG CACHE:metrics_dropped/ip_type=ipv4&origin=CAPI&:1
 DEBUG CACHE:metrics_first_run:false
 DEBUG CACHE:refreshing:false
 DEBUG CACHE:metrics_processed/ip_type=ipv4&:3
-DEBUG CACHE:decision_cache/ipv4_4294967295_16843009:ban/CAPI/ipv4
-DEBUG CACHE:metrics_dropped/ip_type=ipv4&origin=CAPI&:2
 DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,active_decisions/ip_type=ipv4&origin=CAPI&,dropped/ip_type=ipv4&origin=CAPI&,
 DEBUG CACHE:captcha_ok:false
