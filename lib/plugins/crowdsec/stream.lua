@@ -7,7 +7,10 @@ stream.__index = stream
 stream.cache = ngx.shared.crowdsec_cache
 
 --- Get the number of decisions in the cache for each origin
---- return a table with the origin as key and the number of decisions as value
+--- return a table:
+  -- table_count[ip_type][origin]
+  -- first dimension is the ip type
+  -- second dimension is the origin
 local function get_decisions_count()
   local table_count = {}
   local keys = stream.cache:get_keys(0)
@@ -37,14 +40,14 @@ local function get_decisions_count()
         ngx.log(ngx.ERR, "decision string without ip type: " .. decision_string)
         goto continue
       end
-      if table_count[t[2]] == nil then
-        table_count[t[2]] = {}
+      if table_count[t[3]] == nil then
+        table_count[t[3]] = {}
       end
-      if table_count[t[2]][t[3]] == nil then
-        ngx.log(ngx.DEBUG, "Adding '" .. t[2] .. "/" .. t[3] .. "' in table_count") --debug
-        table_count[t[2]][t[3]] = 1
+      if table_count[t[3]][t[2]] == nil then
+        ngx.log(ngx.DEBUG, "Adding '" .. t[3] .. "/" .. t[2] .. "' in table_count") --debug
+        table_count[t[3]][t[2]] = 1
       else
-        table_count[t[2]][t[3]] = table_count[t[2]][t[3]] + 1
+        table_count[t[3]][t[2]] = table_count[t[3]][t[2]] + 1
       end
       ::continue::
     end

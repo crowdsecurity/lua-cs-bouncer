@@ -140,6 +140,7 @@ function M.table_to_string(t)
     local ret = ""
     for  _, key in pairs(sorted_keys) do
       ret = ret .. key .. "=" .. t[key] .. "&"
+      ngx.log(ngx.DEBUG, "label key=value:" .. key .. "=" .. t[key])
     end
 
     -- Convert ordered table to JSON string

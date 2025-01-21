@@ -33,6 +33,11 @@ local APPSEC_USER_AGENT_HEADER = "x-crowdsec-appsec-user-agent"
 local REMEDIATION_API_KEY_HEADER = 'x-api-key'
 local METRICS_PERIOD = 300
 
+--- only for debug purpose
+--- called only from within the nginx configuration file in the CI
+function csmod.debug_metrics()
+    METRICS_PERIOD = 15
+end
 
 --- init function
 -- init function called by nginx in init_by_lua_block
@@ -502,9 +507,6 @@ function csmod.Allow(ip)
     ngx.exit(ngx.DECLINED)
   end
 
-
-  Setup_metrics()
-
   local remediationSource = flag.BOUNCER_SOURCE
   local ret_code = nil
 
@@ -525,6 +527,8 @@ function csmod.Allow(ip)
       end
     end
   end
+
+  Setup_metrics()
 
   local ok, remediation, err = csmod.allowIp(ip)
   if err ~= nil then
