@@ -37,6 +37,7 @@ local METRICS_PERIOD = 300
 --- called only from within the nginx configuration file in the CI
 function csmod.debug_metrics()
     METRICS_PERIOD = 15
+    ngx.log(ngx.DEBUG, "Shortening metrics period to 15 seconds")
 end
 
 --- init function
