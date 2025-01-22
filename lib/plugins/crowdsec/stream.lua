@@ -186,6 +186,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
       end
 
       self:delete(utils.item_to_string(decision.value, decision.scope))
+      -- cache space for captcha is different it's used to cache if the captcha has been solved
       if decision.type == "captcha" then
         stream.cache:delete("captcha_" .. decision.value)
       end
