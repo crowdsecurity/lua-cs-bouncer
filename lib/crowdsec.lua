@@ -245,7 +245,7 @@ function csmod.GetCaptchaBackendKey()
 end
 
 local function SetupStream()
-  local function query_wrapper()
+  local function SetupStreamTimer()
     local err = stream:stream_query(
       runtime.conf["API_URL"],
       runtime.conf["REQUEST_TIMEOUT"],
@@ -259,6 +259,10 @@ local function SetupStream()
       ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
       error("Failed to query the stream: " .. err)
     end
+    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
+    if not ok then
+      error("Failed to create the timer: " .. (err or "unknown"))
+    end
   end
   -- if it stream mode and startup start timer
   if runtime.conf["API_URL"] == "" then
@@ -270,7 +274,7 @@ local function SetupStream()
 
   if refreshing == true then
     ngx.log(ngx.DEBUG, "another worker is refreshing the data, returning")
-    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStream)
+    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
     end
@@ -284,7 +288,7 @@ local function SetupStream()
       local now = ngx.time()
       if now - last_refresh < runtime.conf["UPDATE_FREQUENCY"] then
         ngx.log(ngx.DEBUG, "last refresh was less than " .. runtime.conf["UPDATE_FREQUENCY"] .. " seconds ago, returning")
-        local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStream)
+        local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
         if not ok then
           error("Failed to create the timer: " .. (err or "unknown"))
         end
@@ -295,7 +299,7 @@ local function SetupStream()
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
   if not runtime.timer_started then
     local ok, err
-    ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"],query_wrapper)
+    ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"],SetupStreamTimer)
     if not ok then
       return true, nil, "Failed to create the timer: " .. (err or "unknown")
     end
