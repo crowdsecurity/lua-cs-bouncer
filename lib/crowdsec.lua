@@ -185,6 +185,9 @@ local function Setup_metrics()
   end
   local started = runtime.cache:get("metrics_startup_time")
   if ngx.time() - started >= METRICS_PERIOD then
+    if runtime.conf["mode"] == "stream" then
+      stream:refresh_metrics()
+    end
     metrics:sendMetrics(
       runtime.conf["API_URL"],
       {['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"],["Content-Type"]="application/json"},
