@@ -154,25 +154,23 @@ DEBUG CACHE:metrics_processed/ip_type=ipv4&:1
 DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,
 DEBUG CACHE:captcha_ok:true
 DEBUG CACHE:first_run:true
-DEBUG CACHE:metrics_active_decisions/ip_type=ipv4&origin=CAPI&:1
 DEBUG CACHE:startup:false
 DEBUG CACHE:metrics_first_run:false
 DEBUG CACHE:refreshing:false
 DEBUG CACHE:metrics_processed/ip_type=ipv4&:2
 DEBUG CACHE:decision_cache/ipv4_4294967295_16843009:captcha/CAPI/ipv4
 DEBUG CACHE:metrics_dropped/ip_type=ipv4&origin=CAPI&:1
-DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,active_decisions/ip_type=ipv4&origin=CAPI&,dropped/ip_type=ipv4&origin=CAPI&,
+DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,dropped/ip_type=ipv4&origin=CAPI&,
 DEBUG CACHE:captcha_ok:true
 DEBUG CACHE:captcha_1.1.1.1:/t
 DEBUG CACHE:first_run:true
-DEBUG CACHE:metrics_active_decisions/ip_type=ipv4&origin=CAPI&:1
 DEBUG CACHE:startup:false
 DEBUG CACHE:metrics_first_run:false
 DEBUG CACHE:refreshing:true
 DEBUG CACHE:metrics_processed/ip_type=ipv4&:3
 DEBUG CACHE:decision_cache/ipv4_4294967295_16843009:captcha/CAPI/ipv4
 DEBUG CACHE:metrics_dropped/ip_type=ipv4&origin=CAPI&:2
-DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,active_decisions/ip_type=ipv4&origin=CAPI&,dropped/ip_type=ipv4&origin=CAPI&,
+DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,dropped/ip_type=ipv4&origin=CAPI&,
 DEBUG CACHE:captcha_ok:true
 DEBUG CACHE:captcha_1.1.1.1:/t
 --- wait: 1

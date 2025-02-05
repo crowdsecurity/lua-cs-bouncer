@@ -185,7 +185,7 @@ local function Setup_metrics()
   end
   local started = runtime.cache:get("metrics_startup_time")
   if ngx.time() - started >= METRICS_PERIOD then
-    if runtime.conf["mode"] == "stream" then
+    if runtime.conf["MODE"] == "stream" then
       stream:refresh_metrics()
     end
     metrics:sendMetrics(
