@@ -31,7 +31,7 @@ local APPSEC_VERB_HEADER = "x-crowdsec-appsec-verb"
 local APPSEC_URI_HEADER = "x-crowdsec-appsec-uri"
 local APPSEC_USER_AGENT_HEADER = "x-crowdsec-appsec-user-agent"
 local REMEDIATION_API_KEY_HEADER = 'x-api-key'
-local METRICS_PERIOD = 300
+local METRICS_PERIOD = 900
 
 --- only for debug purpose
 --- called only from within the nginx configuration file in the CI
