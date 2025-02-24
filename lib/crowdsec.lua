@@ -168,6 +168,10 @@ end
 --- If not send metrics and run the timer again in METRICS_PERIOD
 local function Setup_metrics()
   local function Setup_metrics_timer()
+    if ngx.worker.exiting() then
+      ngx.log(ngx.INFO, "worker is exiting, not setting up metrics timer")
+      return
+    end
     local ok, err = ngx.timer.at(METRICS_PERIOD, Setup_metrics)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
@@ -249,6 +253,10 @@ end
 
 local function SetupStream()
   local function SetupStreamTimer()
+    if ngx.worker.exiting() then
+      ngx.log(ngx.INFO, "worker is exiting, not setting up stream timer")
+      return
+    end
     local err = stream:stream_query(
       runtime.conf["API_URL"],
       runtime.conf["REQUEST_TIMEOUT"],
@@ -275,7 +283,7 @@ local function SetupStream()
   ngx.log(ngx.DEBUG, "running timers: " .. tostring(ngx.timer.running_count()) .. " | pending timers: " .. tostring(ngx.timer.pending_count()))
   local refreshing = stream.cache:get("refreshing")
 
-  if refreshing == true then
+  if refreshing == true and not ngx.worker.exiting() then
     ngx.log(ngx.DEBUG, "another worker is refreshing the data, returning")
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
     if not ok then
@@ -289,7 +297,7 @@ local function SetupStream()
   if last_refresh ~= nil then
       -- local last_refresh_time = tonumber(last_refresh)
       local now = ngx.time()
-      if now - last_refresh < runtime.conf["UPDATE_FREQUENCY"] then
+      if now - last_refresh < runtime.conf["UPDATE_FREQUENCY"] and not ngx.worker.exiting() then
         ngx.log(ngx.DEBUG, "last refresh was less than " .. runtime.conf["UPDATE_FREQUENCY"] .. " seconds ago, returning")
         local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
         if not ok then
@@ -300,7 +308,7 @@ local function SetupStream()
   end
 
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
-  if not runtime.timer_started then
+  if not runtime.timer_started and not ngx.worker.exiting() then
     local ok, err
     ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"],SetupStreamTimer)
     if not ok then
