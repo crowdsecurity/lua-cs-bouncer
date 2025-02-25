@@ -167,6 +167,11 @@ end
 --- If first run then just fire the new timer to run the function again in METRICS_PERIOD
 --- If not send metrics and run the timer again in METRICS_PERIOD
 local function Setup_metrics()
+  -- if no API_URL, we don't setup metrics
+  if runtime.conf["API_URL"] == "" then
+    return
+  end
+
   local function Setup_metrics_timer()
     local ok, err = ngx.timer.at(METRICS_PERIOD, Setup_metrics)
     if not ok then
