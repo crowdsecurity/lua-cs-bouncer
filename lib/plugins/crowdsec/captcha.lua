@@ -23,8 +23,9 @@ captcha_frontend_key["turnstile"] = "cf-turnstile"
 M.SecretKey = ""
 M.SiteKey = ""
 M.Template = ""
+M.ret_code = ngx.HTTP_OK
 
-function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider)
+function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
 
     if siteKey == nil or siteKey == "" then
       return "no recaptcha site key provided, can't use recaptcha"
@@ -51,6 +52,20 @@ function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider)
 
     M.CaptchaProvider = captcha_provider
 
+    local ret_code_ok = false
+    if ret_code ~= nil and ret_code ~= 0 and ret_code ~= "" then
+        for k, v in pairs(utils.HTTP_CODE) do
+            if k == ret_code then
+                M.ret_code = utils.HTTP_CODE[ret_code]
+                ret_code_ok = true
+                break
+            end
+        end
+        if ret_code_ok == false then
+            ngx.log(ngx.ERR, "CAPTCHA_RET_CODE '" .. ret_code .. "' is not supported, using default HTTP code " .. M.ret_code)
+        end
+    end
+
     local template_data = {}
     template_data["captcha_site_key"] =  M.SiteKey
     template_data["captcha_frontend_js"] = captcha_frontend_js[M.CaptchaProvider]
@@ -61,9 +76,12 @@ function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider)
     return nil
 end
 
-
-function M.GetTemplate()
-    return M.Template
+function M.apply()
+    ngx.header.content_type = "text/html"
+    ngx.header.cache_control = "no-cache"
+    ngx.status = M.ret_code
+    ngx.say(M.Template)
+    ngx.exit(M.ret_code)
 end
 
 function M.GetCaptchaBackendKey()

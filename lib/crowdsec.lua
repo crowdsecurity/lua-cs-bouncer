@@ -64,7 +64,7 @@ function csmod.init(configFile, userAgent)
   end
 
   local captcha_ok = true
-  local err = captcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"], runtime.conf["CAPTCHA_PROVIDER"])
+  local err = captcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"], runtime.conf["CAPTCHA_PROVIDER"], runtime.conf["CAPTCHA_RET_CODE"])
   if err ~= nil then
     ngx.log(ngx.ERR, "error loading captcha plugin: " .. err)
     captcha_ok = false
@@ -241,10 +241,6 @@ local function get_body()
     end
   end
   return body
-end
-
-function csmod.GetCaptchaTemplate()
-  return captcha.GetTemplate()
 end
 
 function csmod.GetCaptchaBackendKey()
@@ -641,10 +637,7 @@ function csmod.Allow(ip)
           local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ip)
           local source, state_id, err = flag.GetFlags(flags)
           -- we check if the IP is already in cache for captcha and not yet validated
-          if previous_uri == nil or state_id ~= flag.VALIDATED_STATE or remediationSource == flag.APPSEC_SOURCE then
-              ngx.header.content_type = "text/html"
-              ngx.header.cache_control = "no-cache"
-              ngx.say(csmod.GetCaptchaTemplate())
+          if previous_uri == nil or state_id ~= flag.VALIDATED_STATE or remediationSource == flag.APPSEC_SOURCE then 
               local uri = ngx.var.uri
               -- in case its not a GET request, we prefer to fallback on referer
               if ngx.req.get_method() ~= "GET" then
@@ -663,6 +656,7 @@ function csmod.Allow(ip)
                 ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
               end
               ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."'")
+              captcha.apply()
               return
           end
       end
