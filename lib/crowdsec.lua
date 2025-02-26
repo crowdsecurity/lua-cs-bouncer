@@ -638,7 +638,6 @@ function csmod.Allow(ip)
           local source, state_id, err = flag.GetFlags(flags)
           -- we check if the IP is already in cache for captcha and not yet validated
           if previous_uri == nil or state_id ~= flag.VALIDATED_STATE or remediationSource == flag.APPSEC_SOURCE then 
-              captcha.apply()
               local uri = ngx.var.uri
               -- in case its not a GET request, we prefer to fallback on referer
               if ngx.req.get_method() ~= "GET" then
@@ -657,6 +656,7 @@ function csmod.Allow(ip)
                 ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
               end
               ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."'")
+              captcha.apply()
               return
           end
       end

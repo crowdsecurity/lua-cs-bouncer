@@ -81,6 +81,7 @@ function M.apply()
     ngx.header.cache_control = "no-cache"
     ngx.status = M.ret_code
     ngx.say(M.Template)
+    ngx.exit(M.ret_code)
 end
 
 function M.GetCaptchaBackendKey()
