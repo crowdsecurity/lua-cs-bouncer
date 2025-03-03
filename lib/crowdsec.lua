@@ -462,6 +462,8 @@ function csmod.AppSecCheck(ip)
 
     local uri = ngx.var.request_uri
     local headers = ngx.req.get_headers(0)
+    local body
+    local err
 
     -- overwrite headers with crowdsec appsec require headers
     headers[APPSEC_IP_HEADER] = ip
@@ -498,12 +500,15 @@ function csmod.AppSecCheck(ip)
     --     headers["content-length"] = nil
     -- end
 
-    local body, err = httpc:get_client_body_reader()
-    if err ~= nil then
-        ngx.log(ngx.ERR, "Error while getting body reader: " .. err)
-        body = nil
+    if method == "POST" or method == "PUT" or method == "PATCH" then
+      body, err = httpc:get_client_body_reader()
+      if err ~= nil then
+          ngx.log(ngx.ERR, "Error while getting body reader, falling back to in-memory body: " .. err)
+          body = get_body()
+      end
+      ngx.log(ngx.ERR, "type of body: " .. type(body))
     end
-    ngx.log(ngx.ERR, "type of body: " .. type(body))
+    
 
     local res, err = httpc:request_uri(runtime.conf["APPSEC_URL"], {
         method = method,
