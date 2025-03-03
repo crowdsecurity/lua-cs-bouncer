@@ -482,26 +482,26 @@ function csmod.AppSecCheck(ip)
 
     local method = ngx.var.request_method
 
-    local body, is_iter = get_body_for_appsec(httpc)
-    ngx.log(ngx.ERR, "type of body: " .. type(body))
-    if body ~= nil then
-        if not is_iter and #body > 0 then
-          ngx.log(ngx.ERR, "body: " .. body)
-            if headers["content-length"] == nil then
-                headers["content-length"] = tostring(#body)
-            end
-        end
-        if is_iter then
-          ngx.log(ngx.ERR, "using iterator as body")
-        end
-    else
-        headers["content-length"] = nil
-    end
+    --local body, is_iter = get_body_for_appsec(httpc)
+    --ngx.log(ngx.ERR, "type of body: " .. type(body))
+    --if body ~= nil then
+    --    if not is_iter and #body > 0 then
+    --      ngx.log(ngx.ERR, "body: " .. body)
+    --        if headers["content-length"] == nil then
+    --             headers["content-length"] = tostring(#body)
+    --         end
+    --     end
+    --     if is_iter then
+    --       ngx.log(ngx.ERR, "using iterator as body")
+    --     end
+    -- else
+    --     headers["content-length"] = nil
+    -- end
 
     local res, err = httpc:request_uri(runtime.conf["APPSEC_URL"], {
         method = method,
         headers = headers,
-        body = body,
+        body = httpc:get_client_body_reader(),
         ssl_verify = runtime.conf["SSL_VERIFY"]
     })
     httpc:close()
