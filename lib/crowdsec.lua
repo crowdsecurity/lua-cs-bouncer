@@ -455,6 +455,7 @@ function csmod.allowIp(ip)
 end
 
 function csmod.AppSecCheck(ip)
+    ngx.log(ngx.ERR, "AppSec check for IP: " .. ip)
     local httpc = http.new()
     httpc:set_timeouts(runtime.conf["APPSEC_CONNECT_TIMEOUT"], runtime.conf["APPSEC_SEND_TIMEOUT"],
         runtime.conf["APPSEC_PROCESS_TIMEOUT"])
