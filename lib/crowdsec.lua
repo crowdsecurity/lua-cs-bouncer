@@ -489,11 +489,14 @@ function csmod.AppSecCheck(ip)
 
     local body, is_iter = get_body_for_appsec(httpc)
     if body ~= nil then
-        ngx.log(ngx.ERR, "body: " .. body)
         if is_iter and #body > 0 then
+          ngx.log(ngx.ERR, "body: " .. body)
             if headers["content-length"] == nil then
                 headers["content-length"] = tostring(#body)
             end
+        end
+        if is_iter then
+          ngx.log(ngx.ERR, "using iterator as body")
         end
     else
         headers["content-length"] = nil
