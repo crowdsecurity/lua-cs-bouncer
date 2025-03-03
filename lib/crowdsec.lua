@@ -255,7 +255,7 @@ local function get_body_for_appsec(httpc)
         -- If the body is stored in a file, just return an iterator to it
         -- the http lib will take care of streaming the content
         if bodyfile then
-            ngx.log(ngx.INFO, "Using body file " .. bodyfile)
+            ngx.log(ngx.ERR, "Using body file " .. bodyfile)
             return httpc:get_client_body_reader()
         end
     end
@@ -483,11 +483,11 @@ function csmod.AppSecCheck(ip)
 
     headers_str = utils.table_to_string(headers)
 
-    ngx.log(ngx.INFO, "AppSec request: " .. method .. " " .. runtime.conf["APPSEC_URL"] .. " " .. headers_str)
+    ngx.log(ngx.ERR, "AppSec request: " .. method .. " " .. runtime.conf["APPSEC_URL"] .. " " .. headers_str)
 
     local body = get_body_for_appsec(httpc)
     if body ~= nil then
-        ngx.log(ngx.INFO, "body: " .. body)
+        ngx.log(ngx.ERR, "body: " .. body)
         if #body > 0 then
             if headers["content-length"] == nil then
                 headers["content-length"] = tostring(#body)
