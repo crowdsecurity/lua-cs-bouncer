@@ -460,7 +460,7 @@ function csmod.AppSecCheck(ip)
         runtime.conf["APPSEC_PROCESS_TIMEOUT"])
 
     local uri = ngx.var.request_uri
-    local headers = ngx.req.get_headers()
+    local headers = ngx.req.get_headers(0)
 
     -- overwrite headers with crowdsec appsec require headers
     headers[APPSEC_IP_HEADER] = ip
@@ -480,6 +480,10 @@ function csmod.AppSecCheck(ip)
     end
 
     local method = ngx.var.request_method
+
+    headers_str = utils.table_to_string(headers)
+
+    ngx.log(ngx.INFO, "AppSec request: " .. method .. " " .. runtime.conf["APPSEC_URL"] .. " " .. headers_str)
 
     local body = get_body_for_appsec(httpc)
     if body ~= nil then
