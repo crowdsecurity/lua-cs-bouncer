@@ -478,12 +478,11 @@ function csmod.AppSecCheck(ip)
         remediation = runtime.conf["FALLBACK_REMEDIATION"]
     end
 
-    local method = "GET"
+    local method = ngx.var.request_method
 
     local body = get_body_for_appsec(httpc)
     if body ~= nil then
         if #body > 0 then
-            method = "POST"
             if headers["content-length"] == nil then
                 headers["content-length"] = tostring(#body)
             end
