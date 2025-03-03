@@ -503,6 +503,7 @@ function csmod.AppSecCheck(ip)
         ngx.log(ngx.ERR, "Error while getting body reader: " .. err)
         body = nil
     end
+    ngx.log(ngx.ERR, "type of body: " .. type(body))
 
     local res, err = httpc:request_uri(runtime.conf["APPSEC_URL"], {
         method = method,
