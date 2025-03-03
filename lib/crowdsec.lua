@@ -255,6 +255,7 @@ local function get_body_for_appsec(httpc)
         -- If the body is stored in a file, just return an iterator to it
         -- the http lib will take care of streaming the content
         if bodyfile then
+            ngx.log(ngx.INFO, "Using body file " .. bodyfile)
             return httpc:get_client_body_reader()
         end
     end
@@ -482,6 +483,7 @@ function csmod.AppSecCheck(ip)
 
     local body = get_body_for_appsec(httpc)
     if body ~= nil then
+        ngx.log(ngx.INFO, "body: " .. body)
         if #body > 0 then
             if headers["content-length"] == nil then
                 headers["content-length"] = tostring(#body)
