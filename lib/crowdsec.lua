@@ -456,7 +456,6 @@ function csmod.allowIp(ip)
 end
 
 function csmod.AppSecCheck(ip)
-    ngx.log(ngx.ERR, "AppSec check for IP: " .. ip)
     local httpc = http.new()
     httpc:set_timeouts(runtime.conf["APPSEC_CONNECT_TIMEOUT"], runtime.conf["APPSEC_SEND_TIMEOUT"],
         runtime.conf["APPSEC_PROCESS_TIMEOUT"])
@@ -483,13 +482,10 @@ function csmod.AppSecCheck(ip)
 
     local method = ngx.var.request_method
 
-    headers_str = utils.table_to_string(headers)
-
-    ngx.log(ngx.ERR, "AppSec request: " .. method .. " " .. runtime.conf["APPSEC_URL"] .. " " .. headers_str)
-
     local body, is_iter = get_body_for_appsec(httpc)
+    ngx.log(ngx.ERR, "type of body: " .. type(body))
     if body ~= nil then
-        if is_iter and #body > 0 then
+        if not is_iter and #body > 0 then
           ngx.log(ngx.ERR, "body: " .. body)
             if headers["content-length"] == nil then
                 headers["content-length"] = tostring(#body)
