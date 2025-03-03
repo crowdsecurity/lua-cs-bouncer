@@ -501,7 +501,8 @@ function csmod.AppSecCheck(ip)
     -- end
 
     if method == "POST" or method == "PUT" or method == "PATCH" then
-      body, err = httpc:get_client_body_reader()
+      local sock = ngx.req.socket(true)
+      body, err = httpc:get_client_body_reader(sock)
       if err ~= nil then
           ngx.log(ngx.ERR, "Error while getting body reader, falling back to in-memory body: " .. err)
           body = get_body()
