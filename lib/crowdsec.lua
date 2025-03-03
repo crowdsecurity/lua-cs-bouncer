@@ -498,10 +498,16 @@ function csmod.AppSecCheck(ip)
     --     headers["content-length"] = nil
     -- end
 
+    local body, err = httpc:get_client_body_reader()
+    if err ~= nil then
+        ngx.log(ngx.ERR, "Error while getting body reader: " .. err)
+        body = nil
+    end
+
     local res, err = httpc:request_uri(runtime.conf["APPSEC_URL"], {
         method = method,
         headers = headers,
-        body = httpc:get_client_body_reader(),
+        body = body,
         ssl_verify = runtime.conf["SSL_VERIFY"]
     })
     httpc:close()
