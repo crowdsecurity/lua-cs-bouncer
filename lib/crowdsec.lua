@@ -240,6 +240,27 @@ local function get_body()
     return body
 end
 
+local function get_body_for_appsec(httpc)
+    -- the LUA module requires a content-length header to read a body for HTTP 2/3 requests, although it's not mandatory.
+    -- This means that we will likely miss body, but AFAIK, there's no workaround for this.
+    -- do not even try to read the body if there's no content-length as the LUA API will throw an error
+    if ngx.req.http_version() >= 2 and ngx.var.http_content_length == nil then
+        ngx.log(ngx.DEBUG, "No content-length header in request")
+        return nil
+    end
+    ngx.req.read_body()
+    local body = ngx.req.get_body_data()
+    if body == nil then
+        local bodyfile = ngx.req.get_body_file()
+        -- If the body is stored in a file, just return an iterator to it
+        -- the http lib will take care of streaming the content
+        if bodyfile then
+            return httpc:get_client_body_reader()
+        end
+    end
+    return body
+end
+
 function csmod.GetCaptchaBackendKey()
     return captcha.GetCaptchaBackendKey()
 end
@@ -459,7 +480,7 @@ function csmod.AppSecCheck(ip)
 
     local method = "GET"
 
-    local body = get_body()
+    local body = get_body_for_appsec(httpc)
     if body ~= nil then
         if #body > 0 then
             method = "POST"
