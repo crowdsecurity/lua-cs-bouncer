@@ -246,20 +246,21 @@ local function get_body_for_appsec(httpc)
     -- do not even try to read the body if there's no content-length as the LUA API will throw an error
     if ngx.req.http_version() >= 2 and ngx.var.http_content_length == nil then
         ngx.log(ngx.DEBUG, "No content-length header in request")
-        return nil
+        return nil, false
     end
     ngx.req.read_body()
     local body = ngx.req.get_body_data()
-    if body == nil then
-        local bodyfile = ngx.req.get_body_file()
-        -- If the body is stored in a file, just return an iterator to it
-        -- the http lib will take care of streaming the content
-        if bodyfile then
-            ngx.log(ngx.ERR, "Using body file " .. bodyfile)
-            return httpc:get_client_body_reader()
-        end
+    if body ~= nil then
+        return body, false
     end
-    return body
+    local bodyfile = ngx.req.get_body_file()
+    -- If the body is stored in a file, just return an iterator to it
+    -- the http lib will take care of streaming the content
+    if bodyfile then
+        ngx.log(ngx.ERR, "Using body file " .. bodyfile)
+        return httpc:get_client_body_reader(), true
+    end
+    return nil, false
 end
 
 function csmod.GetCaptchaBackendKey()
@@ -486,10 +487,10 @@ function csmod.AppSecCheck(ip)
 
     ngx.log(ngx.ERR, "AppSec request: " .. method .. " " .. runtime.conf["APPSEC_URL"] .. " " .. headers_str)
 
-    local body = get_body_for_appsec(httpc)
+    local body, is_iter = get_body_for_appsec(httpc)
     if body ~= nil then
         ngx.log(ngx.ERR, "body: " .. body)
-        if #body > 0 then
+        if is_iter and #body > 0 then
             if headers["content-length"] == nil then
                 headers["content-length"] = tostring(#body)
             end
