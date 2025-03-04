@@ -476,9 +476,8 @@ function csmod.AppSecCheck(ip)
     -- else
     --     headers["content-length"] = nil
     -- end
-
+    local sock = ngx.req.socket(true)
     if method == "POST" or method == "PUT" or method == "PATCH" then
-        local sock = ngx.req.socket(true)
         body, err = httpc:get_client_body_reader(nil, 65536, sock)
         if err ~= nil then
             ngx.log(ngx.ERR, "Error while getting body reader, falling back to in-memory body: " .. err)
@@ -493,12 +492,12 @@ function csmod.AppSecCheck(ip)
         if body == nil then
             break
         end
-        local chunk, err = body()
+        local chunk, err = body(sock, ngx.var.http_content_length, 65536)
         if err then
             ngx.log(ngx.ERR, "Error while reading body: " .. err)
             break
         end
-        if chunk then -- <-- This could be a string msg in the core wrap function.
+        if chunk then
             ngx.log(ngx.DEBUG, "Processing chunk: " .. tostring(chunk))
         end
     until not chunk
