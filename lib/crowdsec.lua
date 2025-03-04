@@ -461,9 +461,9 @@ function csmod.AppSecCheck(ip)
 
     local method = ngx.var.request_method
 
-    --local body, is_iter = get_body_for_appsec(httpc)
-    --ngx.log(ngx.ERR, "type of body: " .. type(body))
-    --if body ~= nil then
+    -- local body, is_iter = get_body_for_appsec(httpc)
+    -- ngx.log(ngx.ERR, "type of body: " .. type(body))
+    -- if body ~= nil then
     --    if not is_iter and #body > 0 then
     --      ngx.log(ngx.ERR, "body: " .. body)
     --        if headers["content-length"] == nil then
@@ -478,15 +478,30 @@ function csmod.AppSecCheck(ip)
     -- end
 
     if method == "POST" or method == "PUT" or method == "PATCH" then
-      local sock = ngx.req.socket(true)
-      body, err = httpc:get_client_body_reader(nil, 65536, sock)
-      if err ~= nil then
-          ngx.log(ngx.ERR, "Error while getting body reader, falling back to in-memory body: " .. err)
-          body = get_body()
-      end
-      ngx.log(ngx.ERR, "type of body: " .. type(body))
+        local sock = ngx.req.socket(true)
+        body, err = httpc:get_client_body_reader(nil, 65536, sock)
+        if err ~= nil then
+            ngx.log(ngx.ERR, "Error while getting body reader, falling back to in-memory body: " .. err)
+            body = get_body()
+        end
+        ngx.log(ngx.ERR, "type of body: " .. type(body))
     end
-    
+
+    ngx.log(ngx.ERR, "attempting to read client body")
+    local tmpbody = body()
+
+    repeat
+        local chunk, err = body()
+        if err then
+            ngx.log(ngx.ERR, "Error while reading body: " .. err)
+            break
+        end
+        if chunk then -- <-- This could be a string msg in the core wrap function.
+            ngx.log(ngx.DEBUG, "Processing chunk: " .. tostring(chunk))
+        end
+    until not chunk
+
+    ngx.log(ngx.ERR, "after reading client body")
 
     local res, err = httpc:request_uri(runtime.conf["APPSEC_URL"], {
         method = method,
