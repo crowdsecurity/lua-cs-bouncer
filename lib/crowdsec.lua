@@ -488,9 +488,11 @@ function csmod.AppSecCheck(ip)
     end
 
     ngx.log(ngx.ERR, "attempting to read client body")
-    local tmpbody = body()
 
     repeat
+        if body == nil then
+            break
+        end
         local chunk, err = body()
         if err then
             ngx.log(ngx.ERR, "Error while reading body: " .. err)
