@@ -492,7 +492,7 @@ function csmod.AppSecCheck(ip)
         if body == nil then
             break
         end
-        local chunk, err = body(sock, ngx.var.http_content_length, 65536)
+        local chunk, err = body(65536)
         if err then
             ngx.log(ngx.ERR, "Error while reading body: " .. err)
             break
