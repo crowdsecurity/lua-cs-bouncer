@@ -286,10 +286,6 @@ local function SetupStream()
 
   if refreshing == true and not ngx.worker.exiting() then
     ngx.log(ngx.DEBUG, "another worker is refreshing the data, returning")
-    local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
-    if not ok then
-      error("Failed to create the timer: " .. (err or "unknown"))
-    end
     return
   end
 
@@ -298,13 +294,8 @@ local function SetupStream()
   if last_refresh ~= nil then
       -- local last_refresh_time = tonumber(last_refresh)
       local now = ngx.time()
-      if now - last_refresh < runtime.conf["UPDATE_FREQUENCY"] and not ngx.worker.exiting() then
-        ngx.log(ngx.DEBUG, "last refresh was less than " .. runtime.conf["UPDATE_FREQUENCY"] .. " seconds ago, returning")
-        local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
-        if not ok then
-          error("Failed to create the timer: " .. (err or "unknown"))
-        end
-        return
+      if now - last_refresh > runtime.conf["UPDATE_FREQUENCY"] *1.1 and not ngx.worker.exiting() then
+        ngx.log(ngx.ERROR, "last refresh was more than " .. runtime.conf["UPDATE_FREQUENCY"] .. " seconds ago, something fishy is going on")
       end
   end
 
