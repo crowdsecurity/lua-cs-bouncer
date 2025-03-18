@@ -260,7 +260,7 @@ local function SetupStream()
     end
     local last_refresh = stream.cache:get("last_refresh")
     if last_refresh ~= nil then
-      if now - last_refresh < runtime.conf["UPDATE_FREQUENCY"] then
+      if ngx.time() - last_refresh < runtime.conf["UPDATE_FREQUENCY"] then
         ngx.log(ngx.DEBUG, "last refresh was less than " .. runtime.conf["UPDATE_FREQUENCY"] .. " seconds ago, returning")
         local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
         if not ok then
