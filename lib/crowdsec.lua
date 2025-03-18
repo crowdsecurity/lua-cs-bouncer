@@ -64,7 +64,7 @@ function csmod.init(configFile, userAgent)
   end
 
   local captcha_ok = true
-  local err = captcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"], runtime.conf["CAPTCHA_PROVIDER"])
+  local err = captcha.New(runtime.conf["SITE_KEY"], runtime.conf["SECRET_KEY"], runtime.conf["CAPTCHA_TEMPLATE_PATH"], runtime.conf["CAPTCHA_PROVIDER"], runtime.conf["CAPTCHA_RET_CODE"])
   if err ~= nil then
     ngx.log(ngx.ERR, "error loading captcha plugin: " .. err)
     captcha_ok = false
@@ -190,7 +190,16 @@ end
 --- If first run then just fire the new timer to run the function again in METRICS_PERIOD
 --- If not send metrics and run the timer again in METRICS_PERIOD
 local function Setup_metrics()
+  -- if no API_URL, we don't setup metrics
+  if runtime.conf["API_URL"] == "" then
+    return
+  end
+
   local function Setup_metrics_timer()
+    if ngx.worker.exiting() then
+      ngx.log(ngx.INFO, "worker is exiting, not setting up metrics timer")
+      return
+    end
     local ok, err = ngx.timer.at(METRICS_PERIOD, Setup_metrics)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
@@ -262,16 +271,16 @@ local function get_body()
   return body
 end
 
-function csmod.GetCaptchaTemplate()
-  return captcha.GetTemplate()
-end
-
 function csmod.GetCaptchaBackendKey()
   return captcha.GetCaptchaBackendKey()
 end
 
 local function SetupStream()
   local function SetupStreamTimer()
+    if ngx.worker.exiting() then
+      ngx.log(ngx.INFO, "worker is exiting, not setting up stream timer")
+      return
+    end
     local err = stream:stream_query(
       runtime.conf["API_URL"],
       runtime.conf["REQUEST_TIMEOUT"],
@@ -298,7 +307,7 @@ local function SetupStream()
   ngx.log(ngx.DEBUG, "running timers: " .. tostring(ngx.timer.running_count()) .. " | pending timers: " .. tostring(ngx.timer.pending_count()))
   local refreshing = stream.cache:get("refreshing")
 
-  if refreshing == true then
+  if refreshing == true and not ngx.worker.exiting() then
     ngx.log(ngx.DEBUG, "another worker is refreshing the data, returning")
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
     if not ok then
@@ -312,7 +321,7 @@ local function SetupStream()
   if last_refresh ~= nil then
       -- local last_refresh_time = tonumber(last_refresh)
       local now = ngx.time()
-      if now - last_refresh < runtime.conf["UPDATE_FREQUENCY"] then
+      if now - last_refresh < runtime.conf["UPDATE_FREQUENCY"] and not ngx.worker.exiting() then
         ngx.log(ngx.DEBUG, "last refresh was less than " .. runtime.conf["UPDATE_FREQUENCY"] .. " seconds ago, returning")
         local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
         if not ok then
@@ -323,7 +332,7 @@ local function SetupStream()
   end
 
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
-  if not runtime.timer_started then
+  if not runtime.timer_started and not ngx.worker.exiting() then
     local ok, err
     ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"],SetupStreamTimer)
     if not ok then
@@ -674,10 +683,7 @@ function csmod.Allow(ip)
           local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ip)
           local source, state_id, err = flag.GetFlags(flags)
           -- we check if the IP is already in cache for captcha and not yet validated
-          if previous_uri == nil or state_id ~= flag.VALIDATED_STATE or remediationSource == flag.APPSEC_SOURCE then
-              ngx.header.content_type = "text/html"
-              ngx.header.cache_control = "no-cache"
-              ngx.say(csmod.GetCaptchaTemplate())
+          if previous_uri == nil or state_id ~= flag.VALIDATED_STATE or remediationSource == flag.APPSEC_SOURCE then 
               local uri = ngx.var.uri
               -- in case its not a GET request, we prefer to fallback on referer
               if ngx.req.get_method() ~= "GET" then
@@ -696,6 +702,7 @@ function csmod.Allow(ip)
                 ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
               end
               ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."'")
+              captcha.apply()
               return
           end
       end
