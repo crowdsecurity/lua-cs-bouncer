@@ -334,7 +334,7 @@ function csmod.allowIp(ip)
   end
 
   if runtime.conf["MODE"] == "stream" then
-    ngx.log(ngx.INFO, "stream mode")
+    ngx.log(ngx.DEBUG, "stream mode")
     SetupStream()
   end
 
