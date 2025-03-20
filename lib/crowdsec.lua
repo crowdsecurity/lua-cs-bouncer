@@ -258,18 +258,22 @@ local function SetupStream()
       ngx.log(ngx.INFO, "worker is exiting, not setting up stream timer")
       return
     end
-    local err = stream:stream_query(
-      runtime.conf["API_URL"],
-      runtime.conf["REQUEST_TIMEOUT"],
-      REMEDIATION_API_KEY_HEADER,
-      runtime.conf["API_KEY"],
-      runtime.userAgent,
-      runtime.conf["SSL_VERIFY"],
-      runtime.conf["BOUNCING_ON_TYPE"]
-    )
-    if err ~=nil then
-      ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
-      error("Failed to query the stream: " .. err)
+    -- test if refreshing is false, if so, we wait for the next timer
+    local refreshing = stream.cache:get("refreshing")
+    if not refreshing then
+      local err = stream:stream_query(
+        runtime.conf["API_URL"],
+        runtime.conf["REQUEST_TIMEOUT"],
+        REMEDIATION_API_KEY_HEADER,
+        runtime.conf["API_KEY"],
+        runtime.userAgent,
+        runtime.conf["SSL_VERIFY"],
+        runtime.conf["BOUNCING_ON_TYPE"]
+      )
+      if err ~=nil then
+        ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
+        return
+      end
     end
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
     if not ok then
@@ -362,7 +366,6 @@ function csmod.allowIp(ip)
 
     local remediation = ""
     if t[2] ~= nil then
-      ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. t[2] .. "' is counted")
       metrics:increment("dropped" ,1, {ip_type=ip_version, origin=t[2]})
     end
     if t[1] ~= nil then
@@ -430,7 +433,6 @@ function csmod.allowIp(ip)
     end
 
     if remediation ~= nil and remediation == "ban" then
-      ngx.log(ngx.INFO, "'" .. "ipversion: " .. ip_version .. " origin: " .. origin .. "' is counted")
       metrics:increment("dropped", 1, {ip_type=ip_version, origin=origin} )
     return ok, remediation, err
     end

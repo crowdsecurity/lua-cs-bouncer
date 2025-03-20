@@ -173,6 +173,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   if status~=200 then
     set_refreshing(false)
     ngx.log(ngx.ERR, "HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")")
+    return "HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")"
   end
 
   local decisions = cjson.decode(body)
