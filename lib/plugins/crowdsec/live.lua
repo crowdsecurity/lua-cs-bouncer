@@ -50,7 +50,7 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
     local key,_ = utils.item_to_string(ip, "ip")
     local succ, err, forcible = live.cache:set("decision_cache/" .. key, "none", cache_expiration, 1)
     --
-    ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds") --debug
+    ngx.log(ngx.DEBUG, "[CACHE] Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds") --debug
     if not succ then
       ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: ".. err)
     end
