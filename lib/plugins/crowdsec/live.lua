@@ -67,7 +67,7 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
   local cache_value = decision.type .. "/" .. decision.origin
   local key,_ = utils.item_to_string(decision.value, decision.scope)
   local succ, err, forcible = live.cache:set("decision_cache/" .. key, cache_value, cache_expiration, 0)
-  ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds with decision type'" .. decision.type .. "'with origin'" .. decision.origin ) --debug
+  ngx.log(ngx.DEBUG, "[CACHE] Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds with decision type'" .. decision.type .. "'with origin'" .. decision.origin ) --debug
   if not succ then
     ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
   end
