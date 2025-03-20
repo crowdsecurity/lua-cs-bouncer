@@ -18,7 +18,7 @@ if _VERSION == "Lua 5.1" then bit = require "bit" else bit = require "bit32" end
 
 local runtime = {}
 
-runtime.timer_started = false
+runtime.timer_started = false -- worker wide variable
 
 local csmod = {}
 
@@ -258,7 +258,17 @@ local function SetupStream()
       ngx.log(ngx.INFO, "worker is exiting, not setting up stream timer")
       return
     end
-    -- test if refreshing is false, if so, we wait for the next timer
+    local last_refresh = stream.cache:get("last_refresh")
+    if last_refresh ~= nil then
+      if ngx.time() - last_refresh < runtime.conf["UPDATE_FREQUENCY"] then
+        ngx.log(ngx.DEBUG, "last refresh was less than " .. runtime.conf["UPDATE_FREQUENCY"] .. " seconds ago, returning")
+        local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
+        if not ok then
+          error("Failed to create the timer: " .. (err or "unknown"))
+        end
+        return
+      end
+    end
     local refreshing = stream.cache:get("refreshing")
     if not refreshing then
       local err = stream:stream_query(
@@ -272,7 +282,7 @@ local function SetupStream()
       )
       if err ~=nil then
         ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
-        return
+        error("Failed to query the stream: " .. err)
       end
     end
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
@@ -298,20 +308,7 @@ local function SetupStream()
   end
 
 
-  local last_refresh = stream.cache:get("last_refresh")
-  if last_refresh ~= nil then
-      -- local last_refresh_time = tonumber(last_refresh)
-      local now = ngx.time()
-      if now - last_refresh < runtime.conf["UPDATE_FREQUENCY"] and not ngx.worker.exiting() then
-        ngx.log(ngx.DEBUG, "last refresh was less than " .. runtime.conf["UPDATE_FREQUENCY"] .. " seconds ago, returning")
-        local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
-        if not ok then
-          error("Failed to create the timer: " .. (err or "unknown"))
-        end
-        return
-      end
-  end
-
+  -- This is done once per worker
   ngx.log(ngx.DEBUG, "timer started: " .. tostring(runtime.timer_started) .. " in worker " .. tostring(ngx.worker.id()))
   if not runtime.timer_started and not ngx.worker.exiting() then
     local ok, err
