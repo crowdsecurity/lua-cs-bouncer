@@ -413,7 +413,7 @@ function csmod.allowIp(ip)
       ip,
       runtime.conf["API_URL"],
       runtime.conf["REQUEST_TIMEOUT"],
-      runtime.conf["CAPTCHA_EXPIRATION"],
+      runtime.conf["CACHE_EXPIRATION"],
       REMEDIATION_API_KEY_HEADER,
       runtime.conf['API_KEY'],
       runtime.userAgent,
