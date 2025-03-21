@@ -143,7 +143,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   set_refreshing(true)
 
   local is_startup = stream.cache:get("startup")
-  ngx.log(ngx.INFO, "startup: " .. tostring(is_startup))
+  ngx.log(ngx.DEBUG, "startup: " .. tostring(is_startup))
   ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup) .. " | premature: ")
   local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
   local res, err = utils.get_remediation_http_request(link,
@@ -173,6 +173,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   if status~=200 then
     set_refreshing(false)
     ngx.log(ngx.ERR, "HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")")
+    return "HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")"
   end
 
   local decisions = cjson.decode(body)

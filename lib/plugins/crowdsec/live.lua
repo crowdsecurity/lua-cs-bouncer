@@ -48,9 +48,9 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
     local key,_ = utils.item_to_string(ip, "ip")
-    local succ, err, forcible = live.cache:set(key, "none", cache_expiration, 1)
+    local succ, err, forcible = live.cache:set("decision_cache/" .. key, "none", cache_expiration, 1)
     --
-    ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds") --debug
+    ngx.log(ngx.DEBUG, "[CACHE] Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds") --debug
     if not succ then
       ngx.log(ngx.ERR, "failed to add ip '" .. ip .. "' in cache: ".. err)
     end
@@ -66,8 +66,8 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
   end
   local cache_value = decision.type .. "/" .. decision.origin
   local key,_ = utils.item_to_string(decision.value, decision.scope)
-  local succ, err, forcible = live.cache:set(key, cache_value, cache_expiration, 0)
-  ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds with decision type'" .. decision.type .. "'with origin'" .. decision.origin ) --debug
+  local succ, err, forcible = live.cache:set("decision_cache/" .. key, cache_value, cache_expiration, 0)
+  ngx.log(ngx.DEBUG, "[CACHE] Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds with decision type'" .. decision.type .. "'with origin'" .. decision.origin ) --debug
   if not succ then
     ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
   end
