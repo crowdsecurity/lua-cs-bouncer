@@ -336,11 +336,6 @@ function csmod.allowIp(ip)
     return true, nil, nil
   end
 
-  if runtime.conf["MODE"] == "stream" then
-    ngx.log(ngx.DEBUG, "stream mode")
-    SetupStream()
-  end
-
   local key, ip_version = utils.item_to_string(ip, "ip")
   if key == nil then
     return true, nil, "Check failed '" .. ip .. "' has no valid IP address"
@@ -547,8 +542,6 @@ function csmod.Allow(ip)
       end
     end
   end
-
-  Setup_metrics()
 
   local ok, remediation, err = csmod.allowIp(ip)
   if err ~= nil then
