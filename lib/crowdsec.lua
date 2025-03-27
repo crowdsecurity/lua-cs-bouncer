@@ -181,7 +181,7 @@ function csmod.SetupMetrics()
       ngx.log(ngx.INFO, "worker is exiting, not setting up metrics timer")
       return
     end
-    local ok, err = ngx.timer.at(METRICS_PERIOD, Setup_metrics)
+    local ok, err = ngx.timer.at(METRICS_PERIOD, csmod.SetupMetrics)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
     else
