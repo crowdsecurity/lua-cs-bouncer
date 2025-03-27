@@ -170,7 +170,7 @@ end
 --- The idea here is to setup the timer that will trigger the metrics sending
 --- If first run then just fire the new timer to run the function again in METRICS_PERIOD
 --- If not send metrics and run the timer again in METRICS_PERIOD
-local function Setup_metrics()
+function csmod.SetupMetrics()
   -- if no API_URL, we don't setup metrics
   if runtime.conf["API_URL"] == "" then
     return
@@ -256,7 +256,7 @@ function csmod.GetCaptchaBackendKey()
   return captcha.GetCaptchaBackendKey()
 end
 
-local function SetupStream()
+function csmod.SetupStream()
   local function SetupStreamTimer()
     if ngx.worker.exiting() then
       ngx.log(ngx.INFO, "worker is exiting, not setting up stream timer")
