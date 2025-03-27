@@ -40,6 +40,10 @@ function csmod.debug_metrics()
     ngx.log(ngx.DEBUG, "Shortening metrics period to 15 seconds")
 end
 
+function csmod.get_mode()
+  return runtime.conf["MODE"]
+end
+
 --- init function
 -- init function called by nginx in init_by_lua_block
 -- @param configFile path to the configuration file
