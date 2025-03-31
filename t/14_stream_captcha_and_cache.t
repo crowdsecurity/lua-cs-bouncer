@@ -94,6 +94,20 @@ access_by_lua_block {
         cs.Allow(ngx.var.remote_addr)
 }
 
+init_worker_by_lua_block {
+        cs = require "crowdsec"
+        local mode = cs.get_mode()
+        if string.lower(mode) == "stream" then
+           ngx.log(ngx.INFO, "Initilizing stream mode for worker " .. tostring(ngx.worker.id()))
+           cs.SetupStream()
+        end
+
+        if ngx.worker.id() == 0 then
+           ngx.log(ngx.INFO, "Initilizing metrics for worker " .. tostring(ngx.worker.id()))
+           cs.SetupMetrics()
+        end
+}
+
 server {
     listen 8081;
 
@@ -154,8 +168,8 @@ DEBUG CACHE:metrics_processed/ip_type=ipv4&:1
 DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,
 DEBUG CACHE:captcha_ok:true
 DEBUG CACHE:first_run:true
-DEBUG CACHE:startup:false
 DEBUG CACHE:metrics_first_run:false
+DEBUG CACHE:startup:false
 DEBUG CACHE:refreshing:false
 DEBUG CACHE:metrics_processed/ip_type=ipv4&:2
 DEBUG CACHE:decision_cache/ipv4_4294967295_16843009:captcha/CAPI/ipv4
@@ -164,9 +178,9 @@ DEBUG CACHE:metrics_all:processed/ip_type=ipv4&,dropped/ip_type=ipv4&origin=CAPI
 DEBUG CACHE:captcha_ok:true
 DEBUG CACHE:captcha_1.1.1.1:/t
 DEBUG CACHE:first_run:true
-DEBUG CACHE:startup:false
 DEBUG CACHE:metrics_first_run:false
 DEBUG CACHE:refreshing:true
+DEBUG CACHE:startup:false
 DEBUG CACHE:metrics_processed/ip_type=ipv4&:3
 DEBUG CACHE:decision_cache/ipv4_4294967295_16843009:captcha/CAPI/ipv4
 DEBUG CACHE:metrics_dropped/ip_type=ipv4&origin=CAPI&:2
