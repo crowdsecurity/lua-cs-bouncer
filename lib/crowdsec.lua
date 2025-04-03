@@ -159,7 +159,7 @@ function csmod.init(configFile, userAgent)
   ngx.log(ngx.INFO, "API_URL: " .. runtime.conf["API_URL"])
   ngx.log(ngx.INFO, "API_URL: " .. runtime.conf["API_URL"]:sub(-1, -1))
   ngx.log(ngx.INFO, "API_URL: " .. runtime.conf["API_URL"] ~= "/")
-  ngx.log(ngx.INFO, "API_URL: " .. string.sub(runtime.conf["API_URL"],-1) == '/')
+  ngx.log(ngx.INFO, "API_URL: " .. string.sub(runtime.conf["API_URL"],-1) == "/")
   ngx.log(ngx.INFO, "Last char hex: " .. string.format("%02X", string.byte(runtime.conf["API_URL"]:sub(-1))))
 
 
