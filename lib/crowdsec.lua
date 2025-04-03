@@ -156,6 +156,14 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Only APPSEC_URL is defined, local API decisions will be ignored")
   end
 
+
+
+  local tmp =  runtime.conf["API_URL"]:gsub("/+$","")
+  if tmp ~= runtime.conf["API_URL"] then
+    ngx.log(ngx.INFO, "trailing slash in API_URL removed: " .. tmp)
+    runtime.conf["API_URL"] = tmp
+  end
+
   if runtime.conf["MODE"] == "live" then
     ngx.log(ngx.INFO, "lua nginx bouncer enabled with live mode")
     live:new()
