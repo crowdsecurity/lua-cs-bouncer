@@ -183,10 +183,6 @@ function csmod.SetupMetrics()
   if runtime.conf["API_URL"] == "" then
     return
   end
-  while runtime.conf["API_URL"] ~= "/" and  runtime.conf["APPSEC_URL"]:sub(-1) == "/" do
-    runtime.conf["API_URL"] = runtime.conf["API_URL"]:sub(1, -2)
-    ngx.log(ngx.INFO, "trailing slash in API_URL removed: " .. runtime.conf["API_URL"])
-  end
 
   local function Setup_metrics_timer()
     if ngx.worker.exiting() then
@@ -269,10 +265,6 @@ function csmod.GetCaptchaBackendKey()
 end
 
 function csmod.SetupStream()
-  while runtime.conf["API_URL"] ~= "/" and  runtime.conf["APPSEC_URL"]:sub(-1) == "/" do
-    runtime.conf["API_URL"] = runtime.conf["API_URL"]:sub(1, -2)
-    ngx.log(ngx.INFO, "trailing slash in API_URL removed: " .. runtime.conf["API_URL"])
-  end
   local function SetupStreamTimer()
     if ngx.worker.exiting() then
       ngx.log(ngx.INFO, "worker is exiting, not setting up stream timer")
