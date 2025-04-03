@@ -158,7 +158,7 @@ function csmod.init(configFile, userAgent)
 
 
 
-  runtime.conf["API_URL"] =  runtime.conf["APPSEC_URL"]:gmatch("/+$","")
+  runtime.conf["API_URL"] =  runtime.conf["API_URL"]:gmatch("/+$","")
   ngx.log(ngx.INFO, "Using " .. runtime.conf["API_URL"] .. " as API_URL")
 
   if runtime.conf["MODE"] == "live" then
