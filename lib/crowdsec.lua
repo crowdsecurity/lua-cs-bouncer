@@ -158,8 +158,11 @@ function csmod.init(configFile, userAgent)
 
 
 
-  runtime.conf["API_URL"] =  runtime.conf["API_URL"]:gmatch("/+$","")
-  ngx.log(ngx.INFO, "Using " .. runtime.conf["API_URL"] .. " as API_URL")
+  local tmp =  runtime.conf["API_URL"]:gmatch("/+$","")
+  if tmp ~= runtime.conf["API_URL"] then
+    ngx.log(ngx.INFO, "trailing slash in API_URL removed: " .. tmp)
+    runtime.conf["API_URL"] = tmp
+  end
 
   if runtime.conf["MODE"] == "live" then
     ngx.log(ngx.INFO, "lua nginx bouncer enabled with live mode")
