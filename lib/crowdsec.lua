@@ -180,6 +180,10 @@ function csmod.SetupMetrics()
   if runtime.conf["API_URL"] == "" then
     return
   end
+  while runtime.conf["API_URL"] ~= "/" and  runtime.conf["APPSEC_URL"]:sub(-1) == "/" do
+    runtime.conf["API_URL"] = runtime.conf["API_URL"]:sub(1, -2)
+    ngx.log(ngx.INFO, "trailing slash in API_URL removed: " .. runtime.conf["API_URL"])
+  end
 
   local function Setup_metrics_timer()
     if ngx.worker.exiting() then
