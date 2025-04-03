@@ -158,6 +158,8 @@ function csmod.init(configFile, userAgent)
 
   ngx.log(ngx.INFO, "API_URL: " .. runtime.conf["API_URL"])
   ngx.log(ngx.INFO, "API_URL: " .. runtime.conf["API_URL"]:sub(-1))
+  ngx.log(ngx.INFO, "API_URL: " .. runtime.conf["API_URL"] ~= "/")
+
 
   while runtime.conf["API_URL"] ~= "/" and  runtime.conf["APPSEC_URL"]:sub(-1) == "/" do
     runtime.conf["API_URL"] = runtime.conf["API_URL"]:sub(1, -2)
