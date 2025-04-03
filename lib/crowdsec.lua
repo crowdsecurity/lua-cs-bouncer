@@ -156,6 +156,7 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Only APPSEC_URL is defined, local API decisions will be ignored")
   end
 
+  ngx.log(ngx.INFO, "API_URL: " .. runtime.conf["API_URL"])
   while runtime.conf["API_URL"] ~= "/" and  runtime.conf["APPSEC_URL"]:sub(-1) == "/" do
     runtime.conf["API_URL"] = runtime.conf["API_URL"]:sub(1, -2)
     ngx.log(ngx.INFO, "trailing slash in API_URL removed: " .. runtime.conf["API_URL"])
@@ -266,6 +267,10 @@ function csmod.GetCaptchaBackendKey()
 end
 
 function csmod.SetupStream()
+  while runtime.conf["API_URL"] ~= "/" and  runtime.conf["APPSEC_URL"]:sub(-1) == "/" do
+    runtime.conf["API_URL"] = runtime.conf["API_URL"]:sub(1, -2)
+    ngx.log(ngx.INFO, "trailing slash in API_URL removed: " .. runtime.conf["API_URL"])
+  end
   local function SetupStreamTimer()
     if ngx.worker.exiting() then
       ngx.log(ngx.INFO, "worker is exiting, not setting up stream timer")
