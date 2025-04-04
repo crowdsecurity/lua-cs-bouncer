@@ -160,7 +160,7 @@ function csmod.init(configFile, userAgent)
 
   local tmp =  runtime.conf["API_URL"]:gsub("/+$","")
   if tmp ~= runtime.conf["API_URL"] then
-    ngx.log(ngx.INFO, "trailing slash in API_URL removed: " .. tmp)
+    ngx.log(ngx.DEBUG, "trailing slash in API_URL removed: " .. tmp)
     runtime.conf["API_URL"] = tmp
   end
 
