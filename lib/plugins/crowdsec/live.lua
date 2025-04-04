@@ -34,7 +34,9 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
 
   local link = api_url .. "/v1/decisions?ip=" .. ip
   local res, err = utils.get_remediation_http_request(link, timeout, api_key_header, api_key, user_agent, ssl_verify)
+
   if not res then
+    ngx.log(ngx.ERR, "failed to query LAPI " .. link .. ": ".. err)
     return true, nil, nil, "request failed: ".. err
   end
 
