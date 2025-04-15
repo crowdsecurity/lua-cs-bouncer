@@ -1,19 +1,40 @@
 local config = {}
 
+local valid_params = {'ENABLED', 'ENABLE_INTERNAL', 'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'CAPTCHA_RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'APPSEC_URL', 'APPSEC_FAILURE_ACTION', 'ALWAYS_SEND_TO_APPSEC', 'SSL_VERIFY'}
+local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'APPSEC_CONNECT_TIMEOUT', 'APPSEC_SEND_TIMEOUT', 'APPSEC_PROCESS_TIMEOUT', 'STREAM_REQUEST_TIMEOUT'}
+local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
+local valid_truefalse_values = {'false', 'true'}
+local default_values = {
+    ['ENABLED'] = "true",
+    ['ENABLE_INTERNAL'] = "false",
+    ['API_URL'] = "",
+    ['REQUEST_TIMEOUT'] = 500,
+    ['STREAM_REQUEST_TIMEOUT'] = 15000,
+    ['BOUNCING_ON_TYPE'] = "ban",
+    ['MODE'] = "stream",
+    ['UPDATE_FREQUENCY'] = 10,
+    ['CAPTCHA_EXPIRATION'] = 3600,
+    ['REDIRECT_LOCATION'] = "",
+    ['EXCLUDE_LOCATION'] = {},
+    ['RET_CODE'] = 0,
+    ['CAPTCHA_PROVIDER'] = "recaptcha",
+    ['APPSEC_URL'] = "",
+    ['APPSEC_CONNECT_TIMEOUT'] = 100,
+    ['APPSEC_SEND_TIMEOUT'] = 100,
+    ['APPSEC_PROCESS_TIMEOUT'] = 500,
+    ['APPSEC_FAILURE_ACTION'] = "passthrough",
+    ['SSL_VERIFY'] = "true",
+    ['ALWAYS_SEND_TO_APPSEC'] = "false",
+    ['CAPTCHA_RET_CODE'] = 0,
+}
+
+
 function config.file_exists(file)
     local f = io.open(file, "rb")
     if f then
         f:close()
     end
     return f ~= nil
-end
-
-  function split(s, delimiter)
-    local result = {};
-    for match in (s..delimiter):gmatch("(.-)"..delimiter.."(.-)") do
-        table.insert(result, match);
-    end
-    return result;
 end
 
 local function has_value (tab, val)
@@ -34,40 +55,16 @@ local function trim(s)
     return (string.gsub(s, "^%s*(.-)%s*$", "%1"))
 end
 
-local valid_params = {'ENABLED', 'ENABLE_INTERNAL', 'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'CAPTCHA_RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'APPSEC_URL', 'APPSEC_FAILURE_ACTION', 'ALWAYS_SEND_TO_APPSEC', 'SSL_VERIFY'}
-local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'APPSEC_CONNECT_TIMEOUT', 'APPSEC_SEND_TIMEOUT', 'APPSEC_PROCESS_TIMEOUT', 'STREAM_REQUEST_TIMEOUT'}
-local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
-local valid_truefalse_values = {'false', 'true'}
-
-
-function config.loadConfig(file)
+--- Load configuration from file
+-- called from crowdsec.lua
+-- @param file string path to the configuration file
+-- @param default boolean if true, load default values for missing parameters
+-- @return conf table with configuration values
+function config.loadConfig(file, default)
     if not config.file_exists(file) then
         return nil, "File ".. file .." doesn't exist"
     end
     local conf = {}
-    local default_values = {
-        ['ENABLED'] = "true",
-        ['ENABLE_INTERNAL'] = "false",
-        ['API_URL'] = "",
-        ['REQUEST_TIMEOUT'] = 500,
-        ['STREAM_REQUEST_TIMEOUT'] = 15000,
-        ['BOUNCING_ON_TYPE'] = "ban",
-        ['MODE'] = "stream",
-        ['UPDATE_FREQUENCY'] = 10,
-        ['CAPTCHA_EXPIRATION'] = 3600,
-        ['REDIRECT_LOCATION'] = "",
-        ['EXCLUDE_LOCATION'] = {},
-        ['RET_CODE'] = 0,
-        ['CAPTCHA_PROVIDER'] = "recaptcha",
-        ['APPSEC_URL'] = "",
-        ['APPSEC_CONNECT_TIMEOUT'] = 100,
-        ['APPSEC_SEND_TIMEOUT'] = 100,
-        ['APPSEC_PROCESS_TIMEOUT'] = 500,
-        ['APPSEC_FAILURE_ACTION'] = "passthrough",
-        ['SSL_VERIFY'] = "true",
-        ['ALWAYS_SEND_TO_APPSEC'] = "false",
-        ['CAPTCHA_RET_CODE'] = 0,
-    }
     for line in io.lines(file) do
         local isOk = false
         if starts_with(line, "#") then
@@ -136,12 +133,15 @@ function config.loadConfig(file)
         end
         end
     end
-    for k, v in pairs(default_values) do
-        if conf[k] == nil then
-            conf[k] = v
+    if default then
+        for k, v in pairs(default_values) do
+            if conf[k] == nil then
+                conf[k] = v
+            end
         end
     end
     return conf, nil
 end
+
 
 return config

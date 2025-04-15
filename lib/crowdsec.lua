@@ -54,6 +54,12 @@ function csmod.init(configFile, userAgent)
   if conf == nil then
     return nil, err
   end
+  local localConf, _ = config.loadConfig(configFile .. ".local", true)
+  if localConf ~= nil then
+    for k, v in pairs(localConf) do
+      conf[k] = v
+    end
+  end
   runtime.conf = conf
   runtime.userAgent = userAgent
   runtime.cache = ngx.shared.crowdsec_cache
