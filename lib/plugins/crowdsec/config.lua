@@ -9,7 +9,7 @@ function config.file_exists(file)
 end
 
   function split(s, delimiter)
-    result = {};
+    local result = {};
     for match in (s..delimiter):gmatch("(.-)"..delimiter.."(.-)") do
         table.insert(result, match);
     end
@@ -17,7 +17,7 @@ end
 end
 
 local function has_value (tab, val)
-    for index, value in ipairs(tab) do
+    for _, value in ipairs(tab) do
         if value == val then
             return true
         end
@@ -34,15 +34,17 @@ local function trim(s)
     return (string.gsub(s, "^%s*(.-)%s*$", "%1"))
 end
 
+local valid_params = {'ENABLED', 'ENABLE_INTERNAL', 'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'CAPTCHA_RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'APPSEC_URL', 'APPSEC_FAILURE_ACTION', 'ALWAYS_SEND_TO_APPSEC', 'SSL_VERIFY'}
+local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'APPSEC_CONNECT_TIMEOUT', 'APPSEC_SEND_TIMEOUT', 'APPSEC_PROCESS_TIMEOUT', 'STREAM_REQUEST_TIMEOUT'}
+local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
+local valid_truefalse_values = {'false', 'true'}
+
+
 function config.loadConfig(file)
     if not config.file_exists(file) then
         return nil, "File ".. file .." doesn't exist"
     end
     local conf = {}
-    local valid_params = {'ENABLED', 'ENABLE_INTERNAL', 'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'CAPTCHA_RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'APPSEC_URL', 'APPSEC_FAILURE_ACTION', 'ALWAYS_SEND_TO_APPSEC', 'SSL_VERIFY'}
-    local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'APPSEC_CONNECT_TIMEOUT', 'APPSEC_SEND_TIMEOUT', 'APPSEC_PROCESS_TIMEOUT', 'STREAM_REQUEST_TIMEOUT'}
-    local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
-    local valid_truefalse_values = {'false', 'true'}
     local default_values = {
         ['ENABLED'] = "true",
         ['ENABLE_INTERNAL'] = "false",
@@ -80,7 +82,7 @@ function config.loadConfig(file)
            ngx.log(ngx.ERR, "invalid configuration line: " .. line)
            break
         end
-            local key = trim(line:sub(1, sep_pos - 1))
+        local key = trim(line:sub(1, sep_pos - 1))
         local value = trim(line:sub(sep_pos + 1))
         if has_value(valid_params, key) then
             if key == "ENABLED" then
@@ -88,7 +90,7 @@ function config.loadConfig(file)
                     ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'true' instead")
                     value = "true"
                 end
-              elseif key == "ENABLE_INTERNAL" then
+            elseif key == "ENABLE_INTERNAL" then
                 if not has_value(valid_truefalse_values, value) then
                     ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'false' instead")
                     value = "false"
@@ -108,29 +110,31 @@ function config.loadConfig(file)
                 ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'stream' instead")
                 value = "stream"
                 end
-            elseif key == "EXCLUDE_LOCATION" then
-                exclude_location = {}
-                if value ~= "" then
-                for match in (value..","):gmatch("(.-)"..",") do
-                    table.insert(exclude_location, match)
-                end
-                end
-                value = exclude_location
             elseif key == "FALLBACK_REMEDIATION" then
                 if not has_value({'captcha', 'ban'}, value) then
                 ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'ban' instead")
                 value = "ban"
                 end
             end
-
             conf[key] = value
+
+            if key == "EXCLUDE_LOCATION" then
+                local exclude_location = {}
+                if value ~= "" then
+                for match in (value..","):gmatch("(.-)"..",") do
+                    table.insert(exclude_location, match)
+                end
+                end
+                conf[key] = exclude_location
+            end
+
 
         elseif has_value(valid_int_params, key) then
             conf[key] = tonumber(value)
         else
             ngx.log(ngx.ERR, "unsupported configuration '" .. key .. "'")
         end
-    end
+        end
     end
     for k, v in pairs(default_values) do
         if conf[k] == nil then
@@ -139,4 +143,5 @@ function config.loadConfig(file)
     end
     return conf, nil
 end
+
 return config
