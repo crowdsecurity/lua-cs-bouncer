@@ -561,6 +561,11 @@ function csmod.Allow(ip)
     end
   end
 
+  if ngx.var.cs_disable_bouncer == "1" then
+    ngx.log(ngx.ERR,  "bouncer disabled by user")
+    ngx.exit(ngx.DECLINED)
+  end
+
   local ok, remediation, err = csmod.allowIp(ip)
   if err ~= nil then
     ngx.log(ngx.ERR, "[Crowdsec] bouncer error: " .. err)
@@ -575,7 +580,7 @@ function csmod.Allow(ip)
   -- OR
   -- that user configured the remediation component to always check on the appSec (even if there is a decision for the IP)
   if ok == true or runtime.conf["ALWAYS_SEND_TO_APPSEC"] == true then
-    if runtime.conf["APPSEC_ENABLED"] == true and ngx.var.no_appsec ~= "1" then
+    if runtime.conf["APPSEC_ENABLED"] == true and ngx.var.disable_appsec ~= "1" then
       local appsecOk, appsecRemediation, status_code, err = csmod.AppSecCheck(ip)
       if err ~= nil then
         ngx.log(ngx.ERR, "AppSec check: " .. err)
