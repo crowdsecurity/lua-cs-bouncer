@@ -8,7 +8,7 @@ run_tests();
 
 __DATA__
 
-=== TEST 5: Stream mode block test
+=== TEST 14: Stream mode block test
 
 --- init
 
