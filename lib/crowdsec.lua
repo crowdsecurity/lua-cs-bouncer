@@ -50,11 +50,11 @@ end
 -- @param userAgent the user agent of the bouncer
 -- @return boolean: true if the init is successful, false otherwise
 function csmod.init(configFile, userAgent)
-  local conf, err = config.loadConfig(configFile)
+  local conf, err = config.loadConfig(configFile, true)
   if conf == nil then
     return nil, err
   end
-  local localConf, _ = config.loadConfig(configFile .. ".local", true)
+  local localConf, _ = config.loadConfig(configFile .. ".local", false)
   if localConf ~= nil then
     for k, v in pairs(localConf) do
       conf[k] = v
