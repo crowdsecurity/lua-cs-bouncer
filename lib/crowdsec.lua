@@ -44,6 +44,31 @@ function csmod.get_mode()
   return runtime.conf["MODE"]
 end
 
+--- return the configuration
+local function is_bouncer_enabled()
+  if runtime.conf["ENABLED"] == "false"  then
+    return false
+  end
+  if ngx.var.crowdsec_disable_bouncer == "1" then
+    return false
+  end
+  return true
+end
+
+local function is_appsec_enabled()
+  if runtime.conf["APPSEC_ENABLED"] == true then
+    return true
+  end
+  if ngx.var.crowdsec_disable_appsec == "1" then
+    return false
+  end
+  if ngx.var.crowdsec_enable_appsec == "1" then
+    return true
+  end
+  return false
+end
+
+
 --- init function
 -- init function called by nginx in init_by_lua_block
 -- @param configFile path to the configuration file
@@ -532,60 +557,61 @@ end
 -- the function is called from nginx access_by_lua_block
 -- @param ip the IP to check
 function csmod.Allow(ip)
-  if runtime.conf["ENABLED"] == "false" then
-    ngx.exit(ngx.DECLINED)
-  end
-
-  if runtime.conf["ENABLE_INTERNAL"] == "false" and ngx.req.is_internal() then
-    ngx.exit(ngx.DECLINED)
-  end
-
   local remediationSource = flag.BOUNCER_SOURCE
   local ret_code = nil
+  local remediation = ""
+  local ok = true
+  local err = ""
+  if runtime.conf["ENABLED"] ~= "false" then
 
+    if runtime.conf["ENABLE_INTERNAL"] == "false" and ngx.req.is_internal() then
+      ngx.exit(ngx.DECLINED)
+    end
 
-
-  if utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
-    for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
-      if ngx.var.uri == v then
-        ngx.log(ngx.ERR,  "whitelisted location: " .. v)
-        ngx.exit(ngx.DECLINED)
-      end
-      local uri_to_check = v
-      if utils.ends_with(uri_to_check, "/") == false then
-        uri_to_check = uri_to_check .. "/"
-      end
-      if utils.starts_with(ngx.var.uri, uri_to_check) then
-        ngx.log(ngx.ERR,  "whitelisted location: " .. uri_to_check)
+    if utils.table_len(runtime.conf["EXCLUDE_LOCATION"]) > 0 then
+      for k, v in pairs(runtime.conf["EXCLUDE_LOCATION"]) do
+        if ngx.var.uri == v then
+          ngx.log(ngx.ERR, "whitelisted location: " .. v)
+          ngx.exit(ngx.DECLINED)
+        end
+        local uri_to_check = v
+        if utils.ends_with(uri_to_check, "/") == false then
+          uri_to_check = uri_to_check .. "/"
+        end
+        if utils.starts_with(ngx.var.uri, uri_to_check) then
+          ngx.log(ngx.ERR, "whitelisted location: " .. uri_to_check)
+        end
       end
     end
-  end
 
-  local ok, remediation, err = csmod.allowIp(ip)
-  if err ~= nil then
-    ngx.log(ngx.ERR, "[Crowdsec] bouncer error: " .. err)
-  end
+    if not is_bouncer_enabled()  then
+      ngx.log(ngx.ERR, "bouncer disabled by user")
+      ngx.exit(ngx.DECLINED)
+    end
 
-  -- if the ip is now allowed, try to delete its captcha state in cache
-  if ok == true then
-    ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
-  end
+    ok, remediation, err = csmod.allowIp(ip)
+    if err ~= nil then
+      ngx.log(ngx.ERR, "[Crowdsec] bouncer error: " .. err)
+    end
 
+    -- if the ip is now allowed, try to delete its captcha state in cache
+    if ok == true then
+      ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
+    end
+  end
   -- check with appSec if the remediation component doesn't have decisions for the IP
   -- OR
   -- that user configured the remediation component to always check on the appSec (even if there is a decision for the IP)
-  if ok == true or runtime.conf["ALWAYS_SEND_TO_APPSEC"] == true then
-    if runtime.conf["APPSEC_ENABLED"] == true and ngx.var.no_appsec ~= "1" then
-      local appsecOk, appsecRemediation, status_code, err = csmod.AppSecCheck(ip)
-      if err ~= nil then
-        ngx.log(ngx.ERR, "AppSec check: " .. err)
-      end
-      if appsecOk == false then
-        ok = false
-        remediationSource = flag.APPSEC_SOURCE
-        remediation = appsecRemediation
-        ret_code = status_code
-      end
+  if ok == true or runtime.conf["ALWAYS_SEND_TO_APPSEC"] == true or is_appsec_enabled() then
+    local appsecOk, appsecRemediation, status_code, err = csmod.AppSecCheck(ip)
+    if err ~= nil then
+      ngx.log(ngx.ERR, "AppSec check: " .. err)
+    end
+    if appsecOk == false then
+      ok = false
+      remediationSource = flag.APPSEC_SOURCE
+      remediation = appsecRemediation
+      ret_code = status_code
     end
   end
 
@@ -680,6 +706,7 @@ function csmod.Allow(ip)
   end
   ngx.exit(ngx.DECLINED)
 end
+
 
 
 -- Use it if you are able to close at shuttime
