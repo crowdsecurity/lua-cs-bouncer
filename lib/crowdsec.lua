@@ -44,6 +44,31 @@ function csmod.get_mode()
   return runtime.conf["MODE"]
 end
 
+--- return the configuration
+local function is_bouncer_enabled()
+  if runtime.conf["ENABLED"] == "false"  then
+    return false
+  end
+  if ngx.var.crowdsec_disable_bouncer == "1" then
+    return false
+  end
+  return true
+end
+
+local function is_appsec_enabled()
+  if runtime.conf["APPSEC_ENABLED"] == true then
+    return true
+  end
+  if ngx.var.crowdsec_disable_appsec == "1" then
+    return false
+  end
+  if ngx.var.crowdsec_enable_appsec == "1" then
+    return true
+  end
+  return false
+end
+
+
 --- init function
 -- init function called by nginx in init_by_lua_block
 -- @param configFile path to the configuration file
@@ -559,7 +584,7 @@ function csmod.Allow(ip)
       end
     end
 
-    if ngx.var.cs_disable_bouncer == "1" then
+    if ! is_bouncer_enabled()  then
       ngx.log(ngx.ERR, "bouncer disabled by user")
       ngx.exit(ngx.DECLINED)
     end
@@ -577,18 +602,16 @@ function csmod.Allow(ip)
   -- check with appSec if the remediation component doesn't have decisions for the IP
   -- OR
   -- that user configured the remediation component to always check on the appSec (even if there is a decision for the IP)
-  if ok == true or runtime.conf["ALWAYS_SEND_TO_APPSEC"] == true or ngx.var.enable_appsec == 1 then
-    if runtime.conf["APPSEC_ENABLED"] == true and ngx.var.disable_appsec ~= "1" then
-      local appsecOk, appsecRemediation, status_code, err = csmod.AppSecCheck(ip)
-      if err ~= nil then
-        ngx.log(ngx.ERR, "AppSec check: " .. err)
-      end
-      if appsecOk == false then
-        ok = false
-        remediationSource = flag.APPSEC_SOURCE
-        remediation = appsecRemediation
-        ret_code = status_code
-      end
+  if ok == true or runtime.conf["ALWAYS_SEND_TO_APPSEC"] == true or is_appsec_enabled() then
+    local appsecOk, appsecRemediation, status_code, err = csmod.AppSecCheck(ip)
+    if err ~= nil then
+      ngx.log(ngx.ERR, "AppSec check: " .. err)
+    end
+    if appsecOk == false then
+      ok = false
+      remediationSource = flag.APPSEC_SOURCE
+      remediation = appsecRemediation
+      ret_code = status_code
     end
   end
 
@@ -683,6 +706,7 @@ function csmod.Allow(ip)
   end
   ngx.exit(ngx.DECLINED)
 end
+
 
 
 -- Use it if you are able to close at shuttime
