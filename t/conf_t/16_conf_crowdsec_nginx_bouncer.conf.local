@@ -1,0 +1,5 @@
+APPSEC_URL=http://127.0.0.1:7422
+ENABLED=true
+EXCLUDE_LOCATION=/v1/decisions
+#those apply for "ban" action
+# /!\ REDIRECT_LOCATION and RET_CODE can't be used together. REDIRECT_LOCATION take priority over RET_CODE
