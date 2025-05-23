@@ -40,6 +40,10 @@ function csmod.debug_metrics()
     ngx.log(ngx.DEBUG, "Shortening metrics period to 15 seconds")
 end
 
+function csmod.get_mode()
+  return runtime.conf["MODE"]
+end
+
 --- init function
 -- init function called by nginx in init_by_lua_block
 -- @param configFile path to the configuration file
@@ -175,6 +179,14 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Only APPSEC_URL is defined, local API decisions will be ignored")
   end
 
+
+
+  local tmp =  runtime.conf["API_URL"]:gsub("/+$","")
+  if tmp ~= runtime.conf["API_URL"] then
+    ngx.log(ngx.DEBUG, "trailing slash in API_URL removed: " .. tmp)
+    runtime.conf["API_URL"] = tmp
+  end
+
   if runtime.conf["MODE"] == "live" then
     ngx.log(ngx.INFO, "lua nginx bouncer enabled with live mode")
     live:new()
@@ -189,7 +201,7 @@ end
 --- The idea here is to setup the timer that will trigger the metrics sending
 --- If first run then just fire the new timer to run the function again in METRICS_PERIOD
 --- If not send metrics and run the timer again in METRICS_PERIOD
-local function Setup_metrics()
+function csmod.SetupMetrics()
   -- if no API_URL, we don't setup metrics
   if runtime.conf["API_URL"] == "" then
     return
@@ -200,7 +212,7 @@ local function Setup_metrics()
       ngx.log(ngx.INFO, "worker is exiting, not setting up metrics timer")
       return
     end
-    local ok, err = ngx.timer.at(METRICS_PERIOD, Setup_metrics)
+    local ok, err = ngx.timer.at(METRICS_PERIOD, csmod.SetupMetrics)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
     else
@@ -275,7 +287,7 @@ function csmod.GetCaptchaBackendKey()
   return captcha.GetCaptchaBackendKey()
 end
 
-local function SetupStream()
+function csmod.SetupStream()
   local function SetupStreamTimer()
     if ngx.worker.exiting() then
       ngx.log(ngx.INFO, "worker is exiting, not setting up stream timer")
@@ -357,11 +369,6 @@ function csmod.allowIp(ip)
 
   if runtime.conf["API_URL"] == "" then
     return true, nil, nil
-  end
-
-  if runtime.conf["MODE"] == "stream" then
-    ngx.log(ngx.DEBUG, "stream mode")
-    SetupStream()
   end
 
   local key, ip_version = utils.item_to_string(ip, "ip")
@@ -588,8 +595,6 @@ function csmod.Allow(ip)
       end
     end
   end
-
-  Setup_metrics()
 
   local ok, remediation, err = csmod.allowIp(ip)
   if err ~= nil then
