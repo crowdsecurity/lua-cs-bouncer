@@ -46,12 +46,16 @@ end
 
 --- return the configuration
 local function is_bouncer_enabled()
+  if ngx.var.crowdsec_enable_bouncer == "1" then
+    return true
+  end
   if runtime.conf["ENABLED"] == "false"  then
     return false
   end
   if ngx.var.crowdsec_disable_bouncer == "1" then
     return false
   end
+
   return true
 end
 
