@@ -46,32 +46,43 @@ end
 
 --- return the configuration
 local function is_bouncer_enabled()
-  if ngx.var.crowdsec_enable_bouncer == "1" then
-    return true
-  end
-  if runtime.conf["ENABLED"] == "false"  then
-    return false
-  end
   if ngx.var.crowdsec_disable_bouncer == "1" then
     return false
   end
+  if ngx.var.crowdsec_enable_bouncer == "1" then
+    return true
+  end
+  if runtime.conf["ENABLED"] == "true"  then --- this one is a string
+    return true
+  end
 
-  return true
+  return false
 end
 
 local function is_appsec_enabled()
-  if runtime.conf["APPSEC_ENABLED"] == true then
+  if ngx.var.crowdsec_enable_appsec == "1" then
     return true
   end
   if ngx.var.crowdsec_disable_appsec == "1" then
     return false
   end
-  if ngx.var.crowdsec_enable_appsec == "1" then
+  if runtime.conf["APPSEC_ENABLED"] then --- this one is truly a boolean
     return true
   end
+
   return false
 end
 
+local function is_always_send_to_appsec()
+  if ngx.var.crowdsec_always_send_to_appsec == "1" then
+    return true
+  end
+  if runtime.conf["ALWAYS_SEND_TO_APPSEC"] then --- this one is truly a boolean
+    return true
+  end
+
+  return false
+end
 
 --- init function
 -- init function called by nginx in init_by_lua_block
@@ -606,7 +617,7 @@ function csmod.Allow(ip)
   -- check with appSec if the remediation component doesn't have decisions for the IP
   -- OR
   -- that user configured the remediation component to always check on the appSec (even if there is a decision for the IP)
-  if ok == true or runtime.conf["ALWAYS_SEND_TO_APPSEC"] == true or is_appsec_enabled() then
+  if ok == true or is_always_send_to_appsec() and is_appsec_enabled() then
     local appsecOk, appsecRemediation, status_code, err = csmod.AppSecCheck(ip)
     if err ~= nil then
       ngx.log(ngx.ERR, "AppSec check: " .. err)
