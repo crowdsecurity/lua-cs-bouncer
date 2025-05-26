@@ -118,9 +118,9 @@ function config.loadConfig(file, default)
             if key == "EXCLUDE_LOCATION" then
                 local exclude_location = {}
                 if value ~= "" then
-                for match in (value..","):gmatch("(.-)"..",") do
-                    table.insert(exclude_location, match)
-                end
+                    for match in (value..","):gmatch("(.-)"..",") do
+                        table.insert(exclude_location, match)
+                    end
                 end
                 conf[key] = exclude_location
             end
