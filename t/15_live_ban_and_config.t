@@ -90,7 +90,7 @@ location = /t {
 }
 
 location = /u {
-    set $cs_disable_bouncer 1;
+    set $crowdsec_disable_bouncer 1;
     set_real_ip_from 127.0.0.1;
     real_ip_header   X-Forwarded-For;
     real_ip_recursive on;
