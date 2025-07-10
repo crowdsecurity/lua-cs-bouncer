@@ -485,8 +485,8 @@ function csmod.allowIp(ip)
 
     if remediation ~= nil and remediation == "ban" then
       metrics:increment("dropped", 1, {ip_type=ip_version, origin=origin} )
-    return ok, remediation, err
     end
+    return ok, remediation, err
   end
   return true, nil, nil
 end
