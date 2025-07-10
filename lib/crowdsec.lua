@@ -340,7 +340,6 @@ function csmod.SetupStream()
       )
       if err ~=nil then
         ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
-        error("Failed to query the stream: " .. err)
       end
     end
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
