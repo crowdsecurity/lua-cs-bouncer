@@ -648,11 +648,11 @@ function csmod.Allow(ip)
     -- we check if the IP need to validate its captcha before checking it against crowdsec local API
     local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ip)
     local source, state_id, err = flag.GetFlags(flags)
-    local body = get_body()
 
     -- nil body means it was likely not a post, abort here because the user hasn't provided a captcha solution
 
-    if previous_uri ~= nil and state_id == flag.VERIFY_STATE and body ~= nil then
+    if previous_uri ~= nil and state_id == flag.VERIFY_STATE then
+        ngx.req.read_body()
         local captcha_res = ngx.req.get_post_args()[csmod.GetCaptchaBackendKey()] or 0
         if captcha_res ~= 0 then
             local valid, err = csmod.validateCaptcha(captcha_res, ip)
