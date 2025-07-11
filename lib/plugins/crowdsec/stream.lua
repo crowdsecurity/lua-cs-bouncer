@@ -155,6 +155,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   if not res then
     set_refreshing(false)
     ngx.log(ngx.ERR, "request to crowdsec lapi " .. link .. " failed: " .. err)
+    return "request to crowdsec lapi " .. link .. " failed: " .. err
   end
 
   local succ, err, forcible = stream.cache:set("last_refresh", ngx.time())

@@ -363,7 +363,6 @@ function csmod.SetupStream()
       )
       if err ~=nil then
         ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
-        error("Failed to query the stream: " .. err)
       end
     end
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
@@ -509,8 +508,8 @@ function csmod.allowIp(ip)
 
     if remediation ~= nil and remediation == "ban" then
       metrics:increment("dropped", 1, {ip_type=ip_version, origin=origin} )
-    return ok, remediation, err
     end
+    return ok, remediation, err
   end
   return true, nil, nil
 end
@@ -658,7 +657,7 @@ function csmod.Allow(ip)
   -- check with appSec if the remediation component doesn't have decisions for the IP
   -- OR
   -- that user configured the remediation component to always check on the appSec (even if there is a decision for the IP)
-  if ok == true or (is_always_send_to_appsec() and is_appsec_enabled()) then
+  if is_appsec_enabled() and (ok == true or is_always_send_to_appsec())  then
     local appsecOk, appsecRemediation, status_code, err = csmod.AppSecCheck(ip)
     if err ~= nil then
       ngx.log(ngx.ERR, "AppSec check: " .. err)
@@ -685,44 +684,58 @@ function csmod.Allow(ip)
     end
   end
 
-  if captcha_ok then -- if captcha can be use (configuration is valid)
-    -- we check if the IP need to validate its captcha before checking it against crowdsec local API
-    local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ip)
+  if captcha_ok then
+    -- if captcha can be used (configuration is valid)
+    -- we check if the IP needs to validate its captcha before checking it against CrowdSec local API
+    local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_" .. ip)
     local source, state_id, err = flag.GetFlags(flags)
-    local body = get_body()
 
-    -- nil body means it was likely not a post, abort here because the user hasn't provided a captcha solution
+    if previous_uri ~= nil and state_id == flag.VERIFY_STATE then
+      ngx.req.read_body()
+      local args, err = ngx.req.get_post_args()
 
-    if previous_uri ~= nil and state_id == flag.VERIFY_STATE and body ~= nil then
-        local captcha_res = ngx.req.get_post_args()[csmod.GetCaptchaBackendKey()] or 0
+      if args and not err then
+        local captcha_res = args[csmod.GetCaptchaBackendKey()] or 0
+
         if captcha_res ~= 0 then
-            local valid, err = csmod.validateCaptcha(captcha_res, ip)
-            if err ~= nil then
-              ngx.log(ngx.ERR, "Error while validating captcha: " .. err)
-            end
-            if valid == true then
-                -- if the captcha is valid and has been applied by the application security component
-                -- then we delete the state from the cache because from the bouncing part, if the user solve the captcha
-                -- we will not propose a captcha until the 'CAPTCHA_EXPIRATION'.
-                -- But for the Application security component, we serve the captcha each time the user trigger it.
-                if source == flag.APPSEC_SOURCE then
-                  ngx.shared.crowdsec_cache:delete("captcha_"..ip)
-                else
-                  local succ, err, forcible = ngx.shared.crowdsec_cache:set("captcha_"..ip, previous_uri, runtime.conf["CAPTCHA_EXPIRATION"], bit.bor(flag.VALIDATED_STATE, source) )
-                  if not succ then
-                    ngx.log(ngx.ERR, "failed to add key about captcha for ip '" .. ip .. "' in cache: "..err)
-                  end
-                  if forcible then
-                    ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-                  end
-                end
-                -- captcha is valid, we redirect the IP to its previous URI but in GET method
-                ngx.req.set_method(ngx.HTTP_GET)
-                return ngx.redirect(previous_uri)
+          local valid, err = csmod.validateCaptcha(captcha_res, ip)
+
+          if err ~= nil then
+            ngx.log(ngx.ERR, "Error while validating captcha: " .. err)
+          end
+
+          if valid == true then
+            -- if the captcha is valid and has been applied by the application security component
+            -- then we delete the state from the cache because from the bouncing part, if the user solves the captcha
+            -- we will not propose a captcha until the 'CAPTCHA_EXPIRATION'.
+            -- But for the Application Security component, we serve the captcha each time the user triggers it.
+            if source == flag.APPSEC_SOURCE then
+              ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
             else
-                ngx.log(ngx.ALERT, "Invalid captcha from " .. ip)
+              local succ, err, forcible = ngx.shared.crowdsec_cache:set(
+                "captcha_" .. ip,
+                previous_uri,
+                runtime.conf["CAPTCHA_EXPIRATION"],
+                bit.bor(flag.VALIDATED_STATE, source)
+              )
+
+              if not succ then
+                ngx.log(ngx.ERR, "failed to add key about captcha for ip '" .. ip .. "' in cache: " .. err)
+              end
+
+              if forcible then
+                ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+              end
             end
+
+            -- captcha is valid, we redirect the IP to its previous URI using the GET method
+            ngx.req.set_method(ngx.HTTP_GET)
+            return ngx.redirect(previous_uri)
+          else
+            ngx.log(ngx.ALERT, "Invalid captcha from " .. ip)
+          end
         end
+      end
     end
   end
   if not ok then
