@@ -169,5 +169,151 @@ function M.string_to_table(str)
   return t
 end
 
+--- Create and configure an HTTP client based on parsed URL configuration
+--- @param api_url string: the API URL to parse and configure for
+--- @param timeout_config table: timeout configuration {connect, send, read}
+--- @param ssl_verify boolean: whether to verify SSL certificates
+--- @param user_agent string: user agent for requests
+--- @param api_key_header string: API key header name
+--- @param api_key string: API key value
+--- @return httpc: configured HTTP client
+--- @return table: connection configuration for reuse
+--- @return string: error message if any
+function M.create_http_client(api_url, timeout_config, ssl_verify, user_agent, api_key_header, api_key)
+  local url = require "plugins.crowdsec.url"
+  local http = require "resty.http"
+  
+  if api_url == "" then
+    return nil, nil, "API URL is empty"
+  end
+  
+  -- Parse the URL
+  local parsed_url = url.parse(api_url)
+  if not parsed_url then
+    return nil, nil, "Failed to parse API URL: " .. api_url
+  end
+  
+  -- Create HTTP client
+  local httpc = http.new()
+  
+  -- Set timeouts
+  local connect_timeout = timeout_config.connect or 1000
+  local send_timeout = timeout_config.send or 5000  
+  local read_timeout = timeout_config.read or 5000
+  
+  httpc:set_timeouts(connect_timeout, send_timeout, read_timeout)
+  
+  -- Prepare connection configuration
+  local connection_config = {
+    ssl_verify = ssl_verify,
+    parsed_url = parsed_url,
+    headers = {
+      ['User-Agent'] = user_agent,
+      [api_key_header] = api_key
+    }
+  }
+  
+  -- Handle different connection types
+  if parsed_url.scheme == "unix" then
+    -- Unix socket configuration
+    connection_config.connection_opts = {
+      scheme = "unix",
+      host = parsed_url.url, -- For unix sockets, the full URL is the socket path
+      ssl_verify = ssl_verify
+    }
+    connection_config.base_path = "/"
+    connection_config.headers['Host'] = "localhost"
+  else
+    -- TCP configuration
+    connection_config.connection_opts = {
+      scheme = parsed_url.scheme or "http",
+      host = parsed_url.host,
+      port = parsed_url.port,
+      ssl_verify = ssl_verify
+    }
+    connection_config.base_path = parsed_url.path or "/"
+    connection_config.headers['Host'] = parsed_url.host
+    if parsed_url.port and parsed_url.port ~= 80 and parsed_url.port ~= 443 then
+      connection_config.headers['Host'] = connection_config.headers['Host'] .. ":" .. parsed_url.port
+    end
+  end
+  
+  return httpc, connection_config, nil
+end
+
+--- Make HTTP request using pre-configured client and connection config
+--- @param httpc: HTTP client instance
+--- @param connection_config table: connection configuration
+--- @param path string: request path (will be appended to base_path)
+--- @param method string: HTTP method (default: GET)
+--- @param additional_headers table: additional headers to merge
+--- @param body string: request body
+--- @return res: HTTP response with body
+--- @return string: error message if any
+function M.make_http_request(httpc, connection_config, path, method, additional_headers, body)
+  method = method or "GET"
+  
+  -- Connect if not already connected
+  local ok, err = httpc:connect(connection_config.connection_opts)
+  if not ok then
+    return nil, "Failed to connect: " .. (err or "unknown error")
+  end
+  
+  -- Prepare headers
+  local headers = {}
+  for k, v in pairs(connection_config.headers) do
+    headers[k] = v
+  end
+  if additional_headers then
+    for k, v in pairs(additional_headers) do
+      headers[k] = v
+    end
+  end
+  
+  -- Add connection keep-alive for reuse
+  headers['Connection'] = 'keep-alive'
+  
+  -- Prepare full path
+  local full_path = connection_config.base_path
+  if full_path ~= "/" and not M.ends_with(full_path, "/") then
+    full_path = full_path .. "/"
+  end
+  if path and path ~= "" then
+    if M.starts_with(path, "/") then
+      path = path:sub(2) -- Remove leading slash
+    end
+    full_path = full_path .. path
+  end
+  
+  -- Make request
+  local res, err = httpc:request({
+    path = full_path,
+    method = method,
+    headers = headers,
+    body = body
+  })
+  
+  if err then
+    return nil, "Request failed: " .. err
+  end
+  
+  if not res then
+    return nil, "No response received"
+  end
+  
+  -- Read body
+  local response_body, body_err = res:read_body()
+  if body_err then
+    return nil, "Failed to read response body: " .. body_err
+  end
+  
+  res.body = response_body
+  
+  -- Keep connection alive for reuse
+  httpc:set_keepalive(30000, 100)
+  
+  return res, nil
+end
+
 return M
 

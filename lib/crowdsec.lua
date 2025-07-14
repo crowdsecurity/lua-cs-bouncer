@@ -212,10 +212,16 @@ function csmod.init(configFile, userAgent)
 
   if runtime.conf["MODE"] == "live" then
     ngx.log(ngx.INFO, "lua nginx bouncer enabled with live mode")
-    live:new()
+    runtime.live_instance, err = live:new(runtime.conf["API_URL"], runtime.conf["REQUEST_TIMEOUT"], REMEDIATION_API_KEY_HEADER, runtime.conf['API_KEY'], runtime.userAgent, runtime.conf["SSL_VERIFY"])
+    if err then
+      ngx.log(ngx.ERR, "Failed to initialize live mode: " .. err)
+    end
   else
     ngx.log(ngx.INFO, "lua nginx bouncer enabled with stream mode")
-    stream:new()
+    runtime.stream_instance, err = stream:new(runtime.conf["API_URL"], runtime.conf["REQUEST_TIMEOUT"], REMEDIATION_API_KEY_HEADER, runtime.conf['API_KEY'], runtime.userAgent, runtime.conf["SSL_VERIFY"])
+    if err then
+      ngx.log(ngx.ERR, "Failed to initialize stream mode: " .. err)
+    end
   end
   return true, nil
 end
@@ -253,7 +259,7 @@ function csmod.SetupMetrics()
   local started = runtime.cache:get("metrics_startup_time")
   if ngx.time() - started >= METRICS_PERIOD then
     if runtime.conf["MODE"] == "stream" then
-      stream:refresh_metrics()
+      runtime.stream_instance:refresh_metrics()
     end
     metrics:sendMetrics(
       runtime.conf["API_URL"],
@@ -329,13 +335,7 @@ function csmod.SetupStream()
     end
     local refreshing = stream.cache:get("refreshing")
     if not refreshing then
-      local err = stream:stream_query(
-        runtime.conf["API_URL"],
-        runtime.conf["REQUEST_TIMEOUT"],
-        REMEDIATION_API_KEY_HEADER,
-        runtime.conf["API_KEY"],
-        runtime.userAgent,
-        runtime.conf["SSL_VERIFY"],
+      local err = runtime.stream_instance:stream_query(
         runtime.conf["BOUNCING_ON_TYPE"]
       )
       if err ~=nil then
@@ -463,15 +463,9 @@ function csmod.allowIp(ip)
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
     ngx.log(ngx.DEBUG, "live mode")
-    local ok, remediation, origin, err = live:live_query(
+    local ok, remediation, origin, err = runtime.live_instance:live_query(
       ip,
-      runtime.conf["API_URL"],
-      runtime.conf["REQUEST_TIMEOUT"],
       runtime.conf["CACHE_EXPIRATION"],
-      REMEDIATION_API_KEY_HEADER,
-      runtime.conf['API_KEY'],
-      runtime.userAgent,
-      runtime.conf["SSL_VERIFY"],
       runtime.conf["BOUNCING_ON_TYPE"]
     )
     -- debug: wip

@@ -118,44 +118,75 @@ function stream:get(key)
   return stream.cache:get("decision_cache/" .. key)
 end
 
-function stream:new()
-  return self
+--- Create a new stream object with HTTP client
+--- @param api_url string: the API URL for LAPI
+--- @param timeout number: request timeout
+--- @param api_key_header string: API key header name  
+--- @param api_key string: API key value
+--- @param user_agent string: user agent string
+--- @param ssl_verify boolean: whether to verify SSL certificates
+--- @return stream: the stream object
+--- @return string: error message if any
+function stream:new(api_url, timeout, api_key_header, api_key, user_agent, ssl_verify)
+  local instance = setmetatable({}, stream)
+  
+  if api_url and api_url ~= "" then
+    local timeout_config = {
+      connect = 1000,
+      send = timeout or 5000,
+      read = timeout or 5000
+    }
+    
+    local httpc, connection_config, err = utils.create_http_client(
+      api_url, 
+      timeout_config, 
+      ssl_verify, 
+      user_agent, 
+      api_key_header, 
+      api_key
+    )
+    
+    if err then
+      ngx.log(ngx.ERR, "Failed to create HTTP client for stream mode: " .. err)
+      return instance, err
+    end
+    
+    instance.httpc = httpc
+    instance.connection_config = connection_config
+    instance.bouncing_on_type = "all" -- default bouncing type
+    
+    ngx.log(ngx.INFO, "Stream mode HTTP client initialized successfully")
+  end
+  
+  return instance, nil
 end
 
 --- Query the local API to get the decisions
--- @param api_url string: the URL of the local API
--- @param timeout number: the timeout for the request
--- @param api_key_header string: the header to use for the API key
--- @param api_key string: the API key to use for the request
--- @param user_agent string: the user agent to use for the request
--- @param ssl_verify boolean: whether to verify the SSL certificate or not
--- @param bouncing_on_type string: the type of decision to bounce on
-function stream:stream_query(api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
-
+--- @param bouncing_on_type string: optional bouncing type override
+--- @return string: error message if any
+function stream:stream_query(bouncing_on_type)
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
-  if api_url == "" then
-    return "No API URL defined"
+  if not self.httpc or not self.connection_config then
+    return "HTTP client not initialized"
   end
 
+  bouncing_on_type = bouncing_on_type or self.bouncing_on_type
 
   set_refreshing(true)
 
   local is_startup = stream.cache:get("startup")
   ngx.log(ngx.DEBUG, "startup: " .. tostring(is_startup))
   ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup) .. " | premature: ")
-  local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
-  local res, err = utils.get_remediation_http_request(link,
-                                                      timeout,
-                                                      api_key_header,
-                                                      api_key,
-                                                      user_agent,
-                                                      ssl_verify)
+  
+  local path = "v1/decisions/stream?startup=" .. tostring(is_startup)
+  local res, err = utils.make_http_request(self.httpc, self.connection_config, path)
+
   if not res then
     set_refreshing(false)
-    ngx.log(ngx.ERR, "request to crowdsec lapi " .. link .. " failed: " .. err)
-    return "request to crowdsec lapi " .. link .. " failed: " .. err
+    ngx.log(ngx.ERR, "request to crowdsec lapi failed: " .. err)
+    return "request to crowdsec lapi failed: " .. err
   end
 
   local succ, err, forcible = stream.cache:set("last_refresh", ngx.time())
