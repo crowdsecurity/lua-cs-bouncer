@@ -39,7 +39,7 @@ jobs:
       run: |
         wget -O mkcert-latest-linux-amd64 "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
         chmod +x mkcert-latest-linux-amd64
-        sudo cp mkcert-latest-linux-amd64 /usr/local/bin/mkcert
+        cp mkcert-latest-linux-amd64 /usr/local/bin/mkcert
 
     - name: "generate local CA"
       run: |
