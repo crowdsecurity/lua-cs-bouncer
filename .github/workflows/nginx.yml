@@ -28,12 +28,26 @@ jobs:
       run: |
         cat /etc/os-release
         apt-get update
-        apt-get install -y make gcc nginx libnginx-mod-http-lua perl ca-certificates luarocks
+        apt-get install -y make gcc nginx libnginx-mod-http-lua perl ca-certificates luarocks libnss3-tools
         luarocks install lua-cjson 2.1.0.10-1
         luarocks install lua-resty-http  0.17.1-0
         cpan Test::Nginx
         cpan Test::Nginx::Socket
         echo "Installation done"
+
+    - name: "install mkcert"
+      run: |
+        curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+        chmod +x mkcert-v*-linux-amd64
+        sudo cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+
+    - name: "generate local CA"
+      run: |
+        mkdir -p /tmp/ca-test
+        export CAROOT=/tmp/ca-test
+        mkcert -install
+        mkcert -key-file /tmp/ca-test/server-key.pem -cert-file /tmp/ca-test/server-cert.pem localhost 127.0.0.1
+        mkcert -client -key-file /tmp/ca-test/client-key.pem -cert-file /tmp/ca-test/client-cert.pem bouncer
 
     - name: "Run tests"
       run: |
