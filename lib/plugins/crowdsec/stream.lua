@@ -122,7 +122,7 @@ function stream:new()
   return self
 end
 
---- Query the local API to get the decisions
+--- Query the local API to get the decisions using API key authentication
 -- @param api_url string: the URL of the local API
 -- @param timeout number: the timeout for the request
 -- @param api_key_header string: the header to use for the API key
@@ -130,8 +130,7 @@ end
 -- @param user_agent string: the user agent to use for the request
 -- @param ssl_verify boolean: whether to verify the SSL certificate or not
 -- @param bouncing_on_type string: the type of decision to bounce on
-function stream:stream_query(api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
-
+function stream:stream_query_api(api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
@@ -139,25 +138,72 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
     return "No API URL defined"
   end
 
-
   set_refreshing(true)
 
   local is_startup = stream.cache:get("startup")
   ngx.log(ngx.DEBUG, "startup: " .. tostring(is_startup))
-  ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup) .. " | premature: ")
+  ngx.log(ngx.DEBUG, "Stream Query API from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
   local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
+
   local res, err = utils.get_remediation_http_request(link,
                                                       timeout,
                                                       api_key_header,
                                                       api_key,
                                                       user_agent,
                                                       ssl_verify)
+
   if not res then
     set_refreshing(false)
     ngx.log(ngx.ERR, "request to crowdsec lapi " .. link .. " failed: " .. err)
     return "request to crowdsec lapi " .. link .. " failed: " .. err
   end
 
+  return self:stream_query_process(res, bouncing_on_type)
+end
+
+--- Query the local API to get the decisions using mTLS authentication
+-- @param api_url string: the URL of the local API
+-- @param timeout number: the timeout for the request
+-- @param user_agent string: the user agent to use for the request
+-- @param ssl_verify boolean: whether to verify the SSL certificate or not
+-- @param ssl_client_cert string: path to the client certificate file
+-- @param ssl_client_priv_key string: path to the client private key file
+-- @param bouncing_on_type string: the type of decision to bounce on
+function stream:stream_query_tls(api_url, timeout, user_agent, ssl_verify, ssl_client_cert, ssl_client_priv_key, bouncing_on_type)
+  -- As this function is running inside coroutine (with ngx.timer.at),
+  -- we need to raise error instead of returning them
+
+  if api_url == "" then
+    return "No API URL defined"
+  end
+
+  set_refreshing(true)
+
+  local is_startup = stream.cache:get("startup")
+  ngx.log(ngx.DEBUG, "startup: " .. tostring(is_startup))
+  ngx.log(ngx.DEBUG, "Stream Query TLS from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
+  local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
+
+  local res, err = utils.get_remediation_http_request_tls(link,
+                                                          timeout,
+                                                          user_agent,
+                                                          ssl_verify,
+                                                          ssl_client_cert,
+                                                          ssl_client_priv_key)
+
+  if not res then
+    set_refreshing(false)
+    ngx.log(ngx.ERR, "request to crowdsec lapi " .. link .. " failed: " .. err)
+    return "request to crowdsec lapi " .. link .. " failed: " .. err
+  end
+
+  return self:stream_query_process(res, bouncing_on_type)
+end
+
+--- Process the HTTP response from the CrowdSec API
+-- @param res table: the HTTP response object
+-- @param bouncing_on_type string: the type of decision to bounce on
+function stream:stream_query_process(res, bouncing_on_type)
   local succ, err, forcible = stream.cache:set("last_refresh", ngx.time())
   if not succ then
     ngx.log(ngx.ERR, "Failed to set last_refresh key in cache: " .. err)
@@ -228,11 +274,7 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
         end
       end
     end
-
   end
-
-
-
 
   -- not startup anymore after first callback
   local succ, err, forcible = stream.cache:set("startup", false)
@@ -244,10 +286,9 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
   end
 
   set_refreshing(false)
-  ngx.log(ngx.DEBUG, "end of stream_query")
+  ngx.log(ngx.DEBUG, "end of stream_query_process")
   return nil
 end
-
 
 function stream:refresh_metrics()
   local table_count = get_decisions_count()
