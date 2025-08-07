@@ -143,6 +143,63 @@ function csmod.init(configFile, userAgent)
     runtime.conf["SSL_VERIFY"] = true
   end
 
+  if runtime.conf["USE_TLS_AUTH"] == "true" then
+    runtime.conf["USE_TLS_AUTH"] = true
+  else
+    runtime.conf["USE_TLS_AUTH"] = false
+  end
+
+  -- Parse TLS certificates and keys if mTLS authentication is enabled
+  if runtime.conf["USE_TLS_AUTH"] then
+    local ssl = require "ngx.ssl"
+
+    -- Parse client certificate
+    if runtime.conf["TLS_CLIENT_CERT"] ~= "" then
+      local cert_file = io.open(runtime.conf["TLS_CLIENT_CERT"], "r")
+      if cert_file then
+        local cert_data = cert_file:read("*all")
+        cert_file:close()
+
+        local cert, err = ssl.parse_pem_cert(cert_data)
+        if not cert then
+          ngx.log(ngx.ERR, "Failed to parse client certificate: " .. (err or "unknown error"))
+          return nil, "Failed to parse client certificate: " .. (err or "unknown error")
+        end
+        runtime.conf["TLS_CLIENT_CERT_PARSED"] = cert
+        ngx.log(ngx.INFO, "Successfully parsed TLS client certificate")
+      else
+        ngx.log(ngx.ERR, "Failed to read client certificate file: " .. runtime.conf["TLS_CLIENT_CERT"])
+        return nil, "Failed to read client certificate file: " .. runtime.conf["TLS_CLIENT_CERT"]
+      end
+    else
+      ngx.log(ngx.ERR, "TLS_CLIENT_CERT path is required when USE_TLS_AUTH is enabled")
+      return nil, "TLS_CLIENT_CERT path is required when USE_TLS_AUTH is enabled"
+    end
+
+    -- Parse client private key
+    if runtime.conf["TLS_CLIENT_KEY"] ~= "" then
+      local key_file = io.open(runtime.conf["TLS_CLIENT_KEY"], "r")
+      if key_file then
+        local key_data = key_file:read("*all")
+        key_file:close()
+
+        local key, err = ssl.parse_pem_priv_key(key_data)
+        if not key then
+          ngx.log(ngx.ERR, "Failed to parse client private key: " .. (err or "unknown error"))
+          return nil, "Failed to parse client private key: " .. (err or "unknown error")
+        end
+        runtime.conf["TLS_CLIENT_KEY_PARSED"] = key
+        ngx.log(ngx.INFO, "Successfully parsed TLS client private key")
+      else
+        ngx.log(ngx.ERR, "Failed to read client private key file: " .. runtime.conf["TLS_CLIENT_KEY"])
+        return nil, "Failed to read client private key file: " .. runtime.conf["TLS_CLIENT_KEY"]
+      end
+    else
+      ngx.log(ngx.ERR, "TLS_CLIENT_KEY path is required when USE_TLS_AUTH is enabled")
+      return nil, "TLS_CLIENT_KEY path is required when USE_TLS_AUTH is enabled"
+    end
+  end
+
   local succ, err, forcible = runtime.cache:set("metrics_startup_time", ngx.time())  -- to make sure we have only one thread sending metrics
   if not succ then
     ngx.log(ngx.ERR, "failed to add metrics_startup_time key in cache: "..err)
@@ -329,15 +386,28 @@ function csmod.SetupStream()
     end
     local refreshing = stream.cache:get("refreshing")
     if not refreshing then
-      local err = stream:stream_query(
-        runtime.conf["API_URL"],
-        runtime.conf["REQUEST_TIMEOUT"],
-        REMEDIATION_API_KEY_HEADER,
-        runtime.conf["API_KEY"],
-        runtime.userAgent,
-        runtime.conf["SSL_VERIFY"],
-        runtime.conf["BOUNCING_ON_TYPE"]
-      )
+      local err
+      if runtime.conf["USE_TLS_AUTH"] then
+        err = stream:stream_query_tls(
+          runtime.conf["API_URL"],
+          runtime.conf["REQUEST_TIMEOUT"],
+          runtime.userAgent,
+          runtime.conf["SSL_VERIFY"],
+          runtime.conf["TLS_CLIENT_CERT_PARSED"],
+          runtime.conf["TLS_CLIENT_KEY_PARSED"],
+          runtime.conf["BOUNCING_ON_TYPE"]
+        )
+      else
+        err = stream:stream_query_api(
+          runtime.conf["API_URL"],
+          runtime.conf["REQUEST_TIMEOUT"],
+          REMEDIATION_API_KEY_HEADER,
+          runtime.conf["API_KEY"],
+          runtime.userAgent,
+          runtime.conf["SSL_VERIFY"],
+          runtime.conf["BOUNCING_ON_TYPE"]
+        )
+      end
       if err ~=nil then
         ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
       end
@@ -463,17 +533,32 @@ function csmod.allowIp(ip)
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
     ngx.log(ngx.DEBUG, "live mode")
-    local ok, remediation, origin, err = live:live_query(
-      ip,
-      runtime.conf["API_URL"],
-      runtime.conf["REQUEST_TIMEOUT"],
-      runtime.conf["CACHE_EXPIRATION"],
-      REMEDIATION_API_KEY_HEADER,
-      runtime.conf['API_KEY'],
-      runtime.userAgent,
-      runtime.conf["SSL_VERIFY"],
-      runtime.conf["BOUNCING_ON_TYPE"]
-    )
+    local ok, remediation, origin, err
+    if runtime.conf["USE_TLS_AUTH"] then
+      ok, remediation, origin, err = live:live_query_tls(
+        ip,
+        runtime.conf["API_URL"],
+        runtime.conf["REQUEST_TIMEOUT"],
+        runtime.conf["CACHE_EXPIRATION"],
+        runtime.userAgent,
+        runtime.conf["SSL_VERIFY"],
+        runtime.conf["TLS_CLIENT_CERT_PARSED"],
+        runtime.conf["TLS_CLIENT_KEY_PARSED"],
+        runtime.conf["BOUNCING_ON_TYPE"]
+      )
+    else
+      ok, remediation, origin, err = live:live_query_api(
+        ip,
+        runtime.conf["API_URL"],
+        runtime.conf["REQUEST_TIMEOUT"],
+        runtime.conf["CACHE_EXPIRATION"],
+        REMEDIATION_API_KEY_HEADER,
+        runtime.conf['API_KEY'],
+        runtime.userAgent,
+        runtime.conf["SSL_VERIFY"],
+        runtime.conf["BOUNCING_ON_TYPE"]
+      )
+    end
     -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
     local _, is_ipv4 = iputils.parseIPAddress(ip)
