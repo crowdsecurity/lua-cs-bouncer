@@ -72,10 +72,11 @@ end
 local function parse_duration(duration)
   local match, err = ngx.re.match(duration, "^((?<hours>[0-9]+)h)?((?<minutes>[0-9]+)m)?(?<seconds>[0-9]+)")
   local ttl = 0
-  if not match then
+  if not match or err then
     if err then
-      return ttl, err
+      ngx.log(ngx.ERR, "Error while parsing duration: " .. err)
     end
+    return ttl, err
   end
   if match["hours"] ~= nil and match["hours"] ~= false then
     local hours = tonumber(match["hours"])
@@ -213,7 +214,8 @@ function stream:stream_query(api_url, timeout, api_key_header, api_key, user_age
         decision.origin = "lists:" .. decision.scenario
       end
       if bouncing_on_type == decision.type or bouncing_on_type == "all" then
-        local ttl, err = parse_duration(decision.duration)
+        local ttl
+        ttl, err = parse_duration(decision.duration)
         if err ~= nil then
           ngx.log(ngx.ERR, "[Crowdsec] failed to parse ban duration '" .. decision.duration .. "' : " .. err)
         end
