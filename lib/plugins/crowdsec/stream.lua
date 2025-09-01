@@ -68,9 +68,9 @@ end
 --- Parse a golang duration string and return the number of seconds
 --- @param duration string: the duration string to parse
 --- @return number: the number of seconds
---- @return string: the error message if any
+--- @return string: the error message or nil if no error
 local function parse_duration(duration)
-  local match, err = ngx.re.match(duration, "^((?<hours>[0-9]+)h)?((?<minutes>[0-9]+)m)?(?<seconds>[0-9]+)")
+  local match, err = ngx.re.match(duration, "^((?<hours>[0-9]+)h)?((?<minutes>[0-9]+)m)?((?<seconds>[0-9]+)s)?((?<milliseconds>[0-9]+)ms)?((?<microseconds>[0-9]+)µs)?((?<nanoseconds>[0-9]+)ns)?)$")
   local ttl = 0
   if not match or err then
     if err then
@@ -90,6 +90,11 @@ local function parse_duration(duration)
     local seconds = tonumber(match["seconds"])
     ttl = ttl + seconds
   end
+  if match["milliseconds"] ~= nil and match["milliseconds"] ~= false then
+    local milliseconds = tonumber(match["milliseconds"])
+    ttl = ttl + (milliseconds / 1000)
+  end
+  --- microseconds and nanoseconds are ignored as they are too small to be useful in this context
   return ttl, nil
 end
 
