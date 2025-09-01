@@ -70,7 +70,7 @@ end
 --- @return number: the number of seconds
 --- @return string: the error message or nil if no error
 local function parse_duration(duration)
-  local match, err = ngx.re.match(duration, "^((?<hours>[0-9]+)h)?((?<minutes>[0-9]+)m)?((?<seconds>[0-9]+)s)?((?<milliseconds>[0-9]+)ms)?((?<microseconds>[0-9]+)µs)?((?<nanoseconds>[0-9]+)ns)?$")
+  local match, err = ngx.re.match(duration, "^((?<hours>[0-9]+)h)?((?<minutes>[0-9]+)m)?((?<seconds>[0-9]+)s)?((?<milliseconds>[0-9]+)ms)?((?<microseconds>[0-9]+)(µ|u)s)?((?<nanoseconds>[0-9]+)ns)?$")
   local ttl = 0
   if not match or err then
     if err then
