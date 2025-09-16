@@ -155,22 +155,20 @@ function csmod.init(configFile, userAgent)
 
     -- Parse client certificate
     if runtime.conf["TLS_CLIENT_CERT"] ~= "" then
-      local cert_file = io.open(runtime.conf["TLS_CLIENT_CERT"], "r")
-      if cert_file then
-        local cert_data = cert_file:read("*all")
-        cert_file:close()
-
-        local cert, err = ssl.parse_pem_cert(cert_data)
-        if not cert then
-          ngx.log(ngx.ERR, "Failed to parse client certificate: " .. (err or "unknown error"))
-          return nil, "Failed to parse client certificate: " .. (err or "unknown error")
-        end
-        runtime.conf["TLS_CLIENT_CERT_PARSED"] = cert
-        ngx.log(ngx.INFO, "Successfully parsed TLS client certificate")
-      else
-        ngx.log(ngx.ERR, "Failed to read client certificate file: " .. runtime.conf["TLS_CLIENT_CERT"])
-        return nil, "Failed to read client certificate file: " .. runtime.conf["TLS_CLIENT_CERT"]
+      local cert_file, err = io.open(runtime.conf["TLS_CLIENT_CERT"], "r")
+      if not cert_file then
+        ngx.log(ngx.ERR, "Failed to open client certificate file: " .. (err or "unknown error"))
+        return nil, "Failed to open client certificate file: " .. (err or "unknown error")
       end
+      local cert_data = cert_file:read("*all")
+      cert_file:close()
+      local cert, err = ssl.parse_pem_cert(cert_data)
+      if not cert then
+        ngx.log(ngx.ERR, "Failed to parse client certificate: " .. (err or "unknown error"))
+        return nil, "Failed to parse client certificate: " .. (err or "unknown error")
+      end
+      runtime.conf["TLS_CLIENT_CERT_PARSED"] = cert
+      ngx.log(ngx.INFO, "Successfully parsed TLS client certificate")
     else
       ngx.log(ngx.ERR, "TLS_CLIENT_CERT path is required when USE_TLS_AUTH is enabled")
       return nil, "TLS_CLIENT_CERT path is required when USE_TLS_AUTH is enabled"
@@ -178,22 +176,20 @@ function csmod.init(configFile, userAgent)
 
     -- Parse client private key
     if runtime.conf["TLS_CLIENT_KEY"] ~= "" then
-      local key_file = io.open(runtime.conf["TLS_CLIENT_KEY"], "r")
-      if key_file then
-        local key_data = key_file:read("*all")
-        key_file:close()
-
-        local key, err = ssl.parse_pem_priv_key(key_data)
-        if not key then
-          ngx.log(ngx.ERR, "Failed to parse client private key: " .. (err or "unknown error"))
-          return nil, "Failed to parse client private key: " .. (err or "unknown error")
-        end
-        runtime.conf["TLS_CLIENT_KEY_PARSED"] = key
-        ngx.log(ngx.INFO, "Successfully parsed TLS client private key")
-      else
-        ngx.log(ngx.ERR, "Failed to read client private key file: " .. runtime.conf["TLS_CLIENT_KEY"])
-        return nil, "Failed to read client private key file: " .. runtime.conf["TLS_CLIENT_KEY"]
+      local key_file, err = io.open(runtime.conf["TLS_CLIENT_KEY"], "r")
+      if not key_file then
+        ngx.log(ngx.ERR, "Failed to open client private key: " .. (err or "unknown error"))
+        return nil, "Failed to open client private key: " .. (err or "unknown error")
       end
+      local key_data = key_file:read("*all")
+      key_file:close()
+      local key, err = ssl.parse_pem_priv_key(key_data)
+      if not key then
+        ngx.log(ngx.ERR, "Failed to parse client private key: " .. (err or "unknown error"))
+        return nil, "Failed to parse client private key: " .. (err or "unknown error")
+      end
+      runtime.conf["TLS_CLIENT_KEY_PARSED"] = key
+      ngx.log(ngx.INFO, "Successfully parsed TLS client private key")
     else
       ngx.log(ngx.ERR, "TLS_CLIENT_KEY path is required when USE_TLS_AUTH is enabled")
       return nil, "TLS_CLIENT_KEY path is required when USE_TLS_AUTH is enabled"
