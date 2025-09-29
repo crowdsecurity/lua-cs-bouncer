@@ -91,6 +91,24 @@ function M.item_to_string(item, scope)
   return ip_version.."_"..ip_netmask.."_"..ip_network_address, ip_version
 end
 
+
+function M.get_remediation_http_request_tls(link,timeout, user_agent,ssl_verify, ssl_client_cert, ssl_client_priv_key)
+  local httpc = http.new()
+  httpc:set_timeout(timeout)
+  local res, err = httpc:request_uri(link, {
+    method = "GET",
+    headers = {
+      ['Connection'] = 'close',
+      ['User-Agent'] = user_agent
+    },
+    ssl_verify = ssl_verify,
+    ssl_client_cert = ssl_client_cert,
+    ssl_client_priv_key = ssl_client_priv_key
+  })
+  httpc:close()
+  return res, err
+end
+
 function M.get_remediation_http_request(link,timeout, api_key_header, api_key, user_agent,ssl_verify)
   local httpc = http.new()
   httpc:set_timeout(timeout)

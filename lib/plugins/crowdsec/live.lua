@@ -14,7 +14,7 @@ function live:new()
   return self
 end
 
---- Live query the API to get the decision for the IP
+--- Live query the API to get the decision for the IP using API key authentication
 -- Query the live API to get the decision for the IP in real time
 -- @param ip string: the IP to query
 -- @param api_url string: the URL of the LAPI
@@ -29,9 +29,7 @@ end
 -- @return string: the type of the decision
 -- @return string: the origin of the decision
 -- @return string: the error message if any
-
-function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
-
+function live:live_query_api(ip, api_url, timeout, cache_expiration, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
   local link = api_url .. "/v1/decisions?ip=" .. ip
   local res, err = utils.get_remediation_http_request(link, timeout, api_key_header, api_key, user_agent, ssl_verify)
 
@@ -40,6 +38,47 @@ function live:live_query(ip, api_url, timeout, cache_expiration, api_key_header,
     return true, nil, nil, "request failed: ".. err
   end
 
+  return self:live_query_process(res, ip, cache_expiration, bouncing_on_type, link)
+end
+
+--- Live query the API to get the decision for the IP using mTLS authentication
+-- Query the live API to get the decision for the IP in real time
+-- @param ip string: the IP to query
+-- @param api_url string: the URL of the LAPI
+-- @param timeout number: the timeout of the request to lapi
+-- @param cache_expiration number: the expiration time of the cache
+-- @param user_agent string: the user agent to use for the lapi request
+-- @param ssl_verify boolean: whether to verify the SSL certificate or not
+-- @param ssl_client_cert string: path to the client certificate file
+-- @param ssl_client_priv_key string: path to the client private key file
+-- @param bouncing_on_type string: the type of decision to bounce on
+-- @return boolean: true if the IP is allowed, false if the IP is blocked
+-- @return string: the type of the decision
+-- @return string: the origin of the decision
+-- @return string: the error message if any
+function live:live_query_tls(ip, api_url, timeout, cache_expiration, user_agent, ssl_verify, ssl_client_cert, ssl_client_priv_key, bouncing_on_type)
+  local link = api_url .. "/v1/decisions?ip=" .. ip
+  local res, err = utils.get_remediation_http_request_tls(link, timeout, user_agent, ssl_verify, ssl_client_cert, ssl_client_priv_key)
+
+  if not res then
+    ngx.log(ngx.ERR, "failed to query LAPI " .. link .. ": ".. err)
+    return true, nil, nil, "request failed: ".. err
+  end
+
+  return self:live_query_process(res, ip, cache_expiration, bouncing_on_type, link)
+end
+
+--- Process the HTTP response from the CrowdSec API for live queries
+-- @param res table: the HTTP response object
+-- @param ip string: the IP being queried
+-- @param cache_expiration number: the expiration time of the cache
+-- @param bouncing_on_type string: the type of decision to bounce on
+-- @param link string: the API link for error reporting
+-- @return boolean: true if the IP is allowed, false if the IP is blocked
+-- @return string: the type of the decision
+-- @return string: the origin of the decision
+-- @return string: the error message if any
+function live:live_query_process(res, ip, cache_expiration, bouncing_on_type, link)
   local status = res.status
   local body = res.body
   if status~=200 then
