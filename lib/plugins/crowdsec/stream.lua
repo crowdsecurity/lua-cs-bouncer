@@ -233,9 +233,9 @@ function stream:stream_query_process(res, bouncing_on_type)
         decision.origin = "lists:" .. decision.scenario
       end
 
-      local delete_key, _ = utils.item_to_string(decision.value, decision.scope)
-      if delete_key ~= nil then
-        self:delete(delete_key)
+      local key, _ = utils.item_to_string(decision.value, decision.scope)
+      if key ~= nil then
+        self:delete(key)
       else
         ngx.log(ngx.WARN, "[Crowdsec] Failed to parse decision value for deletion: " .. tostring(decision.value) .. " with scope: " .. tostring(decision.scope))
       end
@@ -243,7 +243,6 @@ function stream:stream_query_process(res, bouncing_on_type)
       if decision.type == "captcha" then
         stream.cache:delete("captcha_" .. decision.value)
       end
-      local key, _ = utils.item_to_string(decision.value, decision.scope)
       if key ~= nil then
         local cache_value = stream.cache:get(key)
         if cache_value ~= nil then
