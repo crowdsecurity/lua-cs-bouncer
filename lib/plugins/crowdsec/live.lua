@@ -89,6 +89,10 @@ function live:live_query_process(res, ip, cache_expiration, bouncing_on_type, li
   if body == "null" then -- no result from API, no decision for this IP
     -- set ip in cache and DON'T block it
     local key,_ = utils.item_to_string(ip, "ip")
+    if key == nil then
+      ngx.log(ngx.WARN, "[Crowdsec] Failed to parse IP address for caching: " .. tostring(ip) .. " - skipping cache")
+      return true, nil, nil, nil
+    end
     local succ, err, forcible = live.cache:set("decision_cache/" .. key, "none", cache_expiration, 1)
     --
     ngx.log(ngx.DEBUG, "[CACHE] Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds") --debug
@@ -107,6 +111,10 @@ function live:live_query_process(res, ip, cache_expiration, bouncing_on_type, li
   end
   local cache_value = decision.type .. "/" .. decision.origin
   local key,_ = utils.item_to_string(decision.value, decision.scope)
+  if key == nil then
+    ngx.log(ngx.WARN, "[Crowdsec] Failed to parse decision value for caching: " .. tostring(decision.value) .. " with scope: " .. tostring(decision.scope) .. " - skipping cache")
+    return true, nil, nil, nil
+  end
   local succ, err, forcible = live.cache:set("decision_cache/" .. key, cache_value, cache_expiration, 0)
   ngx.log(ngx.DEBUG, "[CACHE] Adding '" .. key .. "' in cache for '" .. cache_expiration .. "' seconds with decision type'" .. decision.type .. "'with origin'" .. decision.origin ) --debug
   if not succ then
