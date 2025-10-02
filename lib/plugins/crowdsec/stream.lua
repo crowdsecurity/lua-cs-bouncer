@@ -233,7 +233,7 @@ function stream:stream_query_process(res, bouncing_on_type)
         decision.origin = "lists:" .. decision.scenario
       end
 
-      local delete_key = utils.item_to_string(decision.value, decision.scope)
+      local delete_key, _ = utils.item_to_string(decision.value, decision.scope)
       if delete_key ~= nil then
         self:delete(delete_key)
       else
@@ -244,21 +244,20 @@ function stream:stream_query_process(res, bouncing_on_type)
         stream.cache:delete("captcha_" .. decision.value)
       end
       local key, _ = utils.item_to_string(decision.value, decision.scope)
-      if key == nil then
-        ngx.log(ngx.WARN, "[Crowdsec] Failed to parse decision value for cache lookup: " .. tostring(decision.value) .. " with scope: " .. tostring(decision.scope))
-        goto continue_deletion
-      end
-      local cache_value = stream.cache:get(key)
-      if cache_value ~= nil then
-        stream.cache:delete(key)
-        if deleted[decision.origin] == nil then
-          deleted[decision.origin] = 1
-        else
-          deleted[decision.origin] = deleted[decision.origin] + 1
+      if key ~= nil then
+        local cache_value = stream.cache:get(key)
+        if cache_value ~= nil then
+          stream.cache:delete(key)
+          if deleted[decision.origin] == nil then
+            deleted[decision.origin] = 1
+          else
+            deleted[decision.origin] = deleted[decision.origin] + 1
+          end
         end
+        ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
+      else
+        ngx.log(ngx.WARN, "[Crowdsec] Failed to parse decision value for cache lookup: " .. tostring(decision.value) .. " with scope: " .. tostring(decision.scope))
       end
-      ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
-      ::continue_deletion::
     end
   end
 
@@ -274,19 +273,18 @@ function stream:stream_query_process(res, bouncing_on_type)
           ngx.log(ngx.ERR, "[Crowdsec] failed to parse ban duration '" .. decision.duration .. "' : " .. err)
         end
         local key, ip_type = utils.item_to_string(decision.value, decision.scope)
-        if key == nil or ip_type == nil then
+        if key ~= nil and ip_type ~= nil then
+          local succ, err, forcible = self:set(key, decision.type .. "/" .. decision.origin .. "/" .. ip_type, ttl, 0) -- 0 means the it's a true remediation decision
+          ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds " .. decision.type .. "/" .. decision.origin .. "/" .. ip_type) -- debug
+          if not succ then
+            ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
+          end
+          if forcible then
+            ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
+          end
+        else
           ngx.log(ngx.WARN, "[Crowdsec] Failed to parse decision value: " .. tostring(decision.value) .. " with scope: " .. tostring(decision.scope) .. " - skipping decision")
-          goto continue_decision
         end
-        local succ, err, forcible = self:set(key, decision.type .. "/" .. decision.origin .. "/" .. ip_type, ttl, 0) -- 0 means the it's a true remediation decision
-        ngx.log(ngx.DEBUG, "Adding '" .. key .. "' in cache for '" .. tostring(ttl) .. "' seconds " .. decision.type .. "/" .. decision.origin .. "/" .. ip_type) -- debug
-        if not succ then
-          ngx.log(ngx.ERR, "failed to add ".. decision.value .." : "..err)
-        end
-        if forcible then
-          ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-        end
-        ::continue_decision::
       end
     end
   end

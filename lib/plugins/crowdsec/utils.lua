@@ -62,9 +62,11 @@ function M.item_to_string(item, scope)
   local ip, cidr, ip_version
   if scope:lower() == "ip" then
     ip = item
-  end
-  if scope:lower() == "range" then
+  elseif scope:lower() == "range" then
     ip, cidr = iputils.splitRange(item, scope)
+  else
+    -- Unsupported scope - this shouldn't happen but you never know
+    return nil, nil
   end
 
   local ip_network_address, is_ipv4 = iputils.parseIPAddress(ip)
