@@ -233,17 +233,18 @@ function stream:stream_query_process(res, bouncing_on_type)
         decision.origin = "lists:" .. decision.scenario
       end
 
+      local delete_key, _ = utils.item_to_string(decision.value, decision.scope)
+      if delete_key ~= nil then
+        self:delete(delete_key)
+      else
+        ngx.log(ngx.WARN, "[Crowdsec] Failed to parse decision value for deletion: " .. tostring(decision.value) .. " with scope: " .. tostring(decision.scope))
+      end
+      -- cache space for captcha is different it's used to cache if the captcha has been solved
+      if decision.type == "captcha" then
+        stream.cache:delete("captcha_" .. decision.value)
+      end
       local key, _ = utils.item_to_string(decision.value, decision.scope)
       if key ~= nil then
-        -- Delete from decision cache
-        self:delete(key)
-        
-        -- cache space for captcha is different it's used to cache if the captcha has been solved
-        if decision.type == "captcha" then
-          stream.cache:delete("captcha_" .. decision.value)
-        end
-        
-        -- Check if there's a cached value to delete and count
         local cache_value = stream.cache:get(key)
         if cache_value ~= nil then
           stream.cache:delete(key)
@@ -255,7 +256,7 @@ function stream:stream_query_process(res, bouncing_on_type)
         end
         ngx.log(ngx.DEBUG, "Deleting '" .. key .. "'")
       else
-        ngx.log(ngx.WARN, "[Crowdsec] Failed to parse decision value: " .. tostring(decision.value) .. " with scope: " .. tostring(decision.scope) .. " - skipping deletion")
+        ngx.log(ngx.WARN, "[Crowdsec] Failed to parse decision value for cache lookup: " .. tostring(decision.value) .. " with scope: " .. tostring(decision.scope))
       end
     end
   end
