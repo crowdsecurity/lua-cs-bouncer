@@ -34,7 +34,9 @@ function live:new(conf, user_agent, api_key_header)
         send = conf["REQUEST_TIMEOUT"] or 1000,
         read = conf["REQUEST_TIMEOUT"] or 1000
       },
-      ssl_verify = conf["SSL_VERIFY"]
+      ssl_verify = conf["SSL_VERIFY"],
+      keepalive_timeout = conf["KEEPALIVE_TIMEOUT"],
+      keepalive_pool_size = conf["KEEPALIVE_POOL_SIZE"]
     }
     
     -- Add mTLS options if TLS auth is enabled (use parsed PEM objects when available)

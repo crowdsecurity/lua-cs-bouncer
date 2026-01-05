@@ -20,7 +20,7 @@ local url = require "plugins.crowdsec.url"
 local M = {}
 
 -- Default keep-alive settings
-local DEFAULT_KEEPALIVE_TIMEOUT = 60000  -- 60 seconds
+local DEFAULT_KEEPALIVE_TIMEOUT = 60000  -- 60 seconds (can be overridden via config)
 local DEFAULT_KEEPALIVE_POOL_SIZE = 10   -- 10 connections per endpoint
 
 -- Note: Connection pooling is handled by resty.http via set_keepalive()

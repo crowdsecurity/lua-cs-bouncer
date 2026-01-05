@@ -227,7 +227,9 @@ function csmod.init(configFile, userAgent)
         send = runtime.conf["APPSEC_SEND_TIMEOUT"],
         read = runtime.conf["APPSEC_PROCESS_TIMEOUT"]
       },
-      ssl_verify = runtime.conf["SSL_VERIFY"]
+      ssl_verify = runtime.conf["SSL_VERIFY"],
+      keepalive_timeout = runtime.conf["KEEPALIVE_TIMEOUT"],
+      keepalive_pool_size = runtime.conf["KEEPALIVE_POOL_SIZE"]
     })
     
     if not client then
