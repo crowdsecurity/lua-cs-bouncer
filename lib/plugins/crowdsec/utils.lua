@@ -1,5 +1,4 @@
 local iputils = require "plugins.crowdsec.iputils"
-local http = require "resty.http"
 
 local M = {}
 
@@ -94,38 +93,6 @@ function M.item_to_string(item, scope)
 end
 
 
-function M.get_remediation_http_request_tls(link,timeout, user_agent,ssl_verify, ssl_client_cert, ssl_client_priv_key)
-  local httpc = http.new()
-  httpc:set_timeout(timeout)
-  local res, err = httpc:request_uri(link, {
-    method = "GET",
-    headers = {
-      ['Connection'] = 'close',
-      ['User-Agent'] = user_agent
-    },
-    ssl_verify = ssl_verify,
-    ssl_client_cert = ssl_client_cert,
-    ssl_client_priv_key = ssl_client_priv_key
-  })
-  httpc:close()
-  return res, err
-end
-
-function M.get_remediation_http_request(link,timeout, api_key_header, api_key, user_agent,ssl_verify)
-  local httpc = http.new()
-  httpc:set_timeout(timeout)
-  local res, err = httpc:request_uri(link, {
-    method = "GET",
-    headers = {
-      ['Connection'] = 'close',
-      [api_key_header] = api_key,
-      ['User-Agent'] = user_agent
-    },
-    ssl_verify = ssl_verify
-  })
-  httpc:close()
-  return res, err
-end
 
 function M.split_on_delimiter(str, delimiter)
   if str == nil then

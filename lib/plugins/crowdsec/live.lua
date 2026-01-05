@@ -1,5 +1,6 @@
 local cjson = require "cjson"
 local utils = require "plugins.crowdsec.utils"
+local http_client = require "plugins.crowdsec.http_client"
 
 local live = {}
 live.__index = live
@@ -8,61 +9,88 @@ live.cache = ngx.shared.crowdsec_cache
 
 --- Create a new live object
 -- Create a new live object to query the live API
+-- @param conf table: Runtime configuration table
+-- @param user_agent string: User agent string
+-- @param api_key_header string: the authorization header to use for the lapi request
 -- @return live: the live object
 
-function live:new()
-  return self
-end
-
---- Live query the API to get the decision for the IP using API key authentication
--- Query the live API to get the decision for the IP in real time
--- @param ip string: the IP to query
--- @param api_url string: the URL of the LAPI
--- @param timeout number: the timeout of the request to lapi
--- @param cache_expiration number: the expiration time of the cache
--- @param api_key_header string: the authorization header to use for the lapi request
--- @param api_key string: the API key to use for the lapi request
--- @param user_agent string: the user agent to use for the lapi request
--- @param ssl_verify boolean: whether to verify the SSL certificate or not
--- @param bouncing_on_type string: the type of decision to bounce on
--- @return boolean: true if the IP is allowed, false if the IP is blocked
--- @return string: the type of the decision
--- @return string: the origin of the decision
--- @return string: the error message if any
-function live:live_query_api(ip, api_url, timeout, cache_expiration, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
-  local link = api_url .. "/v1/decisions?ip=" .. ip
-  local res, err = utils.get_remediation_http_request(link, timeout, api_key_header, api_key, user_agent, ssl_verify)
-
-  if not res then
-    ngx.log(ngx.ERR, "failed to query LAPI " .. link .. ": ".. err)
-    return true, nil, nil, "request failed: ".. err
+function live:new(conf, user_agent, api_key_header)
+  local instance = setmetatable({}, self)
+  instance.api_url = conf["API_URL"]
+  instance.api_key_header = api_key_header
+  instance.api_key = conf["API_KEY"]
+  instance.user_agent = user_agent
+  instance.use_tls_auth = conf["USE_TLS_AUTH"] and 
+                          conf["TLS_CLIENT_CERT_PARSED"] ~= nil and 
+                          conf["TLS_CLIENT_KEY_PARSED"] ~= nil
+  
+  -- Create single HTTP client (handles mTLS if configured)
+  instance.API_CLIENT = nil
+  
+  if conf["API_URL"] ~= "" then
+    local client_options = {
+      timeouts = {
+        connect = conf["REQUEST_TIMEOUT"] or 1000,
+        send = conf["REQUEST_TIMEOUT"] or 1000,
+        read = conf["REQUEST_TIMEOUT"] or 1000
+      },
+      ssl_verify = conf["SSL_VERIFY"]
+    }
+    
+    -- Add mTLS options if TLS auth is enabled (use parsed PEM objects when available)
+    if instance.use_tls_auth then
+      client_options.ssl_client_cert = conf["TLS_CLIENT_CERT_PARSED"] or conf["TLS_CLIENT_CERT"]
+      client_options.ssl_client_priv_key = conf["TLS_CLIENT_KEY_PARSED"] or conf["TLS_CLIENT_KEY"]
+    end
+    
+    local client, err = http_client.new(conf["API_URL"], client_options)
+    
+    if client then
+      instance.API_CLIENT = client
+    else
+      ngx.log(ngx.WARN, "Failed to create API HTTP client: " .. (err or "unknown"))
+    end
   end
-
-  return self:live_query_process(res, ip, cache_expiration, bouncing_on_type, link)
+  
+  return instance
 end
 
---- Live query the API to get the decision for the IP using mTLS authentication
+--- Live query the API to get the decision for the IP
 -- Query the live API to get the decision for the IP in real time
+-- Uses API key authentication if mTLS is not configured, otherwise uses mTLS
 -- @param ip string: the IP to query
--- @param api_url string: the URL of the LAPI
--- @param timeout number: the timeout of the request to lapi
 -- @param cache_expiration number: the expiration time of the cache
--- @param user_agent string: the user agent to use for the lapi request
--- @param ssl_verify boolean: whether to verify the SSL certificate or not
--- @param ssl_client_cert string: path to the client certificate file
--- @param ssl_client_priv_key string: path to the client private key file
 -- @param bouncing_on_type string: the type of decision to bounce on
 -- @return boolean: true if the IP is allowed, false if the IP is blocked
 -- @return string: the type of the decision
 -- @return string: the origin of the decision
 -- @return string: the error message if any
-function live:live_query_tls(ip, api_url, timeout, cache_expiration, user_agent, ssl_verify, ssl_client_cert, ssl_client_priv_key, bouncing_on_type)
-  local link = api_url .. "/v1/decisions?ip=" .. ip
-  local res, err = utils.get_remediation_http_request_tls(link, timeout, user_agent, ssl_verify, ssl_client_cert, ssl_client_priv_key)
+function live:live_query(ip, cache_expiration, bouncing_on_type)
+  if not self.API_CLIENT then
+    return true, nil, nil, "HTTP client not available"
+  end
+  
+  -- Build path (base path from API_URL will be prepended by request_uri)
+  local path = "/v1/decisions?ip=" .. ip
+  local link = self.api_url .. path
+  
+  -- Build headers: always include User-Agent, include API key only if not using mTLS
+  local headers = {
+    ['User-Agent'] = self.user_agent
+  }
+  
+  if not self.use_tls_auth then
+    headers[self.api_key_header] = self.api_key
+  end
+  
+  local res, err = self.API_CLIENT:request_uri(path, {
+    method = "GET",
+    headers = headers
+  })
 
   if not res then
-    ngx.log(ngx.ERR, "failed to query LAPI " .. link .. ": ".. err)
-    return true, nil, nil, "request failed: ".. err
+    ngx.log(ngx.ERR, "failed to query LAPI " .. link .. ": ".. (err or "unknown"))
+    return true, nil, nil, "request failed: ".. (err or "unknown")
   end
 
   return self:live_query_process(res, ip, cache_expiration, bouncing_on_type, link)
