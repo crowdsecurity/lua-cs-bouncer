@@ -137,8 +137,11 @@ function M.parse_url(url_str)
   parsed.path = u.path or "/"
   parsed.query = u.query
   parsed.full_path = parsed.path
-  if parsed.query and parsed.query ~= "" then
-    parsed.full_path = parsed.full_path .. "?" .. parsed.query
+  if parsed.query then
+    local query_str = tostring(parsed.query)
+    if query_str and query_str ~= "" then
+      parsed.full_path = parsed.full_path .. "?" .. query_str
+    end
   end
   
   -- Build connection key for pooling
@@ -369,7 +372,10 @@ function Client:_build_path(path)
   
   -- Extract query strings
   local path_query = ""
-  local url_query = self.url_params.query or ""
+  local url_query = ""
+  if self.url_params.query then
+    url_query = tostring(self.url_params.query)
+  end
   
   if path then
     local query_match = path:match("%?([^#]+)")
