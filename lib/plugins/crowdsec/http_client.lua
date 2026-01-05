@@ -219,8 +219,8 @@ end
 -- @param options table: Client options:
 --   timeouts: table {connect, send, read} - timeout values in ms
 --   ssl_verify: boolean - whether to verify SSL certificates
---   ssl_client_cert: string - (optional) path to client certificate for mTLS
---   ssl_client_priv_key: string - (optional) path to client private key for mTLS
+--   ssl_client_cert: string or cdata - (optional) path to client certificate for mTLS, or parsed PEM object
+--   ssl_client_priv_key: string or cdata - (optional) path to client private key for mTLS, or parsed PEM object
 --   keepalive_timeout: number - (optional) keep-alive timeout in ms
 --   keepalive_pool_size: number - (optional) pool size
 -- @return client: HTTP client object, or nil on error
