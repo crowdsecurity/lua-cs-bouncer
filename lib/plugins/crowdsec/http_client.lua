@@ -100,6 +100,9 @@ function M.parse_url(url_str)
       parsed.socket_path = "/" .. parsed.socket_path
     end
     
+    -- Store full unix path with scheme for resty.http (host field expects "unix:/path")
+    parsed.socket_path_full = "unix:" .. parsed.socket_path
+    
     parsed.full_path = parsed.path
     parsed.connection_key = "unix:" .. parsed.socket_path
     return parsed
@@ -273,8 +276,8 @@ function Client:_get_httpc()
   local connect_opts = {}
   
   if self.url_params.is_unix then
-    connect_opts.host = "localhost"
-    connect_opts.path = self.url_params.socket_path
+    -- For Unix sockets, resty.http expects the full "unix:/path" in the host field
+    connect_opts.host = self.url_params.socket_path_full or ("unix:" .. self.url_params.socket_path)
     -- Explicitly set scheme and port to nil for Unix sockets (resty.http requirement)
     connect_opts.scheme = nil
     connect_opts.port = nil
