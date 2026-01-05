@@ -317,22 +317,26 @@ function csmod.SetupMetrics()
   local first_run = runtime.cache:get("metrics_first_run")
   if first_run then
     ngx.log(ngx.DEBUG, "First run for setup metrics ")
-    metrics:new(runtime.userAgent)
+    metrics:new(runtime.userAgent, runtime.conf, REMEDIATION_API_KEY_HEADER)
     runtime.cache:set("metrics_first_run",false)
     Setup_metrics_timer()
     return
   end
   local started = runtime.cache:get("metrics_startup_time")
   if ngx.time() - started >= METRICS_PERIOD then
-    if runtime.conf["MODE"] == "stream" then
-      stream:refresh_metrics()
+    -- Don't send metrics if worker is exiting (prevents shutdown hangs)
+    if not ngx.worker.exiting() then
+      if runtime.conf["MODE"] == "stream" then
+        stream:refresh_metrics()
+      end
+      -- Headers are now handled internally by metrics (API key added conditionally based on mTLS)
+      metrics:sendMetrics(
+        runtime.conf["API_URL"],
+        {['User-Agent']=runtime.userAgent,["Content-Type"]="application/json"},
+        runtime.conf["SSL_VERIFY"],
+        METRICS_PERIOD
+      )
     end
-    metrics:sendMetrics(
-      runtime.conf["API_URL"],
-      {['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"],["Content-Type"]="application/json"},
-      runtime.conf["SSL_VERIFY"],
-      METRICS_PERIOD
-    )
     local succ, err, forcible = runtime.cache:set("metrics_startup_time", ngx.time())  -- to make sure we have only one thread sending metrics
     if not succ then
       ngx.log(ngx.ERR, "failed to add metrics_startup_time key in cache: "..err)

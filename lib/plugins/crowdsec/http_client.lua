@@ -19,10 +19,6 @@ local url = require "plugins.crowdsec.url"
 
 local M = {}
 
--- Default keep-alive settings
-local DEFAULT_KEEPALIVE_TIMEOUT = 60000  -- 60 seconds (can be overridden via config)
-local DEFAULT_KEEPALIVE_POOL_SIZE = 10   -- 10 connections per endpoint
-
 -- Note: Connection pooling is handled by resty.http via set_keepalive()
 -- Each Client object owns its own httpc instance
 
@@ -251,8 +247,8 @@ function M.new(url_str, options)
     ssl_verify = options.ssl_verify ~= false,  -- default true
     ssl_client_cert = options.ssl_client_cert,
     ssl_client_priv_key = options.ssl_client_priv_key,
-    keepalive_timeout = options.keepalive_timeout or DEFAULT_KEEPALIVE_TIMEOUT,
-    keepalive_pool_size = options.keepalive_pool_size or DEFAULT_KEEPALIVE_POOL_SIZE,
+    keepalive_timeout = options.keepalive_timeout,
+    keepalive_pool_size = options.keepalive_pool_size,
     httpc = nil,  -- HTTP client instance (created on first use)
   }, Client)
   
@@ -348,7 +344,9 @@ function Client:_release_httpc()
     return false, "Failed to set keepalive: " .. (err or "unknown")
   end
   
-  -- Note: We keep self.httpc set - resty.http will reuse it from its pool on next connect()
+  -- After set_keepalive(), the httpc object is in a "closed" state but the connection
+  -- is in resty.http's pool. We keep the reference - on next request, connect() will
+  -- reuse the connection from the pool automatically.
   return true, nil
 end
 
