@@ -100,10 +100,8 @@ function M.parse_url(url_str)
       parsed.socket_path = "/" .. parsed.socket_path
     end
     
-    -- Store full unix path with scheme for resty.http (host field expects "unix:/path")
-    parsed.socket_path_full = "unix:" .. parsed.socket_path
-    
     parsed.full_path = parsed.path
+    -- connection_key is "unix:/path" which is what resty.http expects in the host field
     parsed.connection_key = "unix:" .. parsed.socket_path
     return parsed
   end
@@ -277,7 +275,8 @@ function Client:_get_httpc()
   
   if self.url_params.is_unix then
     -- For Unix sockets, resty.http expects the full "unix:/path" in the host field
-    connect_opts.host = self.url_params.socket_path_full or ("unix:" .. self.url_params.socket_path)
+    -- Use connection_key which already contains "unix:/path"
+    connect_opts.host = self.url_params.connection_key
     -- Explicitly set scheme and port to nil for Unix sockets (resty.http requirement)
     connect_opts.scheme = nil
     connect_opts.port = nil
@@ -312,12 +311,32 @@ function Client:_release_httpc()
     return true, nil
   end
   
-  local ok, err = self.httpc:set_keepalive(self.keepalive_timeout, self.keepalive_pool_size)
-  if not ok then
-    -- If keepalive fails, close the connection
-    self.httpc:close()
+  -- Check if keepalive_timeout and keepalive_pool_size are set
+  -- If not, just close the connection (no keep-alive)
+  if not self.keepalive_timeout or not self.keepalive_pool_size then
+    pcall(function() self.httpc:close() end)
     self.httpc = nil
-    return false, "Failed to set keepalive: " .. (err or "unknown")
+    return true, nil
+  end
+  
+  -- Try to set keepalive - use pcall to safely handle any errors
+  local success, ok, err = pcall(function()
+    return self.httpc:set_keepalive(self.keepalive_timeout, self.keepalive_pool_size)
+  end)
+  
+  if not success then
+    -- pcall failed - set_keepalive threw an error (ok contains the error message)
+    pcall(function() self.httpc:close() end)
+    self.httpc = nil
+    return false, "Failed to set keepalive: " .. tostring(ok)
+  end
+  
+  -- Check if set_keepalive returned success (ok is boolean, err is error message if failed)
+  if not ok then
+    -- set_keepalive returned false
+    pcall(function() self.httpc:close() end)
+    self.httpc = nil
+    return false, "Failed to set keepalive: " .. (tostring(err) or "unknown")
   end
   
   -- After set_keepalive(), the httpc object is in a "closed" state but the connection
