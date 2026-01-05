@@ -260,38 +260,10 @@ end
 -- @return httpc: HTTP client object, or nil on error
 -- @return err: Error message if failed
 function Client:_get_httpc()
-  -- Reuse existing connection if available
-  if self.httpc then
-    local connect_opts = {}
-    
-    if self.url_params.is_unix then
-      connect_opts.host = "localhost"
-      connect_opts.path = self.url_params.socket_path
-      connect_opts.scheme = nil
-      connect_opts.port = nil
-    else
-      connect_opts.scheme = self.url_params.scheme
-      connect_opts.host = self.url_params.host
-      connect_opts.port = self.url_params.port
-    end
-    
-    connect_opts.ssl_verify = self.ssl_verify
-    
-    if self.ssl_client_cert and self.ssl_client_priv_key then
-      connect_opts.ssl_client_cert = self.ssl_client_cert
-      connect_opts.ssl_client_priv_key = self.ssl_client_priv_key
-    end
-    
-    -- Try to reconnect (resty.http handles keep-alive automatically)
-    local ok, err = self.httpc:connect(connect_opts)
-    if ok then
-      return self.httpc, nil
-    end
-    
-    -- Connection failed, create new one
-    ngx.log(ngx.DEBUG, "Connection reuse failed, creating new: " .. (err or "unknown"))
-    self.httpc = nil
-  end
+  -- After set_keepalive(), the httpc is in a closed state
+  -- resty.http will reuse the underlying connection from its pool when we create a new httpc
+  -- So we always create a new httpc instance here
+  -- (The actual TCP connection is reused by resty.http internally)
   
   -- Create new HTTP client instance
   self.httpc = http.new()
@@ -303,6 +275,7 @@ function Client:_get_httpc()
   if self.url_params.is_unix then
     connect_opts.host = "localhost"
     connect_opts.path = self.url_params.socket_path
+    -- Explicitly set scheme and port to nil for Unix sockets (resty.http requirement)
     connect_opts.scheme = nil
     connect_opts.port = nil
   else
@@ -345,8 +318,9 @@ function Client:_release_httpc()
   end
   
   -- After set_keepalive(), the httpc object is in a "closed" state but the connection
-  -- is in resty.http's pool. We keep the reference - on next request, connect() will
-  -- reuse the connection from the pool automatically.
+  -- is in resty.http's pool. Clear the reference - we'll create a new httpc on next request,
+  -- and resty.http will automatically reuse the underlying connection from its pool.
+  self.httpc = nil
   return true, nil
 end
 
