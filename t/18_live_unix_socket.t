@@ -4,7 +4,7 @@ run_tests();
 
 __DATA__
 
-=== TEST 17: TLS Auth mode test
+=== TEST 18: Live mode with Unix socket LAPI
 
 --- main_config
 load_module /usr/share/nginx/modules/ndk_http_module.so;
@@ -19,7 +19,7 @@ lua_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
 init_by_lua_block
 {
         cs = require "crowdsec"
-        local ok, err = cs.init("./t/conf_t/17_live_and_tls_crowdsec_nginx_bouncer.conf", "crowdsec-nginx-bouncer/v1.0.8")
+        local ok, err = cs.init("./t/conf_t/18_live_unix_socket_crowdsec_nginx_bouncer.conf", "crowdsec-nginx-bouncer/v1.0.8")
         if ok == nil then
                 ngx.log(ngx.ERR, "[Crowdsec] " .. err)
                 error()
@@ -33,11 +33,7 @@ access_by_lua_block {
 }
 
 server {
-    listen 8081 ssl;
-    ssl_certificate /tmp/ca-test/server-cert.pem;
-    ssl_certificate_key /tmp/ca-test/server-key.pem;
-    ssl_client_certificate /tmp/ca-test/rootCA.pem;
-    ssl_verify_client on;
+    listen unix:/tmp/crowdsec-test.sock;
 
     location = /v1/decisions {
         content_by_lua_block {
@@ -67,3 +63,4 @@ X-Forwarded-For: 1.1.1.1
 --- request
 GET /t
 --- error_code: 403
+
