@@ -359,6 +359,119 @@ local function get_body()
   return body
 end
 
+--- Helper function to extract and convert header to number
+-- Handles cases where headers might be tables (multiple values)
+-- @param h: header value (string, table, or nil)
+-- @return: number or nil
+local function header_number(h)
+  if type(h) == "table" then
+    h = h[1]  -- Take first value if table
+  end
+  if type(h) ~= "string" or h == "" then
+    return nil
+  end
+  return tonumber(h)
+end
+
+--- Get body iterator and content length for streaming
+-- Returns an iterator function and content length value
+-- The iterator can be passed to resty.http for streaming large bodies
+-- @param chunk_size: number (optional) chunk size in bytes, defaults to 8192 (8KB)
+-- @return iterator: function that returns chunks (or nil when done)
+-- @return content_length: number or nil if no body
+-- @return err: error message if failed
+local function get_body_iterator(chunk_size)
+  -- Validate and set chunk size (8KB-64KB range, default 8KB)
+  chunk_size = chunk_size or 8192
+  if chunk_size < 8192 then
+    chunk_size = 8192  -- Minimum 8KB
+  elseif chunk_size > 65536 then
+    chunk_size = 65536  -- Maximum 64KB
+  end
+  
+  -- Read body (required by nginx)
+  -- Note: Without additional Nginx config, this is buffered anyway
+  ngx.req.read_body()
+  
+  -- Try to get Content-Length from original request header first
+  local content_length = header_number(ngx.var.http_content_length)
+  if not content_length then
+    local headers = ngx.req.get_headers()
+    content_length = header_number(headers["content-length"]) or header_number(headers["Content-Length"])
+  end
+  
+  -- Check if body is in memory
+  local body = ngx.req.get_body_data()
+  if body ~= nil then
+    -- If we don't have content-length from header, calculate from body
+    if not content_length then
+      content_length = #body
+    end
+    
+    -- Create iterator for in-memory body
+    -- Note: This does not reduce peak memory (body is already in memory)
+    local pos = 1
+    local len = #body
+    
+    local iterator = function()
+      if pos > len then
+        return nil
+      end
+      local chunk = body:sub(pos, pos + chunk_size - 1)
+      pos = pos + chunk_size
+      return chunk
+    end
+    
+    return iterator, content_length, nil
+  end
+  
+  -- Check if body is in temp file
+  local bodyfile = ngx.req.get_body_file()
+  if bodyfile then
+    -- Body is in temp file - create iterator from file
+    -- Note: io.open/fh:read() is blocking I/O, but acceptable for local temp files
+    -- Keep chunk size modest (8KB-64KB) to avoid blocking workers excessively
+    local fh, err = io.open(bodyfile, "rb")  -- Open in binary mode
+    if not fh then
+      return nil, nil, "Failed to open body file: " .. (err or "unknown")
+    end
+    
+    -- Get file size if we don't have content-length from header
+    if not content_length then
+      local file_size = fh:seek("end")
+      if not file_size then
+        fh:close()
+        return nil, nil, "Failed to get file size"
+      end
+      content_length = file_size
+    end
+    
+    -- Reset to beginning of file
+    fh:seek("set", 0)
+    
+    -- Create iterator for file body
+    -- Note: fh is captured in closure, will be closed when iterator returns nil
+    local iterator = function()
+      if not fh then
+        return nil
+      end
+      local chunk = fh:read(chunk_size)
+      if chunk == nil then
+        -- EOF reached, close file and return nil
+        fh:close()
+        fh = nil
+        return nil
+      end
+      return chunk
+    end
+    
+    return iterator, content_length, nil
+  end
+  
+  -- No body
+  return nil, nil, nil
+end
+
 function csmod.GetCaptchaBackendKey()
   return captcha.GetCaptchaBackendKey()
 end
@@ -597,23 +710,29 @@ function csmod.AppSecCheck(ip)
   end
 
   local method = "GET"
-
-  local body = get_body()
-  if body ~= nil then
-    if #body > 0 then
-      method = "POST"
-      if headers["content-length"] == nil then
-        headers["content-length"] = tostring(#body)
-      end
-    end
+  -- Get configured chunk size for body streaming (default 8KB, range 8KB-64KB)
+  local chunk_size = runtime.conf["APPSEC_BODY_CHUNK_SIZE"] or 8192
+  local body_iterator, content_length, body_err = get_body_iterator(chunk_size)
+  
+  local request_body_reader = nil
+  if body_iterator and content_length and content_length > 0 then
+    method = "POST"
+    -- Set Content-Length header from iterator
+    headers["content-length"] = tostring(content_length)
+    -- Use iterator for streaming body
+    request_body_reader = body_iterator
+  elseif body_err then
+    ngx.log(ngx.ERR, "Failed to get body iterator: " .. body_err)
+    return ok, remediation, status_code, body_err
   else
+    -- No body, send GET request
     headers["content-length"] = nil
   end
 
   local res, err = httpc:request_uri(runtime.conf["APPSEC_URL"], {
     method = method,
     headers = headers,
-    body = body,
+    body = request_body_reader,  -- nil for GET, iterator for POST with body
     ssl_verify = runtime.conf["SSL_VERIFY"],
   })
   httpc:close()
@@ -640,10 +759,10 @@ function csmod.AppSecCheck(ip)
   elseif res.status == 401 then
     ngx.log(ngx.ERR, "Unauthenticated request to APPSEC")
   else
-    ngx.log(ngx.ERR, "Bad request to APPSEC (" .. res.status .. "): " .. res.body)
+    ngx.log(ngx.ERR, "Bad request to APPSEC (" .. res.status .. "): " .. (res.body or ""))
   end
 
-  return ok, remediation, status_code, err
+  return ok, remediation, status_code, nil
 
 end
 
