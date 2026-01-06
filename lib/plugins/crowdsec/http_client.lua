@@ -404,7 +404,7 @@ function Client:request(method, path, headers, body)
   
   if not res then
     -- Request failed, clear httpc so we create a new one next time
-    self.httpc:close()
+    pcall(function() self.httpc:close() end)
     self.httpc = nil
     return nil, err or "Request failed"
   end
@@ -491,7 +491,7 @@ function Client:request_uri(path, options)
   
   if not res then
     -- Request failed, clear httpc so we create a new one next time
-    self.httpc:close()
+    pcall(function() self.httpc:close() end)
     self.httpc = nil
     return nil, err or "Request failed"
   end
