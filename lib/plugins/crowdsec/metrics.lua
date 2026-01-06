@@ -9,7 +9,7 @@ metrics.cache = ngx.shared.crowdsec_cache
 
 
 -- Constructor for the store
-function metrics:new(userAgent, conf, api_key_header)
+function metrics:new(userAgent, conf)
   local info = osinfo.get_os_info()
   self.cache:set("metrics_data", cjson.encode({
     version = userAgent,
@@ -22,37 +22,43 @@ function metrics:new(userAgent, conf, api_key_header)
     utc_startup_timestamp = ngx.time(),
   }))
   
-  -- Create HTTP client for metrics (with mTLS support if configured)
+  -- Create HTTP client for metrics (with mTLS, API key, and user agent support if configured)
   self.metrics_client = nil
-  self.use_tls_auth = false
-  self.api_key_header = nil
-  self.api_key = nil
   
   if conf and conf["API_URL"] and conf["API_URL"] ~= "" then
     -- Check if mTLS is enabled
-    self.use_tls_auth = conf["USE_TLS_AUTH"] and 
-                       conf["TLS_CLIENT_CERT_PARSED"] ~= nil and 
-                       conf["TLS_CLIENT_KEY_PARSED"] ~= nil
+    local use_tls_auth = conf["USE_TLS_AUTH"] and 
+                        conf["TLS_CLIENT_CERT_PARSED"] ~= nil and 
+                        conf["TLS_CLIENT_KEY_PARSED"] ~= nil
     
-    -- Store API key info for non-mTLS requests
-    if not self.use_tls_auth then
-      self.api_key_header = api_key_header or "X-Api-Key"
-      self.api_key = conf["API_KEY"]
+    -- Ensure REQUEST_TIMEOUT is a valid number, default to 3000ms if not set
+    local request_timeout = tonumber(conf["REQUEST_TIMEOUT"])
+    if not request_timeout or request_timeout <= 0 then
+      request_timeout = 3000  -- Default to 3 seconds
+      ngx.log(ngx.WARN, "REQUEST_TIMEOUT not set or invalid, using default: " .. request_timeout .. "ms")
     end
     
     local client_options = {
       timeouts = {
-        connect = conf["REQUEST_TIMEOUT"] or 1000,
-        send = conf["REQUEST_TIMEOUT"] or 1000,
-        read = conf["REQUEST_TIMEOUT"] or 1000
+        connect = request_timeout,
+        send = request_timeout,
+        read = request_timeout
       },
       ssl_verify = conf["SSL_VERIFY"],
       keepalive_timeout = conf["KEEPALIVE_TIMEOUT"],
-      keepalive_pool_size = conf["KEEPALIVE_POOL_SIZE"]
+      keepalive_pool_size = conf["KEEPALIVE_POOL_SIZE"],
+      user_agent = userAgent,
+      use_tls_auth = use_tls_auth
     }
     
+    -- Add API key only if not using TLS auth
+    if not use_tls_auth then
+      client_options.api_key = conf["API_KEY"]
+      -- Use default API key header from http_client
+    end
+    
     -- Add mTLS options if TLS auth is enabled (use parsed PEM objects when available)
-    if self.use_tls_auth then
+    if use_tls_auth then
       client_options.ssl_client_cert = conf["TLS_CLIENT_CERT_PARSED"] or conf["TLS_CLIENT_CERT"]
       client_options.ssl_client_priv_key = conf["TLS_CLIENT_KEY_PARSED"] or conf["TLS_CLIENT_KEY"]
     end
@@ -60,6 +66,7 @@ function metrics:new(userAgent, conf, api_key_header)
     local client, err = http_client.new(conf["API_URL"], client_options)
     if client then
       self.metrics_client = client
+      ngx.log(ngx.DEBUG, "[METRICS] Created HTTP client with timeouts: connect=" .. request_timeout .. "ms, send=" .. request_timeout .. "ms, read=" .. request_timeout .. "ms")
     else
       ngx.log(ngx.WARN, "Failed to create metrics HTTP client: " .. (err or "unknown"))
     end
@@ -192,7 +199,7 @@ function metrics:toJson(window)
   return cjson.encode({log_processors = cjson.null, remediation_components = remediation_components})
 end
 
-function metrics:sendMetrics(link, headers, ssl, window)
+function metrics:sendMetrics(window, headers)
   local body = self:toJson(window) .. "\n"
   ngx.log(ngx.DEBUG, "Sending metrics to /v1/usage-metrics")
   ngx.log(ngx.DEBUG, "metrics: " .. body)
@@ -203,18 +210,9 @@ function metrics:sendMetrics(link, headers, ssl, window)
     return
   end
   
-  -- Build headers (conditionally add API key if not using mTLS)
-  local request_headers = {}
-  if headers then
-    for k, v in pairs(headers) do
-      request_headers[k] = v
-    end
-  end
-  
-  -- Only add API key header if not using mTLS
-  if not self.use_tls_auth and self.api_key_header and self.api_key then
-    request_headers[self.api_key_header] = self.api_key
-  end
+  -- Build headers (merge any additional headers passed in)
+  -- HTTP client will automatically add User-Agent and API key if configured
+  local request_headers = headers or {}
   
   local res, err = self.metrics_client:request_uri("/v1/usage-metrics", {
     method = "POST",
@@ -223,7 +221,7 @@ function metrics:sendMetrics(link, headers, ssl, window)
   })
   
   if not res then
-    ngx.log(ngx.ERR, "failed to send metrics: ", err)
+    ngx.log(ngx.ERR, "failed to send metrics: " .. (err or "unknown"))
   else
     ngx.log(ngx.DEBUG, "metrics status: " .. res.status)
     ngx.log(ngx.DEBUG, "metrics body: " .. body)

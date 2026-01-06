@@ -11,36 +11,47 @@ live.cache = ngx.shared.crowdsec_cache
 -- Create a new live object to query the live API
 -- @param conf table: Runtime configuration table
 -- @param user_agent string: User agent string
--- @param api_key_header string: the authorization header to use for the lapi request
 -- @return live: the live object
 
-function live:new(conf, user_agent, api_key_header)
+function live:new(conf, user_agent)
   local instance = setmetatable({}, self)
-  instance.api_url = conf["API_URL"]
-  instance.api_key_header = api_key_header
-  instance.api_key = conf["API_KEY"]
-  instance.user_agent = user_agent
-  instance.use_tls_auth = conf["USE_TLS_AUTH"] and 
-                          conf["TLS_CLIENT_CERT_PARSED"] ~= nil and 
-                          conf["TLS_CLIENT_KEY_PARSED"] ~= nil
   
-  -- Create single HTTP client (handles mTLS if configured)
+  -- Create single HTTP client (handles mTLS, API key, and user agent if configured)
   instance.API_CLIENT = nil
   
   if conf["API_URL"] ~= "" then
+    local use_tls_auth = conf["USE_TLS_AUTH"] and 
+                         conf["TLS_CLIENT_CERT_PARSED"] ~= nil and 
+                         conf["TLS_CLIENT_KEY_PARSED"] ~= nil
+    
+    -- Ensure REQUEST_TIMEOUT is a valid number, default to 3000ms if not set
+    local request_timeout = tonumber(conf["REQUEST_TIMEOUT"])
+    if not request_timeout or request_timeout <= 0 then
+      request_timeout = 3000  -- Default to 3 seconds
+      ngx.log(ngx.WARN, "REQUEST_TIMEOUT not set or invalid, using default: " .. request_timeout .. "ms")
+    end
+    
     local client_options = {
       timeouts = {
-        connect = conf["REQUEST_TIMEOUT"] or 1000,
-        send = conf["REQUEST_TIMEOUT"] or 1000,
-        read = conf["REQUEST_TIMEOUT"] or 1000
+        connect = request_timeout,
+        send = request_timeout,
+        read = request_timeout
       },
       ssl_verify = conf["SSL_VERIFY"],
       keepalive_timeout = conf["KEEPALIVE_TIMEOUT"],
-      keepalive_pool_size = conf["KEEPALIVE_POOL_SIZE"]
+      keepalive_pool_size = conf["KEEPALIVE_POOL_SIZE"],
+      user_agent = user_agent,
+      use_tls_auth = use_tls_auth
     }
     
+    -- Add API key only if not using TLS auth
+    if not use_tls_auth then
+      client_options.api_key = conf["API_KEY"]
+      -- Use default API key header from http_client
+    end
+    
     -- Add mTLS options if TLS auth is enabled (use parsed PEM objects when available)
-    if instance.use_tls_auth then
+    if use_tls_auth then
       client_options.ssl_client_cert = conf["TLS_CLIENT_CERT_PARSED"] or conf["TLS_CLIENT_CERT"]
       client_options.ssl_client_priv_key = conf["TLS_CLIENT_KEY_PARSED"] or conf["TLS_CLIENT_KEY"]
     end
@@ -49,6 +60,7 @@ function live:new(conf, user_agent, api_key_header)
     
     if client then
       instance.API_CLIENT = client
+      ngx.log(ngx.DEBUG, "[LIVE] Created HTTP client with timeouts: connect=" .. request_timeout .. "ms, send=" .. request_timeout .. "ms, read=" .. request_timeout .. "ms")
     else
       ngx.log(ngx.WARN, "Failed to create API HTTP client: " .. (err or "unknown"))
     end
@@ -74,28 +86,18 @@ function live:live_query(ip, cache_expiration, bouncing_on_type)
   
   -- Build path (base path from API_URL will be prepended by request_uri)
   local path = "/v1/decisions?ip=" .. ip
-  local link = self.api_url .. path
-  
-  -- Build headers: always include User-Agent, include API key only if not using mTLS
-  local headers = {
-    ['User-Agent'] = self.user_agent
-  }
-  
-  if not self.use_tls_auth then
-    headers[self.api_key_header] = self.api_key
-  end
+  local full_url = self.API_CLIENT:build_url(path)
   
   local res, err = self.API_CLIENT:request_uri(path, {
-    method = "GET",
-    headers = headers
+    method = "GET"
   })
 
   if not res then
-    ngx.log(ngx.ERR, "failed to query LAPI " .. link .. ": ".. (err or "unknown"))
-    return true, nil, nil, "request failed: ".. (err or "unknown")
+    ngx.log(ngx.ERR, "failed to query LAPI: " .. (err or "unknown"))
+    return true, nil, nil, err or "request failed"
   end
 
-  return self:live_query_process(res, ip, cache_expiration, bouncing_on_type, link)
+  return self:live_query_process(res, ip, cache_expiration, bouncing_on_type, full_url)
 end
 
 --- Process the HTTP response from the CrowdSec API for live queries

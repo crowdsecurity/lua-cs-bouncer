@@ -29,7 +29,6 @@ local APPSEC_HOST_HEADER = "x-crowdsec-appsec-host"
 local APPSEC_VERB_HEADER = "x-crowdsec-appsec-verb"
 local APPSEC_URI_HEADER = "x-crowdsec-appsec-uri"
 local APPSEC_USER_AGENT_HEADER = "x-crowdsec-appsec-user-agent"
-local REMEDIATION_API_KEY_HEADER = 'x-api-key'
 local METRICS_PERIOD = 900
 
 --- only for debug purpose
@@ -210,18 +209,15 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
   end
 
-  if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "false" then
-    runtime.conf["ALWAYS_SEND_TO_APPSEC"] = false
-  else
-    runtime.conf["ALWAYS_SEND_TO_APPSEC"] = true
-  end
+  runtime.conf["ALWAYS_SEND_TO_APPSEC"] = runtime.conf["ALWAYS_SEND_TO_APPSEC"] ~= "false"
 
   runtime.conf["APPSEC_ENABLED"] = false
   runtime.APPSEC_CLIENT = nil
 
   if runtime.conf["APPSEC_URL"] ~= "" then
+    -- APPSEC only supports API key authentication (no mTLS)
     -- Create HTTP client object once (URL parsed once)
-    local client, err = http_client.new(runtime.conf["APPSEC_URL"], {
+    local client_options = {
       timeouts = {
         connect = runtime.conf["APPSEC_CONNECT_TIMEOUT"],
         send = runtime.conf["APPSEC_SEND_TIMEOUT"],
@@ -229,8 +225,15 @@ function csmod.init(configFile, userAgent)
       },
       ssl_verify = runtime.conf["SSL_VERIFY"],
       keepalive_timeout = runtime.conf["KEEPALIVE_TIMEOUT"],
-      keepalive_pool_size = runtime.conf["KEEPALIVE_POOL_SIZE"]
-    })
+      keepalive_pool_size = runtime.conf["KEEPALIVE_POOL_SIZE"],
+      user_agent = userAgent,
+      use_tls_auth = false,  -- APPSEC does not support mTLS
+      api_key = runtime.conf["API_KEY"],
+      -- APPSEC uses a different API key header name
+      api_key_header = APPSEC_API_KEY_HEADER
+    }
+    
+    local client, err = http_client.new(runtime.conf["APPSEC_URL"], client_options)
     
     if not client then
       ngx.log(ngx.ERR, "Failed to create APPSEC HTTP client: " .. (err or "unknown"))
@@ -284,10 +287,10 @@ function csmod.init(configFile, userAgent)
 
   if runtime.conf["MODE"] == "live" then
     ngx.log(ngx.INFO, "lua nginx bouncer enabled with live mode")
-    runtime.live = live:new(runtime.conf, runtime.userAgent, REMEDIATION_API_KEY_HEADER)
+    runtime.live = live:new(runtime.conf, runtime.userAgent)
   else
     ngx.log(ngx.INFO, "lua nginx bouncer enabled with stream mode")
-    runtime.stream = stream:new(runtime.conf, runtime.userAgent, REMEDIATION_API_KEY_HEADER)
+    runtime.stream = stream:new(runtime.conf, runtime.userAgent)
   end
   return true, nil
 end
@@ -317,7 +320,7 @@ function csmod.SetupMetrics()
   local first_run = runtime.cache:get("metrics_first_run")
   if first_run then
     ngx.log(ngx.DEBUG, "First run for setup metrics ")
-    metrics:new(runtime.userAgent, runtime.conf, REMEDIATION_API_KEY_HEADER)
+    metrics:new(runtime.userAgent, runtime.conf)
     runtime.cache:set("metrics_first_run",false)
     Setup_metrics_timer()
     return
@@ -329,12 +332,11 @@ function csmod.SetupMetrics()
       if runtime.conf["MODE"] == "stream" then
         stream:refresh_metrics()
       end
-      -- Headers are now handled internally by metrics (API key added conditionally based on mTLS)
+      -- HTTP client handles User-Agent and API key automatically
+      -- Only pass Content-Type header
       metrics:sendMetrics(
-        runtime.conf["API_URL"],
-        {['User-Agent']=runtime.userAgent,["Content-Type"]="application/json"},
-        runtime.conf["SSL_VERIFY"],
-        METRICS_PERIOD
+        METRICS_PERIOD,
+        {["Content-Type"]="application/json"}
       )
     end
     local succ, err, forcible = runtime.cache:set("metrics_startup_time", ngx.time())  -- to make sure we have only one thread sending metrics
@@ -565,7 +567,7 @@ function csmod.AppSecCheck(ip)
   headers[APPSEC_VERB_HEADER] = ngx.var.request_method
   headers[APPSEC_URI_HEADER] = uri
   headers[APPSEC_USER_AGENT_HEADER] = ngx.var.http_user_agent
-  headers[APPSEC_API_KEY_HEADER] = runtime.conf["API_KEY"]
+  -- API key is now automatically added by http_client with the correct header name
 
   local ok, remediation, status_code = true, "allow", 200
   if runtime.conf["APPSEC_FAILURE_ACTION"] == DENY then

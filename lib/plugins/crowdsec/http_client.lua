@@ -19,6 +19,9 @@ local url = require "plugins.crowdsec.url"
 
 local M = {}
 
+-- Default API key header name
+M.DEFAULT_API_KEY_HEADER = "X-Api-Key"
+
 -- Note: Connection pooling is handled by resty.http via set_keepalive()
 -- Each Client object owns its own httpc instance
 
@@ -157,6 +160,10 @@ end
 --   ssl_client_priv_key: string or cdata - (optional) path to client private key for mTLS, or parsed PEM object
 --   keepalive_timeout: number - (optional) keep-alive timeout in ms
 --   keepalive_pool_size: number - (optional) pool size
+--   api_key: string - (optional) API key for authentication
+--   api_key_header: string - (optional) Header name for API key (default: http_client.DEFAULT_API_KEY_HEADER)
+--   user_agent: string - (optional) User-Agent header value
+--   use_tls_auth: boolean - (optional) Whether to use TLS auth instead of API key
 -- @return client: HTTP client object, or nil on error
 -- @return err: Error message if failed
 function M.new(url_str, options)
@@ -168,22 +175,43 @@ function M.new(url_str, options)
     return nil, err
   end
   
+  -- Determine if using TLS auth (either explicitly set or inferred from cert/key presence)
+  local use_tls_auth = options.use_tls_auth
+  if use_tls_auth == nil then
+    use_tls_auth = (options.ssl_client_cert ~= nil and options.ssl_client_priv_key ~= nil)
+  end
+  
   -- Build connection key with mTLS info if applicable
   local connection_key = url_params.connection_key
   if options.ssl_client_cert and options.ssl_client_priv_key then
     connection_key = connection_key .. "|mtls"
   end
   
+  -- Validate and set timeouts (ensure they're numbers and positive)
+  local timeouts = options.timeouts or {connect=3000, send=3000, read=3000}
+  timeouts.connect = tonumber(timeouts.connect) or 3000
+  timeouts.send = tonumber(timeouts.send) or 3000
+  timeouts.read = tonumber(timeouts.read) or 3000
+  
+  -- Ensure timeouts are positive
+  if timeouts.connect <= 0 then timeouts.connect = 3000 end
+  if timeouts.send <= 0 then timeouts.send = 3000 end
+  if timeouts.read <= 0 then timeouts.read = 3000 end
+  
   -- Create client object with its own httpc instance
   local client = setmetatable({
     url_params = url_params,
     connection_key = connection_key,
-    timeouts = options.timeouts or {connect=1000, send=1000, read=1000},
+    timeouts = timeouts,
     ssl_verify = options.ssl_verify ~= false,  -- default true
     ssl_client_cert = options.ssl_client_cert,
     ssl_client_priv_key = options.ssl_client_priv_key,
     keepalive_timeout = options.keepalive_timeout,
     keepalive_pool_size = options.keepalive_pool_size,
+    api_key = options.api_key,
+    api_key_header = options.api_key_header or M.DEFAULT_API_KEY_HEADER,
+    user_agent = options.user_agent,
+    use_tls_auth = use_tls_auth,
     httpc = nil,  -- HTTP client instance (created on first use)
   }, Client)
   
@@ -202,7 +230,12 @@ function Client:_get_httpc()
   
   -- Create new HTTP client instance
   self.httpc = http.new()
-  self.httpc:set_timeouts(self.timeouts.connect, self.timeouts.send, self.timeouts.read)
+  -- Ensure timeouts are valid numbers before setting
+  local connect_timeout = tonumber(self.timeouts.connect) or 3000
+  local send_timeout = tonumber(self.timeouts.send) or 3000
+  local read_timeout = tonumber(self.timeouts.read) or 3000
+  self.httpc:set_timeouts(connect_timeout, send_timeout, read_timeout)
+  ngx.log(ngx.DEBUG, "[HTTP_CLIENT] Set timeouts: connect=" .. connect_timeout .. "ms, send=" .. send_timeout .. "ms, read=" .. read_timeout .. "ms")
   
   -- Connect
   local connect_opts = {}
@@ -357,6 +390,35 @@ function Client:_build_path(path)
   return final_path
 end
 
+--- Build full URL for error messages
+-- @param path string: Request path (may include query string)
+-- @return string: Full URL including base URL and path
+function Client:build_url(path)
+  local full_path = self:_build_path(path)
+  
+  -- For Unix sockets, the full_url is "unix:/path/to/sock" and we append the HTTP path
+  if self.url_params.is_unix then
+    -- Extract the base socket path (everything before any HTTP path)
+    local base_socket = self.url_params.full_url
+    -- If the original URL had an HTTP path component, remove it
+    local http_path_match = base_socket:match("(/v%d+/.*)$") or base_socket:match("(/api/.*)$")
+    if http_path_match then
+      base_socket = base_socket:sub(1, #base_socket - #http_path_match)
+    end
+    return base_socket .. full_path
+  end
+  
+  -- For HTTP/HTTPS, construct from scheme, host, port, and path
+  local base_url = self.url_params.scheme .. "://" .. self.url_params.host
+  if self.url_params.port and 
+     ((self.url_params.scheme == "http" and self.url_params.port ~= 80) or
+      (self.url_params.scheme == "https" and self.url_params.port ~= 443)) then
+    base_url = base_url .. ":" .. self.url_params.port
+  end
+  
+  return base_url .. full_path
+end
+
 --- Make HTTP request with full control
 -- @param client: Client object (self)
 -- @param method string: HTTP method (GET, POST, etc.)
@@ -366,9 +428,10 @@ end
 -- @return res: HTTP response object, or nil on error
 -- @return err: Error message if failed
 function Client:request(method, path, headers, body)
+  local full_url = self:build_url(path)
   local httpc, err = self:_get_httpc()
   if not httpc then
-    return nil, err
+    return nil, "Failed to connect to " .. full_url .. ": " .. (err or "unknown")
   end
   
   -- Set Host header appropriately
@@ -392,6 +455,16 @@ function Client:request(method, path, headers, body)
     end
   end
   
+  -- Add User-Agent if configured
+  if self.user_agent and not headers["User-Agent"] and not headers["user-agent"] then
+    headers["User-Agent"] = self.user_agent
+  end
+  
+  -- Add API key header if not using TLS auth
+  if not self.use_tls_auth and self.api_key then
+    headers[self.api_key_header] = self.api_key
+  end
+  
   local full_path = self:_build_path(path)
 
   -- Make request
@@ -406,7 +479,7 @@ function Client:request(method, path, headers, body)
     -- Request failed, clear httpc so we create a new one next time
     pcall(function() self.httpc:close() end)
     self.httpc = nil
-    return nil, err or "Request failed"
+    return nil, "Request to " .. full_url .. " failed: " .. (err or "unknown")
   end
   
   -- Read response body
@@ -450,11 +523,12 @@ function Client:request_uri(path, options)
   
   -- Build full path (include base path and query if configured)
   local full_path = self:_build_path(path)
+  local full_url = self:build_url(path)
   
   -- Get or create client
   local httpc, err = self:_get_httpc()
   if not httpc then
-    return nil, err
+    return nil, "Failed to connect to " .. full_url .. ": " .. (err or "unknown")
   end
   
   -- Prepare headers
@@ -477,6 +551,16 @@ function Client:request_uri(path, options)
     end
   end
   
+  -- Add User-Agent if configured
+  if self.user_agent and not headers["User-Agent"] and not headers["user-agent"] then
+    headers["User-Agent"] = self.user_agent
+  end
+  
+  -- Add API key header if not using TLS auth
+  if not self.use_tls_auth and self.api_key then
+    headers[self.api_key_header] = self.api_key
+  end
+  
   -- Remove Connection: close header if present (we want keep-alive)
   headers["Connection"] = nil
   headers["connection"] = nil
@@ -493,7 +577,7 @@ function Client:request_uri(path, options)
     -- Request failed, clear httpc so we create a new one next time
     pcall(function() self.httpc:close() end)
     self.httpc = nil
-    return nil, err or "Request failed"
+    return nil, "Request to " .. full_url .. " failed: " .. (err or "unknown")
   end
   
   -- Read response body

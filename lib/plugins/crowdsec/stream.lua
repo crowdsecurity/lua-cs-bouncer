@@ -129,35 +129,46 @@ end
 -- Create a new stream object to query the stream API
 -- @param conf table: Runtime configuration table
 -- @param user_agent string: User agent string
--- @param api_key_header string: the header to use for the API key
 -- @return stream: the stream object
-function stream:new(conf, user_agent, api_key_header)
+function stream:new(conf, user_agent)
   local instance = setmetatable({}, self)
-  instance.api_url = conf["API_URL"]
-  instance.api_key_header = api_key_header
-  instance.api_key = conf["API_KEY"]
-  instance.user_agent = user_agent
-  instance.use_tls_auth = conf["USE_TLS_AUTH"] and 
-                          conf["TLS_CLIENT_CERT_PARSED"] ~= nil and 
-                          conf["TLS_CLIENT_KEY_PARSED"] ~= nil
   
-  -- Create single HTTP client (handles mTLS if configured)
+  -- Create single HTTP client (handles mTLS, API key, and user agent if configured)
   instance.API_CLIENT = nil
   
   if conf["API_URL"] ~= "" then
+    local use_tls_auth = conf["USE_TLS_AUTH"] and 
+                         conf["TLS_CLIENT_CERT_PARSED"] ~= nil and 
+                         conf["TLS_CLIENT_KEY_PARSED"] ~= nil
+    
+    -- Ensure REQUEST_TIMEOUT is a valid number, default to 3000ms if not set
+    local request_timeout = tonumber(conf["REQUEST_TIMEOUT"])
+    if not request_timeout or request_timeout <= 0 then
+      request_timeout = 3000  -- Default to 3 seconds
+      ngx.log(ngx.WARN, "REQUEST_TIMEOUT not set or invalid, using default: " .. request_timeout .. "ms")
+    end
+    
     local client_options = {
       timeouts = {
-        connect = conf["REQUEST_TIMEOUT"] or 1000,
-        send = conf["REQUEST_TIMEOUT"] or 1000,
-        read = conf["REQUEST_TIMEOUT"] or 1000
+        connect = request_timeout,
+        send = request_timeout,
+        read = request_timeout
       },
       ssl_verify = conf["SSL_VERIFY"],
       keepalive_timeout = conf["KEEPALIVE_TIMEOUT"],
-      keepalive_pool_size = conf["KEEPALIVE_POOL_SIZE"]
+      keepalive_pool_size = conf["KEEPALIVE_POOL_SIZE"],
+      user_agent = user_agent,
+      use_tls_auth = use_tls_auth
     }
     
+    -- Add API key only if not using TLS auth
+    if not use_tls_auth then
+      client_options.api_key = conf["API_KEY"]
+      -- Use default API key header from http_client
+    end
+    
     -- Add mTLS options if TLS auth is enabled (use parsed PEM objects when available)
-    if instance.use_tls_auth then
+    if use_tls_auth then
       client_options.ssl_client_cert = conf["TLS_CLIENT_CERT_PARSED"] or conf["TLS_CLIENT_CERT"]
       client_options.ssl_client_priv_key = conf["TLS_CLIENT_KEY_PARSED"] or conf["TLS_CLIENT_KEY"]
     end
@@ -166,6 +177,7 @@ function stream:new(conf, user_agent, api_key_header)
     
     if client then
       instance.API_CLIENT = client
+      ngx.log(ngx.DEBUG, "[STREAM] Created HTTP client with timeouts: connect=" .. request_timeout .. "ms, send=" .. request_timeout .. "ms, read=" .. request_timeout .. "ms")
     else
       ngx.log(ngx.WARN, "Failed to create API HTTP client: " .. (err or "unknown"))
     end
@@ -185,10 +197,6 @@ function stream:stream_query(bouncing_on_type)
     return "HTTP client not available"
   end
 
-  if self.api_url == "" then
-    return "No API URL defined"
-  end
-
   set_refreshing(true)
 
   local is_startup = stream.cache:get("startup")
@@ -196,26 +204,15 @@ function stream:stream_query(bouncing_on_type)
   ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
   -- Build path (base path from API_URL will be prepended by request_uri)
   local path = "/v1/decisions/stream?startup=" .. tostring(is_startup)
-  local link = self.api_url .. path
-
-  -- Build headers: always include User-Agent, include API key only if not using mTLS
-  local headers = {
-    ['User-Agent'] = self.user_agent
-  }
-  
-  if not self.use_tls_auth then
-    headers[self.api_key_header] = self.api_key
-  end
 
   local res, err = self.API_CLIENT:request_uri(path, {
-    method = "GET",
-    headers = headers
+    method = "GET"
   })
 
   if not res then
     set_refreshing(false)
-    ngx.log(ngx.ERR, "request to crowdsec lapi " .. link .. " failed: " .. (err or "unknown"))
-    return "request to crowdsec lapi " .. link .. " failed: " .. (err or "unknown")
+    ngx.log(ngx.ERR, "request to crowdsec lapi failed: " .. (err or "unknown"))
+    return err or "request to crowdsec lapi failed"
   end
 
   return self:stream_query_process(res, bouncing_on_type)
