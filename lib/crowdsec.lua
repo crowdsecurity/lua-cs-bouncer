@@ -576,17 +576,23 @@ function csmod.AppSecCheck(ip)
   end
 
   local method = "GET"
+  local request_body = nil
 
   local body = get_body()
   if body ~= nil then
     if #body > 0 then
       method = "POST"
+      request_body = body
       if headers["content-length"] == nil then
         headers["content-length"] = tostring(#body)
       end
     end
-  else
+  end
+  
+  -- Remove content-length header for GET requests
+  if method == "GET" then
     headers["content-length"] = nil
+    headers["Content-Length"] = nil
   end
 
   -- Use pre-created HTTP client object (URL already parsed, connection pooling handled)
@@ -597,11 +603,16 @@ function csmod.AppSecCheck(ip)
   
   -- AppSec expects requests at the base path from APPSEC_URL
   -- The incoming request URI is already communicated via APPSEC_URI_HEADER
-  local res, err = runtime.APPSEC_CLIENT:request_base({
+  local request_options = {
     method = method,
-    headers = headers,
-    body = body
-  })
+    headers = headers
+  }
+  -- Only include body for POST requests
+  if request_body ~= nil then
+    request_options.body = request_body
+  end
+  
+  local res, err = runtime.APPSEC_CLIENT:request_base(request_options)
 
   if err ~= nil or not res then
     ngx.log(ngx.ERR, "Fallback because of err: " .. (err or "unknown"))

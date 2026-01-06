@@ -198,7 +198,7 @@ function M.new(url_str, options)
   if timeouts.send <= 0 then timeouts.send = 3000 end
   if timeouts.read <= 0 then timeouts.read = 3000 end
   
-  -- Create client object with its own httpc instance
+  -- Create client object (no httpc instance stored - created per request)
   local client = setmetatable({
     url_params = url_params,
     connection_key = connection_key,
@@ -212,29 +212,31 @@ function M.new(url_str, options)
     api_key_header = options.api_key_header or M.DEFAULT_API_KEY_HEADER,
     user_agent = options.user_agent,
     use_tls_auth = use_tls_auth,
-    httpc = nil,  -- HTTP client instance (created on first use)
   }, Client)
   
   return client, nil
 end
 
---- Get or create HTTP client instance (internal method)
--- Each client object owns its httpc instance
+--- Create and connect HTTP client instance (internal method)
+-- Following resty.http design: create, use, keepalive (don't store)
+-- resty.http handles connection pooling internally via set_keepalive()
 -- @return httpc: HTTP client object, or nil on error
 -- @return err: Error message if failed
-function Client:_get_httpc()
-  -- After set_keepalive(), the httpc is in a closed state
-  -- resty.http will reuse the underlying connection from its pool when we create a new httpc
-  -- So we always create a new httpc instance here
-  -- (The actual TCP connection is reused by resty.http internally)
+function Client:_create_httpc()
+  -- Create new HTTP client instance (resty.http will reuse connections from pool)
+  local httpc = http.new()
   
-  -- Create new HTTP client instance
-  self.httpc = http.new()
   -- Ensure timeouts are valid numbers before setting
   local connect_timeout = tonumber(self.timeouts.connect) or 3000
   local send_timeout = tonumber(self.timeouts.send) or 3000
   local read_timeout = tonumber(self.timeouts.read) or 3000
-  self.httpc:set_timeouts(connect_timeout, send_timeout, read_timeout)
+  
+  -- Validate timeouts are positive
+  if connect_timeout <= 0 then connect_timeout = 3000 end
+  if send_timeout <= 0 then send_timeout = 3000 end
+  if read_timeout <= 0 then read_timeout = 3000 end
+  
+  httpc:set_timeouts(connect_timeout, send_timeout, read_timeout)
   ngx.log(ngx.DEBUG, "[HTTP_CLIENT] Set timeouts: connect=" .. connect_timeout .. "ms, send=" .. send_timeout .. "ms, read=" .. read_timeout .. "ms")
   
   -- Connect
@@ -260,56 +262,53 @@ function Client:_get_httpc()
     connect_opts.ssl_client_priv_key = self.ssl_client_priv_key
   end
   
-  local ok, err = self.httpc:connect(connect_opts)
+  local ok, err = httpc:connect(connect_opts)
   if not ok then
-    self.httpc = nil
     return nil, "Failed to connect: " .. (err or "unknown")
   end
   
-  return self.httpc, nil
+  return httpc, nil
 end
 
 --- Release HTTP client back to keep-alive pool (internal method)
 -- Uses resty.http's built-in connection pooling via set_keepalive
+-- Following resty.http design: create, use, keepalive (don't store)
+-- @param httpc: HTTP client instance to release
 -- @return ok: boolean indicating success
 -- @return err: Error message if failed
-function Client:_release_httpc()
-  if not self.httpc then
+function Client:_release_httpc(httpc)
+  if not httpc then
     return true, nil
   end
   
   -- Check if keepalive_timeout and keepalive_pool_size are set
   -- If not, just close the connection (no keep-alive)
   if not self.keepalive_timeout or not self.keepalive_pool_size then
-    pcall(function() self.httpc:close() end)
-    self.httpc = nil
+    pcall(function() httpc:close() end)
     return true, nil
   end
   
   -- Try to set keepalive - use pcall to safely handle any errors
   local success, ok, err = pcall(function()
-    return self.httpc:set_keepalive(self.keepalive_timeout, self.keepalive_pool_size)
+    return httpc:set_keepalive(self.keepalive_timeout, self.keepalive_pool_size)
   end)
   
   if not success then
     -- pcall failed - set_keepalive threw an error (ok contains the error message)
-    pcall(function() self.httpc:close() end)
-    self.httpc = nil
+    pcall(function() httpc:close() end)
     return false, "Failed to set keepalive: " .. tostring(ok)
   end
   
   -- Check if set_keepalive returned success (ok is boolean, err is error message if failed)
   if not ok then
     -- set_keepalive returned false
-    pcall(function() self.httpc:close() end)
-    self.httpc = nil
+    pcall(function() httpc:close() end)
     return false, "Failed to set keepalive: " .. (tostring(err) or "unknown")
   end
   
   -- After set_keepalive(), the httpc object is in a "closed" state but the connection
-  -- is in resty.http's pool. Clear the reference - we'll create a new httpc on next request,
-  -- and resty.http will automatically reuse the underlying connection from its pool.
-  self.httpc = nil
+  -- is in resty.http's pool. resty.http will automatically reuse the underlying connection
+  -- from its pool when we create a new httpc on the next request.
   return true, nil
 end
 
@@ -429,7 +428,9 @@ end
 -- @return err: Error message if failed
 function Client:request(method, path, headers, body)
   local full_url = self:build_url(path)
-  local httpc, err = self:_get_httpc()
+  
+  -- Create new HTTP client (resty.http will reuse connections from pool)
+  local httpc, err = self:_create_httpc()
   if not httpc then
     return nil, "Failed to connect to " .. full_url .. ": " .. (err or "unknown")
   end
@@ -476,9 +477,8 @@ function Client:request(method, path, headers, body)
   })
   
   if not res then
-    -- Request failed, clear httpc so we create a new one next time
-    pcall(function() self.httpc:close() end)
-    self.httpc = nil
+    -- Request failed, close connection
+    pcall(function() httpc:close() end)
     return nil, "Request to " .. full_url .. " failed: " .. (err or "unknown")
   end
   
@@ -491,7 +491,7 @@ function Client:request(method, path, headers, body)
   end
   
   -- Return connection to keep-alive pool (resty.http handles pooling)
-  self:_release_httpc()
+  self:_release_httpc(httpc)
   
   return res, nil
 end
@@ -525,8 +525,8 @@ function Client:request_uri(path, options)
   local full_path = self:_build_path(path)
   local full_url = self:build_url(path)
   
-  -- Get or create client
-  local httpc, err = self:_get_httpc()
+  -- Create new HTTP client (resty.http will reuse connections from pool)
+  local httpc, err = self:_create_httpc()
   if not httpc then
     return nil, "Failed to connect to " .. full_url .. ": " .. (err or "unknown")
   end
@@ -574,9 +574,8 @@ function Client:request_uri(path, options)
   })
   
   if not res then
-    -- Request failed, clear httpc so we create a new one next time
-    pcall(function() self.httpc:close() end)
-    self.httpc = nil
+    -- Request failed, close connection
+    pcall(function() httpc:close() end)
     return nil, "Request to " .. full_url .. " failed: " .. (err or "unknown")
   end
   
@@ -590,7 +589,7 @@ function Client:request_uri(path, options)
   end
   
   -- Return connection to keep-alive pool (resty.http handles pooling)
-  self:_release_httpc()
+  self:_release_httpc(httpc)
   
   return res, nil
 end
