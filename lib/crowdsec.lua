@@ -209,7 +209,11 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
   end
 
-  runtime.conf["ALWAYS_SEND_TO_APPSEC"] = runtime.conf["ALWAYS_SEND_TO_APPSEC"] ~= "false"
+  if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "true" then
+    runtime.conf["ALWAYS_SEND_TO_APPSEC"] = true
+  else
+    runtime.conf["ALWAYS_SEND_TO_APPSEC"] = false
+  end
 
   runtime.conf["APPSEC_ENABLED"] = false
   runtime.APPSEC_CLIENT = nil
