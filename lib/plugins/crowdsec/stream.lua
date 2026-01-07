@@ -1,6 +1,7 @@
 local utils = require "plugins.crowdsec.utils"
 local cjson = require "cjson"
 local metrics = require "plugins.crowdsec.metrics"
+local http_client = require "plugins.crowdsec.http_client"
 local stream = {}
 
 stream.__index = stream
@@ -124,83 +125,90 @@ function stream:get(key)
   return stream.cache:get("decision_cache/" .. key)
 end
 
-function stream:new()
-  return self
+--- Create a new stream object
+-- Create a new stream object to query the stream API
+-- @param conf table: Runtime configuration table
+-- @param user_agent string: User agent string
+-- @return stream: the stream object
+function stream:new(conf, user_agent)
+  local instance = setmetatable({}, self)
+  
+  -- Create single HTTP client (handles mTLS, API key, and user agent if configured)
+  instance.API_CLIENT = nil
+  
+  if conf["API_URL"] ~= "" then
+    local use_tls_auth = conf["USE_TLS_AUTH"] and 
+                         conf["TLS_CLIENT_CERT_PARSED"] ~= nil and 
+                         conf["TLS_CLIENT_KEY_PARSED"] ~= nil
+    
+    -- Ensure REQUEST_TIMEOUT is a valid number, default to 3000ms if not set
+    local request_timeout = tonumber(conf["REQUEST_TIMEOUT"])
+    if not request_timeout or request_timeout <= 0 then
+      request_timeout = 3000  -- Default to 3 seconds
+      ngx.log(ngx.WARN, "REQUEST_TIMEOUT not set or invalid, using default: " .. request_timeout .. "ms")
+    end
+    
+    local client_options = {
+      timeouts = request_timeout,  -- Single value applied to all three timeouts
+      ssl_verify = conf["SSL_VERIFY"],
+      keepalive_timeout = conf["KEEPALIVE_TIMEOUT"],
+      keepalive_pool_size = conf["KEEPALIVE_POOL_SIZE"],
+      user_agent = user_agent,
+      use_tls_auth = use_tls_auth
+    }
+    
+    -- Add API key only if not using TLS auth
+    if not use_tls_auth then
+      client_options.api_key = conf["API_KEY"]
+      -- Use default API key header from http_client
+    end
+    
+    -- Add mTLS options if TLS auth is enabled (use parsed PEM objects when available)
+    if use_tls_auth then
+      client_options.ssl_client_cert = conf["TLS_CLIENT_CERT_PARSED"] or conf["TLS_CLIENT_CERT"]
+      client_options.ssl_client_priv_key = conf["TLS_CLIENT_KEY_PARSED"] or conf["TLS_CLIENT_KEY"]
+    end
+    
+    local client, err = http_client.new(conf["API_URL"], client_options)
+    
+    if client then
+      instance.API_CLIENT = client
+      ngx.log(ngx.DEBUG, "[STREAM] Created HTTP client with timeouts: connect=" .. request_timeout .. "ms, send=" .. request_timeout .. "ms, read=" .. request_timeout .. "ms")
+    else
+      ngx.log(ngx.WARN, "Failed to create API HTTP client: " .. (err or "unknown"))
+    end
+  end
+  
+  return instance
 end
 
---- Query the local API to get the decisions using API key authentication
--- @param api_url string: the URL of the local API
--- @param timeout number: the timeout for the request
--- @param api_key_header string: the header to use for the API key
--- @param api_key string: the API key to use for the request
--- @param user_agent string: the user agent to use for the request
--- @param ssl_verify boolean: whether to verify the SSL certificate or not
+--- Query the local API to get the decisions
+-- Uses API key authentication if mTLS is not configured, otherwise uses mTLS
 -- @param bouncing_on_type string: the type of decision to bounce on
-function stream:stream_query_api(api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
+function stream:stream_query(bouncing_on_type)
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
-  if api_url == "" then
-    return "No API URL defined"
+  if not self.API_CLIENT then
+    return "HTTP client not available"
   end
 
   set_refreshing(true)
 
   local is_startup = stream.cache:get("startup")
   ngx.log(ngx.DEBUG, "startup: " .. tostring(is_startup))
-  ngx.log(ngx.DEBUG, "Stream Query API from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
-  local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
+  ngx.log(ngx.DEBUG, "Stream Query from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
+  -- Build path (base path from API_URL will be prepended by request_uri)
+  local path = "/v1/decisions/stream?startup=" .. tostring(is_startup)
 
-  local res, err = utils.get_remediation_http_request(link,
-                                                      timeout,
-                                                      api_key_header,
-                                                      api_key,
-                                                      user_agent,
-                                                      ssl_verify)
+  local res, err = self.API_CLIENT:request_uri(path, {
+    method = "GET"
+  })
 
-  if not res then
+  if err ~= nil or not res then
     set_refreshing(false)
-    ngx.log(ngx.ERR, "request to crowdsec lapi " .. link .. " failed: " .. err)
-    return "request to crowdsec lapi " .. link .. " failed: " .. err
-  end
-
-  return self:stream_query_process(res, bouncing_on_type)
-end
-
---- Query the local API to get the decisions using mTLS authentication
--- @param api_url string: the URL of the local API
--- @param timeout number: the timeout for the request
--- @param user_agent string: the user agent to use for the request
--- @param ssl_verify boolean: whether to verify the SSL certificate or not
--- @param ssl_client_cert string: path to the client certificate file
--- @param ssl_client_priv_key string: path to the client private key file
--- @param bouncing_on_type string: the type of decision to bounce on
-function stream:stream_query_tls(api_url, timeout, user_agent, ssl_verify, ssl_client_cert, ssl_client_priv_key, bouncing_on_type)
-  -- As this function is running inside coroutine (with ngx.timer.at),
-  -- we need to raise error instead of returning them
-
-  if api_url == "" then
-    return "No API URL defined"
-  end
-
-  set_refreshing(true)
-
-  local is_startup = stream.cache:get("startup")
-  ngx.log(ngx.DEBUG, "startup: " .. tostring(is_startup))
-  ngx.log(ngx.DEBUG, "Stream Query TLS from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
-  local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
-
-  local res, err = utils.get_remediation_http_request_tls(link,
-                                                          timeout,
-                                                          user_agent,
-                                                          ssl_verify,
-                                                          ssl_client_cert,
-                                                          ssl_client_priv_key)
-
-  if not res then
-    set_refreshing(false)
-    ngx.log(ngx.ERR, "request to crowdsec lapi " .. link .. " failed: " .. err)
-    return "request to crowdsec lapi " .. link .. " failed: " .. err
+    ngx.log(ngx.ERR, "request to crowdsec lapi failed: " .. (err or "unknown"))
+    return err or "request to crowdsec lapi failed"
   end
 
   return self:stream_query_process(res, bouncing_on_type)
@@ -229,7 +237,19 @@ function stream:stream_query_process(res, bouncing_on_type)
     return "HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")"
   end
 
-  local decisions = cjson.decode(body)
+  -- Validate body exists and is not empty before decoding
+  if not body or body == "" then
+    set_refreshing(false)
+    ngx.log(ngx.ERR, "Empty or missing response body from Local API")
+    return "Empty or missing response body from Local API"
+  end
+
+  local decode_ok, decisions = pcall(cjson.decode, body)
+  if not decode_ok then
+    set_refreshing(false)
+    ngx.log(ngx.ERR, "Failed to decode JSON response from Local API: " .. tostring(decisions) .. " (body: " .. tostring(body) .. ")")
+    return "Failed to decode JSON response from Local API: " .. tostring(decisions)
+  end
 
   -- process deleted decisions
   local deleted = {}

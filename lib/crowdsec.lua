@@ -2,13 +2,12 @@ package.path = package.path .. ";./?.lua"
 
 local config = require "plugins.crowdsec.config"
 local iputils = require "plugins.crowdsec.iputils"
-local http = require "resty.http"
+local http_client = require "plugins.crowdsec.http_client"
 local cjson = require "cjson"
 local captcha = require "plugins.crowdsec.captcha"
 local flag = require "plugins.crowdsec.flag"
 local utils = require "plugins.crowdsec.utils"
 local ban = require "plugins.crowdsec.ban"
-local url = require "plugins.crowdsec.url"
 local metrics = require "plugins.crowdsec.metrics"
 local live = require "plugins.crowdsec.live"
 local stream = require "plugins.crowdsec.stream"
@@ -30,7 +29,6 @@ local APPSEC_HOST_HEADER = "x-crowdsec-appsec-host"
 local APPSEC_VERB_HEADER = "x-crowdsec-appsec-verb"
 local APPSEC_URI_HEADER = "x-crowdsec-appsec-uri"
 local APPSEC_USER_AGENT_HEADER = "x-crowdsec-appsec-user-agent"
-local REMEDIATION_API_KEY_HEADER = 'x-api-key'
 local METRICS_PERIOD = 900
 
 --- only for debug purpose
@@ -211,22 +209,48 @@ function csmod.init(configFile, userAgent)
     ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
   end
 
-  if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "false" then
-    runtime.conf["ALWAYS_SEND_TO_APPSEC"] = false
-  else
+  if runtime.conf["ALWAYS_SEND_TO_APPSEC"] == "true" then
     runtime.conf["ALWAYS_SEND_TO_APPSEC"] = true
+  else
+    runtime.conf["ALWAYS_SEND_TO_APPSEC"] = false
   end
 
   runtime.conf["APPSEC_ENABLED"] = false
+  runtime.APPSEC_CLIENT = nil
 
   if runtime.conf["APPSEC_URL"] ~= "" then
-    local u = url.parse(runtime.conf["APPSEC_URL"])
-    runtime.conf["APPSEC_ENABLED"] = true
-    runtime.conf["APPSEC_HOST"] = u.host
-    if u.port ~= nil then
-      runtime.conf["APPSEC_HOST"] = runtime.conf["APPSEC_HOST"] .. ":" .. u.port
+    -- APPSEC only supports API key authentication (no mTLS)
+    -- Create HTTP client object once (URL parsed once)
+    local client_options = {
+      timeouts = {
+        connect = runtime.conf["APPSEC_CONNECT_TIMEOUT"],
+        send = runtime.conf["APPSEC_SEND_TIMEOUT"],
+        read = runtime.conf["APPSEC_PROCESS_TIMEOUT"]
+      },
+      ssl_verify = runtime.conf["SSL_VERIFY"],
+      keepalive_timeout = runtime.conf["KEEPALIVE_TIMEOUT"],
+      keepalive_pool_size = runtime.conf["KEEPALIVE_POOL_SIZE"],
+      user_agent = userAgent,
+      use_tls_auth = false,  -- APPSEC does not support mTLS
+      api_key = runtime.conf["API_KEY"],
+      -- APPSEC uses a different API key header name
+      api_key_header = APPSEC_API_KEY_HEADER
+    }
+    
+    local client, err = http_client.new(runtime.conf["APPSEC_URL"], client_options)
+    
+    if not client then
+      ngx.log(ngx.ERR, "Failed to create APPSEC HTTP client: " .. (err or "unknown"))
+    else
+      runtime.conf["APPSEC_ENABLED"] = true
+      runtime.APPSEC_CLIENT = client
+      local url_params, _ = http_client.parse_url(runtime.conf["APPSEC_URL"])
+      if url_params then
+        local display_url = url_params.is_unix and ("unix:" .. url_params.socket_path) or 
+                           (url_params.scheme .. "://" .. url_params.host .. ":" .. url_params.port)
+        ngx.log(ngx.INFO, "APPSEC is enabled on '" .. display_url .. "'")
+      end
     end
-    ngx.log(ngx.ERR, "APPSEC is enabled on '" .. runtime.conf["APPSEC_HOST"] .. "'")
   end
 
 
@@ -263,12 +287,14 @@ function csmod.init(configFile, userAgent)
     runtime.conf["API_URL"] = tmp
   end
 
+  -- Note: HTTP clients are created inside live:new() and stream:new()
+
   if runtime.conf["MODE"] == "live" then
     ngx.log(ngx.INFO, "lua nginx bouncer enabled with live mode")
-    live:new()
+    runtime.live = live:new(runtime.conf, runtime.userAgent)
   else
     ngx.log(ngx.INFO, "lua nginx bouncer enabled with stream mode")
-    stream:new()
+    runtime.stream = stream:new(runtime.conf, runtime.userAgent)
   end
   return true, nil
 end
@@ -298,22 +324,25 @@ function csmod.SetupMetrics()
   local first_run = runtime.cache:get("metrics_first_run")
   if first_run then
     ngx.log(ngx.DEBUG, "First run for setup metrics ")
-    metrics:new(runtime.userAgent)
+    metrics:new(runtime.userAgent, runtime.conf)
     runtime.cache:set("metrics_first_run",false)
     Setup_metrics_timer()
     return
   end
   local started = runtime.cache:get("metrics_startup_time")
   if ngx.time() - started >= METRICS_PERIOD then
-    if runtime.conf["MODE"] == "stream" then
-      stream:refresh_metrics()
+    -- Don't send metrics if worker is exiting (prevents shutdown hangs)
+    if not ngx.worker.exiting() then
+      if runtime.conf["MODE"] == "stream" then
+        stream:refresh_metrics()
+      end
+      -- HTTP client handles User-Agent and API key automatically
+      -- Only pass Content-Type header
+      metrics:sendMetrics(
+        METRICS_PERIOD,
+        {["Content-Type"]="application/json"}
+      )
     end
-    metrics:sendMetrics(
-      runtime.conf["API_URL"],
-      {['User-Agent']=runtime.userAgent,[REMEDIATION_API_KEY_HEADER]=runtime.conf["API_KEY"],["Content-Type"]="application/json"},
-      runtime.conf["SSL_VERIFY"],
-      METRICS_PERIOD
-    )
     local succ, err, forcible = runtime.cache:set("metrics_startup_time", ngx.time())  -- to make sure we have only one thread sending metrics
     if not succ then
       ngx.log(ngx.ERR, "failed to add metrics_startup_time key in cache: "..err)
@@ -382,28 +411,9 @@ function csmod.SetupStream()
     end
     local refreshing = stream.cache:get("refreshing")
     if not refreshing then
-      local err
-      if runtime.conf["USE_TLS_AUTH"] then
-        err = stream:stream_query_tls(
-          runtime.conf["API_URL"],
-          runtime.conf["REQUEST_TIMEOUT"],
-          runtime.userAgent,
-          runtime.conf["SSL_VERIFY"],
-          runtime.conf["TLS_CLIENT_CERT_PARSED"],
-          runtime.conf["TLS_CLIENT_KEY_PARSED"],
-          runtime.conf["BOUNCING_ON_TYPE"]
-        )
-      else
-        err = stream:stream_query_api(
-          runtime.conf["API_URL"],
-          runtime.conf["REQUEST_TIMEOUT"],
-          REMEDIATION_API_KEY_HEADER,
-          runtime.conf["API_KEY"],
-          runtime.userAgent,
-          runtime.conf["SSL_VERIFY"],
-          runtime.conf["BOUNCING_ON_TYPE"]
-        )
-      end
+      local err = runtime.stream:stream_query(
+        runtime.conf["BOUNCING_ON_TYPE"]
+      )
       if err ~=nil then
         ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
       end
@@ -529,32 +539,11 @@ function csmod.allowIp(ip)
   -- if live mode, query lapi
   if runtime.conf["MODE"] == "live" then
     ngx.log(ngx.DEBUG, "live mode")
-    local ok, remediation, origin, err
-    if runtime.conf["USE_TLS_AUTH"] then
-      ok, remediation, origin, err = live:live_query_tls(
-        ip,
-        runtime.conf["API_URL"],
-        runtime.conf["REQUEST_TIMEOUT"],
-        runtime.conf["CACHE_EXPIRATION"],
-        runtime.userAgent,
-        runtime.conf["SSL_VERIFY"],
-        runtime.conf["TLS_CLIENT_CERT_PARSED"],
-        runtime.conf["TLS_CLIENT_KEY_PARSED"],
-        runtime.conf["BOUNCING_ON_TYPE"]
-      )
-    else
-      ok, remediation, origin, err = live:live_query_api(
-        ip,
-        runtime.conf["API_URL"],
-        runtime.conf["REQUEST_TIMEOUT"],
-        runtime.conf["CACHE_EXPIRATION"],
-        REMEDIATION_API_KEY_HEADER,
-        runtime.conf['API_KEY'],
-        runtime.userAgent,
-        runtime.conf["SSL_VERIFY"],
-        runtime.conf["BOUNCING_ON_TYPE"]
-      )
-    end
+    local ok, remediation, origin, err = runtime.live:live_query(
+      ip,
+      runtime.conf["CACHE_EXPIRATION"],
+      runtime.conf["BOUNCING_ON_TYPE"]
+    )
     -- debug: wip
     ngx.log(ngx.DEBUG, "live_query: " .. ip .. " | " .. (ok and "not banned with" or "banned with") .. " | " .. tostring(remediation) .. " | " .. tostring(origin) .. " | " .. tostring(err))
     local _, is_ipv4 = iputils.parseIPAddress(ip)
@@ -573,9 +562,6 @@ function csmod.allowIp(ip)
 end
 
 function csmod.AppSecCheck(ip)
-  local httpc = http.new()
-  httpc:set_timeouts(runtime.conf["APPSEC_CONNECT_TIMEOUT"], runtime.conf["APPSEC_SEND_TIMEOUT"], runtime.conf["APPSEC_PROCESS_TIMEOUT"])
-
   local uri = ngx.var.request_uri
   local headers = ngx.req.get_headers()
 
@@ -585,10 +571,7 @@ function csmod.AppSecCheck(ip)
   headers[APPSEC_VERB_HEADER] = ngx.var.request_method
   headers[APPSEC_URI_HEADER] = uri
   headers[APPSEC_USER_AGENT_HEADER] = ngx.var.http_user_agent
-  headers[APPSEC_API_KEY_HEADER] = runtime.conf["API_KEY"]
-
-  -- set CrowdSec APPSEC Host
-  headers["host"] = runtime.conf["APPSEC_HOST"]
+  -- API key is now automatically added by http_client with the correct header name
 
   local ok, remediation, status_code = true, "allow", 200
   if runtime.conf["APPSEC_FAILURE_ACTION"] == DENY then
@@ -597,29 +580,46 @@ function csmod.AppSecCheck(ip)
   end
 
   local method = "GET"
+  local request_body = nil
 
   local body = get_body()
   if body ~= nil then
     if #body > 0 then
       method = "POST"
+      request_body = body
       if headers["content-length"] == nil then
         headers["content-length"] = tostring(#body)
       end
     end
-  else
+  end
+  
+  -- Remove content-length header for GET requests
+  if method == "GET" then
     headers["content-length"] = nil
+    headers["Content-Length"] = nil
   end
 
-  local res, err = httpc:request_uri(runtime.conf["APPSEC_URL"], {
+  -- Use pre-created HTTP client object (URL already parsed, connection pooling handled)
+  if not runtime.APPSEC_CLIENT then
+    ngx.log(ngx.ERR, "APPSEC client not initialized")
+    return ok, remediation, status_code, "APPSEC client not initialized"
+  end
+  
+  -- AppSec expects requests at the base path from APPSEC_URL
+  -- The incoming request URI is already communicated via APPSEC_URI_HEADER
+  local request_options = {
     method = method,
-    headers = headers,
-    body = body,
-    ssl_verify = runtime.conf["SSL_VERIFY"],
-  })
-  httpc:close()
+    headers = headers
+  }
+  -- Only include body for POST requests
+  if request_body ~= nil then
+    request_options.body = request_body
+  end
+  
+  local res, err = runtime.APPSEC_CLIENT:request_base(request_options)
 
-  if err ~= nil then
-    ngx.log(ngx.ERR, "Fallback because of err: " .. err)
+  if err ~= nil or not res then
+    ngx.log(ngx.ERR, "Fallback because of err: " .. (err or "unknown"))
     return ok, remediation, status_code, err
   end
 
@@ -628,8 +628,20 @@ function csmod.AppSecCheck(ip)
     remediation = "allow"
   elseif res.status == 403 then
     ok = false
-    ngx.log(ngx.DEBUG, "Appsec body response: " .. res.body)
-    local response = cjson.decode(res.body)
+    ngx.log(ngx.DEBUG, "Appsec body response: " .. (res.body or ""))
+    
+    -- Validate body exists and is not empty before decoding
+    if not res.body or res.body == "" then
+      ngx.log(ngx.ERR, "Empty or missing response body from APPSEC (status 403)")
+      return ok, remediation, status_code, "Empty or missing response body from APPSEC"
+    end
+    
+    local decode_ok, response = pcall(cjson.decode, res.body)
+    if not decode_ok then
+      ngx.log(ngx.ERR, "Failed to decode JSON response from APPSEC: " .. tostring(response))
+      return ok, remediation, status_code, "Failed to decode JSON response from APPSEC: " .. tostring(response)
+    end
+    
     remediation = response.action
     if response.http_status ~= nil then
       ngx.log(ngx.DEBUG, "Got status code from APPSEC: " .. response.http_status)
@@ -640,7 +652,7 @@ function csmod.AppSecCheck(ip)
   elseif res.status == 401 then
     ngx.log(ngx.ERR, "Unauthenticated request to APPSEC")
   else
-    ngx.log(ngx.ERR, "Bad request to APPSEC (" .. res.status .. "): " .. res.body)
+    ngx.log(ngx.ERR, "Bad request to APPSEC (" .. res.status .. "): " .. (res.body or ""))
   end
 
   return ok, remediation, status_code, err

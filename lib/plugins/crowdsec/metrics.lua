@@ -1,5 +1,5 @@
 local cjson = require "cjson"
-local http = require "resty.http"
+local http_client = require "plugins.crowdsec.http_client"
 local utils = require "plugins.crowdsec.utils"
 local osinfo = require "plugins.crowdsec.osinfo"
 local metrics = {}
@@ -9,7 +9,7 @@ metrics.cache = ngx.shared.crowdsec_cache
 
 
 -- Constructor for the store
-function metrics:new(userAgent)
+function metrics:new(userAgent, conf)
   local info = osinfo.get_os_info()
   self.cache:set("metrics_data", cjson.encode({
     version = userAgent,
@@ -21,6 +21,44 @@ function metrics:new(userAgent)
     name="nginx bouncer",
     utc_startup_timestamp = ngx.time(),
   }))
+  
+  -- Create HTTP client for metrics (with mTLS, API key, and user agent support if configured)
+  self.metrics_client = nil
+  
+  if conf and conf["API_URL"] and conf["API_URL"] ~= "" then
+    -- Check if mTLS is enabled
+    local use_tls_auth = conf["USE_TLS_AUTH"] and 
+                        conf["TLS_CLIENT_CERT_PARSED"] ~= nil and 
+                        conf["TLS_CLIENT_KEY_PARSED"] ~= nil
+    
+    local client_options = {
+      ssl_verify = conf["SSL_VERIFY"],
+      keepalive_timeout = conf["KEEPALIVE_TIMEOUT"],
+      keepalive_pool_size = conf["KEEPALIVE_POOL_SIZE"],
+      user_agent = userAgent,
+      use_tls_auth = use_tls_auth
+    }
+    
+    -- Add API key only if not using TLS auth
+    if not use_tls_auth then
+      client_options.api_key = conf["API_KEY"]
+      -- Use default API key header from http_client
+    end
+    
+    -- Add mTLS options if TLS auth is enabled (use parsed PEM objects when available)
+    if use_tls_auth then
+      client_options.ssl_client_cert = conf["TLS_CLIENT_CERT_PARSED"] or conf["TLS_CLIENT_CERT"]
+      client_options.ssl_client_priv_key = conf["TLS_CLIENT_KEY_PARSED"] or conf["TLS_CLIENT_KEY"]
+    end
+    
+    local client, err = http_client.new(conf["API_URL"], client_options)
+    if client then
+      self.metrics_client = client
+      ngx.log(ngx.DEBUG, "[METRICS] Created HTTP client (using resty.http default timeouts: 60 seconds)")
+    else
+      ngx.log(ngx.WARN, "Failed to create metrics HTTP client: " .. (err or "unknown"))
+    end
+  end
 end
 
 
@@ -149,25 +187,33 @@ function metrics:toJson(window)
   return cjson.encode({log_processors = cjson.null, remediation_components = remediation_components})
 end
 
-function metrics:sendMetrics(link, headers, ssl, window)
+function metrics:sendMetrics(window, headers)
   local body = self:toJson(window) .. "\n"
-  ngx.log(ngx.DEBUG, "Sending metrics to " .. link .. "/v1/usage-metrics")
+  ngx.log(ngx.DEBUG, "Sending metrics to /v1/usage-metrics")
   ngx.log(ngx.DEBUG, "metrics: " .. body)
-  local httpc = http.new()
-  local res, err = httpc:request_uri(link .. "/v1/usage-metrics", {
-    body = body,
+  
+  -- Use HTTP client if available (created during initialization)
+  if not self.metrics_client then
+    ngx.log(ngx.ERR, "metrics HTTP client not initialized, cannot send metrics")
+    return
+  end
+  
+  -- Build headers (merge any additional headers passed in)
+  -- HTTP client will automatically add User-Agent and API key if configured
+  local request_headers = headers or {}
+  
+  local res, err = self.metrics_client:request_uri("/v1/usage-metrics", {
     method = "POST",
-    headers = headers,
-    ssl_verify = ssl
+    headers = request_headers,
+    body = body
   })
-  httpc:close()
-  if not res then
-    ngx.log(ngx.ERR, "failed to send metrics: ", err)
+  
+  if err ~= nil or not res then
+    ngx.log(ngx.ERR, "failed to send metrics: " .. (err or "unknown"))
   else
     ngx.log(ngx.DEBUG, "metrics status: " .. res.status)
     ngx.log(ngx.DEBUG, "metrics body: " .. body)
   end
-
 end
 
 -- Function to retrieve all keys that start with a given prefix

@@ -1,7 +1,7 @@
 local config = {}
 
 local valid_params = {'ENABLED', 'ENABLE_INTERNAL', 'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'CAPTCHA_RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'APPSEC_URL', 'APPSEC_FAILURE_ACTION', 'ALWAYS_SEND_TO_APPSEC', 'SSL_VERIFY', 'USE_TLS_AUTH', 'TLS_CLIENT_CERT', 'TLS_CLIENT_KEY'}
-local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'APPSEC_CONNECT_TIMEOUT', 'APPSEC_SEND_TIMEOUT', 'APPSEC_PROCESS_TIMEOUT', 'STREAM_REQUEST_TIMEOUT'}
+local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'APPSEC_CONNECT_TIMEOUT', 'APPSEC_SEND_TIMEOUT', 'APPSEC_PROCESS_TIMEOUT', 'STREAM_REQUEST_TIMEOUT', 'KEEPALIVE_TIMEOUT', 'KEEPALIVE_POOL_SIZE'}
 -- CACHE_SIZE is not used in the code, but as is was valid parameter for the configuration file, not removing it now
 local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
 local valid_truefalse_values = {'false', 'true'}
@@ -31,6 +31,8 @@ local default_values = {
     ['USE_TLS_AUTH'] = "false",
     ['TLS_CLIENT_CERT'] = "",
     ['TLS_CLIENT_KEY'] = "",
+    ['KEEPALIVE_TIMEOUT'] = 60000,  -- 60 seconds (can be overridden, e.g., 5000 for tests)
+    ['KEEPALIVE_POOL_SIZE'] = 10,
 }
 
 
