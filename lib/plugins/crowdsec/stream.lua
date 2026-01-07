@@ -149,11 +149,7 @@ function stream:new(conf, user_agent)
     end
     
     local client_options = {
-      timeouts = {
-        connect = request_timeout,
-        send = request_timeout,
-        read = request_timeout
-      },
+      timeouts = request_timeout,  -- Single value applied to all three timeouts
       ssl_verify = conf["SSL_VERIFY"],
       keepalive_timeout = conf["KEEPALIVE_TIMEOUT"],
       keepalive_pool_size = conf["KEEPALIVE_POOL_SIZE"],
