@@ -1,18 +1,44 @@
 -- HTTP Client Module
--- Provides unified HTTP client with support for:
--- - HTTP/HTTPS URLs (http://host:port/path)
--- - Unix sockets (unix:/path/to/socket)
--- - Connection pooling and keep-alive
--- - Both API key and TLS authentication
+-- Provides unified HTTP client that automatically handles:
+-- - HTTP/HTTPS URLs (http://host:port/path or https://host:port/path)
+-- - Unix domain sockets (unix:/path/to/socket or unix:/path/to/socket/http/path)
+-- - Connection pooling and keep-alive (via resty.http)
+-- - API key authentication (via headers)
+-- - Mutual TLS (mTLS) authentication (via client certificates)
+--
+-- The client abstracts away all connection details - callers just provide a URL
+-- and configuration, then make requests without worrying about the underlying
+-- transport mechanism.
 --
 -- Usage:
+--   -- Create client once with URL and configuration
 --   local client = http_client.new("http://example.com:8081", {
 --     timeouts = {connect=1000, send=1000, read=1000},
 --     ssl_verify = true,
---     ssl_client_cert = "/path/to/cert",
---     ssl_client_priv_key = "/path/to/key"
+--     api_key = "your-api-key",
+--     user_agent = "my-app/1.0"
 --   })
---   local res, err = client:request_uri("/v1/decisions?ip=1.1.1.1", {headers={...}})
+--   
+--   -- For mTLS:
+--   local client = http_client.new("https://example.com:8081", {
+--     timeouts = {connect=1000, send=1000, read=1000},
+--     ssl_verify = true,
+--     ssl_client_cert = parsed_cert_cdata,  -- or "/path/to/cert.pem"
+--     ssl_client_priv_key = parsed_key_cdata,  -- or "/path/to/key.pem"
+--     use_tls_auth = true
+--   })
+--   
+--   -- For Unix sockets:
+--   local client = http_client.new("unix:/var/run/crowdsec.sock", {
+--     timeouts = {connect=1000, send=1000, read=1000},
+--     api_key = "your-api-key"
+--   })
+--   
+--   -- Make requests - all complexity is handled automatically
+--   local res, err = client:request_uri("/v1/decisions?ip=1.1.1.1", {
+--     method = "GET",
+--     headers = {["Custom-Header"] = "value"}
+--   })
 
 local http = require "resty.http"
 local url = require "plugins.crowdsec.url"
@@ -217,9 +243,51 @@ function M.new(url_str, options)
   return client, nil
 end
 
+--- Prepare headers for request (internal method)
+-- Automatically adds Host, User-Agent, and API key headers as needed
+-- @param headers table: Existing headers (may be nil)
+-- @return table: Headers with required fields added
+function Client:_prepare_headers(headers)
+  headers = headers or {}
+  
+  -- Set Host header appropriately for the connection type
+  if not headers["Host"] and not headers["host"] then
+    if self.url_params.is_unix then
+      -- Unix sockets typically use localhost as Host header
+      headers["Host"] = "localhost"
+    else
+      -- For HTTP/HTTPS, use the actual host and port (if non-standard)
+      local host_header = self.url_params.host
+      if self.url_params.port and 
+         ((self.url_params.scheme == "http" and self.url_params.port ~= 80) or
+          (self.url_params.scheme == "https" and self.url_params.port ~= 443)) then
+        host_header = host_header .. ":" .. self.url_params.port
+      end
+      headers["Host"] = host_header
+    end
+  end
+  
+  -- Add User-Agent if configured
+  if self.user_agent and not headers["User-Agent"] and not headers["user-agent"] then
+    headers["User-Agent"] = self.user_agent
+  end
+  
+  -- Add API key header if not using TLS auth
+  if not self.use_tls_auth and self.api_key then
+    headers[self.api_key_header] = self.api_key
+  end
+  
+  -- Remove Connection: close header if present (we want keep-alive)
+  headers["Connection"] = nil
+  headers["connection"] = nil
+  
+  return headers
+end
+
 --- Create and connect HTTP client instance (internal method)
 -- Following resty.http design: create, use, keepalive (don't store)
 -- resty.http handles connection pooling internally via set_keepalive()
+-- The connection details (unix/http/https, mTLS) are automatically handled
 -- @return httpc: HTTP client object, or nil on error
 -- @return err: Error message if failed
 function Client:_create_httpc()
@@ -237,9 +305,8 @@ function Client:_create_httpc()
   if read_timeout <= 0 then read_timeout = 3000 end
   
   httpc:set_timeouts(connect_timeout, send_timeout, read_timeout)
-  ngx.log(ngx.DEBUG, "[HTTP_CLIENT] Set timeouts: connect=" .. connect_timeout .. "ms, send=" .. send_timeout .. "ms, read=" .. read_timeout .. "ms")
   
-  -- Connect
+  -- Build connection options - automatically handles unix/http/https
   local connect_opts = {}
   
   if self.url_params.is_unix then
@@ -250,18 +317,22 @@ function Client:_create_httpc()
     connect_opts.scheme = nil
     connect_opts.port = nil
   else
+    -- For HTTP/HTTPS, use standard connection parameters
     connect_opts.scheme = self.url_params.scheme
     connect_opts.host = self.url_params.host
     connect_opts.port = self.url_params.port
   end
   
+  -- SSL/TLS configuration
   connect_opts.ssl_verify = self.ssl_verify
   
+  -- Add mTLS client certificates if configured
   if self.ssl_client_cert and self.ssl_client_priv_key then
     connect_opts.ssl_client_cert = self.ssl_client_cert
     connect_opts.ssl_client_priv_key = self.ssl_client_priv_key
   end
   
+  -- Connect - resty.http will automatically reuse connections from its pool
   local ok, err = httpc:connect(connect_opts)
   if not ok then
     return nil, "Failed to connect: " .. (err or "unknown")
@@ -419,54 +490,31 @@ function Client:build_url(path)
 end
 
 --- Make HTTP request with full control
+-- All connection details (unix/http/https, mTLS) are handled automatically
 -- @param client: Client object (self)
 -- @param method string: HTTP method (GET, POST, etc.)
 -- @param path string: Request path
--- @param headers table: HTTP headers
+-- @param headers table: HTTP headers (optional)
 -- @param body string: (optional) Request body
--- @return res: HTTP response object, or nil on error
+-- @return res: HTTP response object with .status and .body, or nil on error
 -- @return err: Error message if failed
 function Client:request(method, path, headers, body)
   local full_url = self:build_url(path)
   
-  -- Create new HTTP client (resty.http will reuse connections from pool)
+  -- Prepare headers (adds Host, User-Agent, API key automatically)
+  -- This doesn't require a connection, so do it first
+  headers = self:_prepare_headers(headers)
+  
+  -- Build full path (handles base path and query string merging)
+  -- This doesn't require a connection, so do it before connecting
+  local full_path = self:_build_path(path)
+  
+  -- Create and connect HTTP client (resty.http handles connection pooling)
+  -- Only connect when we're ready to make the request
   local httpc, err = self:_create_httpc()
   if not httpc then
     return nil, "Failed to connect to " .. full_url .. ": " .. (err or "unknown")
   end
-  
-  -- Set Host header appropriately
-  if not headers then
-    headers = {}
-  end
-  
-  if self.url_params.is_unix then
-    if not headers["Host"] and not headers["host"] then
-      headers["Host"] = "localhost"
-    end
-  else
-    if not headers["Host"] and not headers["host"] then
-      local host_header = self.url_params.host
-      if self.url_params.port and 
-         ((self.url_params.scheme == "http" and self.url_params.port ~= 80) or
-          (self.url_params.scheme == "https" and self.url_params.port ~= 443)) then
-        host_header = host_header .. ":" .. self.url_params.port
-      end
-      headers["Host"] = host_header
-    end
-  end
-  
-  -- Add User-Agent if configured
-  if self.user_agent and not headers["User-Agent"] and not headers["user-agent"] then
-    headers["User-Agent"] = self.user_agent
-  end
-  
-  -- Add API key header if not using TLS auth
-  if not self.use_tls_auth and self.api_key then
-    headers[self.api_key_header] = self.api_key
-  end
-  
-  local full_path = self:_build_path(path)
 
   -- Make request
   local res, err = httpc:request({
@@ -485,10 +533,13 @@ function Client:request(method, path, headers, body)
   -- Read response body
   local body_str, err = res:read_body()
   if err then
-    ngx.log(ngx.WARN, "Failed to read response body: " .. err)
-  else
-    res.body = body_str
+    -- Failed to read body, return error to caller
+    -- Return connection to keep-alive pool before returning error
+    self:_release_httpc(httpc)
+    return nil, "Failed to read response body: " .. (err or "unknown")
   end
+  
+  res.body = body_str
   
   -- Return connection to keep-alive pool (resty.http handles pooling)
   self:_release_httpc(httpc)
@@ -498,100 +549,38 @@ end
 
 --- Make HTTP request using only the base path from URL (no additional path needed)
 -- Useful for services like AppSec that always use the configured base path
+-- All connection details are handled automatically
 -- @param client: Client object (self)
 -- @param options table: Request options:
 --   method: string (default: "GET")
---   headers: table (HTTP headers)
---   body: string (request body)
+--   headers: table (HTTP headers, optional)
+--   body: string (request body, optional)
 -- @return res: HTTP response object with .status and .body, or nil on error
 -- @return err: Error message if failed
 function Client:request_base(options)
   return self:request_uri("", options)
 end
 
---- Make simple HTTP request (like request_uri)
+--- Make HTTP request with path
+-- All connection details (unix/http/https, mTLS) are handled automatically
 -- @param client: Client object (self)
 -- @param path string: Request path (can include query string)
 -- @param options table: Request options:
 --   method: string (default: "GET")
---   headers: table (HTTP headers)
---   body: string (request body)
+--   headers: table (HTTP headers, optional)
+--   body: string (request body, optional)
 -- @return res: HTTP response object with .status and .body, or nil on error
 -- @return err: Error message if failed
 function Client:request_uri(path, options)
   options = options or {}
   
-  -- Build full path (include base path and query if configured)
-  local full_path = self:_build_path(path)
-  local full_url = self:build_url(path)
-  
-  -- Create new HTTP client (resty.http will reuse connections from pool)
-  local httpc, err = self:_create_httpc()
-  if not httpc then
-    return nil, "Failed to connect to " .. full_url .. ": " .. (err or "unknown")
-  end
-  
-  -- Prepare headers
-  local headers = options.headers or {}
-  
-  -- Set Host header appropriately
-  if self.url_params.is_unix then
-    if not headers["Host"] and not headers["host"] then
-      headers["Host"] = "localhost"
-    end
-  else
-    if not headers["Host"] and not headers["host"] then
-      local host_header = self.url_params.host
-      if self.url_params.port and 
-         ((self.url_params.scheme == "http" and self.url_params.port ~= 80) or
-          (self.url_params.scheme == "https" and self.url_params.port ~= 443)) then
-        host_header = host_header .. ":" .. self.url_params.port
-      end
-      headers["Host"] = host_header
-    end
-  end
-  
-  -- Add User-Agent if configured
-  if self.user_agent and not headers["User-Agent"] and not headers["user-agent"] then
-    headers["User-Agent"] = self.user_agent
-  end
-  
-  -- Add API key header if not using TLS auth
-  if not self.use_tls_auth and self.api_key then
-    headers[self.api_key_header] = self.api_key
-  end
-  
-  -- Remove Connection: close header if present (we want keep-alive)
-  headers["Connection"] = nil
-  headers["connection"] = nil
-  
-  -- Make request
-  local res, err = httpc:request({
-    method = options.method or "GET",
-    path = full_path,
-    headers = headers,
-    body = options.body
-  })
-  
-  if not res then
-    -- Request failed, close connection
-    pcall(function() httpc:close() end)
-    return nil, "Request to " .. full_url .. " failed: " .. (err or "unknown")
-  end
-  
-  -- Read response body
-  local body_str, err = res:read_body()
-  if err then
-    ngx.log(ngx.WARN, "Failed to read response body: " .. err)
-    res.body = ""
-  else
-    res.body = body_str
-  end
-  
-  -- Return connection to keep-alive pool (resty.http handles pooling)
-  self:_release_httpc(httpc)
-  
-  return res, nil
+  -- Use the unified request method which handles everything
+  return self:request(
+    options.method or "GET",
+    path,
+    options.headers,
+    options.body
+  )
 end
 
 return M

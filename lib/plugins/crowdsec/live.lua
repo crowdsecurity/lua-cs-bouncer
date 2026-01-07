@@ -92,7 +92,7 @@ function live:live_query(ip, cache_expiration, bouncing_on_type)
     method = "GET"
   })
 
-  if not res then
+  if err ~= nil or not res then
     ngx.log(ngx.ERR, "failed to query LAPI: " .. (err or "unknown"))
     return true, nil, nil, err or "request failed"
   end
@@ -136,7 +136,22 @@ function live:live_query_process(res, ip, cache_expiration, bouncing_on_type, li
     end
     return true, nil, nil, nil
   end
-  local decision = cjson.decode(body)[1]
+  
+  -- Validate body exists and is not empty before decoding
+  if not body or body == "" then
+    return true, nil, nil, "Empty or missing response body from LAPI"
+  end
+  
+  local decode_ok, decoded_body = pcall(cjson.decode, body)
+  if not decode_ok then
+    return true, nil, nil, "Failed to decode JSON response from LAPI: " .. tostring(decoded_body)
+  end
+  
+  if not decoded_body or #decoded_body == 0 then
+    return true, nil, nil, "Empty decisions array from LAPI"
+  end
+  
+  local decision = decoded_body[1]
 
   if decision.origin == "lists" and decision.scenario ~= nil then
     decision.origin = "lists:" .. decision.scenario

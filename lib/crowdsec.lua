@@ -625,7 +625,19 @@ function csmod.AppSecCheck(ip)
   elseif res.status == 403 then
     ok = false
     ngx.log(ngx.DEBUG, "Appsec body response: " .. (res.body or ""))
-    local response = cjson.decode(res.body)
+    
+    -- Validate body exists and is not empty before decoding
+    if not res.body or res.body == "" then
+      ngx.log(ngx.ERR, "Empty or missing response body from APPSEC (status 403)")
+      return ok, remediation, status_code, "Empty or missing response body from APPSEC"
+    end
+    
+    local decode_ok, response = pcall(cjson.decode, res.body)
+    if not decode_ok then
+      ngx.log(ngx.ERR, "Failed to decode JSON response from APPSEC: " .. tostring(response))
+      return ok, remediation, status_code, "Failed to decode JSON response from APPSEC: " .. tostring(response)
+    end
+    
     remediation = response.action
     if response.http_status ~= nil then
       ngx.log(ngx.DEBUG, "Got status code from APPSEC: " .. response.http_status)

@@ -220,7 +220,7 @@ function metrics:sendMetrics(window, headers)
     body = body
   })
   
-  if not res then
+  if err ~= nil or not res then
     ngx.log(ngx.ERR, "failed to send metrics: " .. (err or "unknown"))
   else
     ngx.log(ngx.DEBUG, "metrics status: " .. res.status)

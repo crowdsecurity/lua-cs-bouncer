@@ -209,7 +209,7 @@ function stream:stream_query(bouncing_on_type)
     method = "GET"
   })
 
-  if not res then
+  if err ~= nil or not res then
     set_refreshing(false)
     ngx.log(ngx.ERR, "request to crowdsec lapi failed: " .. (err or "unknown"))
     return err or "request to crowdsec lapi failed"
@@ -241,7 +241,19 @@ function stream:stream_query_process(res, bouncing_on_type)
     return "HTTP error while request to Local API '" .. status .. "' with message (" .. tostring(body) .. ")"
   end
 
-  local decisions = cjson.decode(body)
+  -- Validate body exists and is not empty before decoding
+  if not body or body == "" then
+    set_refreshing(false)
+    ngx.log(ngx.ERR, "Empty or missing response body from Local API")
+    return "Empty or missing response body from Local API"
+  end
+
+  local decode_ok, decisions = pcall(cjson.decode, body)
+  if not decode_ok then
+    set_refreshing(false)
+    ngx.log(ngx.ERR, "Failed to decode JSON response from Local API: " .. tostring(decisions) .. " (body: " .. tostring(body) .. ")")
+    return "Failed to decode JSON response from Local API: " .. tostring(decisions)
+  end
 
   -- process deleted decisions
   local deleted = {}
