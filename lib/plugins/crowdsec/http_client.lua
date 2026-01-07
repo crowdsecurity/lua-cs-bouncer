@@ -180,7 +180,7 @@ end
 -- Parse URL once and create a reusable client object
 -- @param url_str string: URL (http://host:port, https://host:port, or unix:/path)
 -- @param options table: Client options:
---   timeouts: table {connect, send, read} - timeout values in ms
+--   timeouts: table {connect, send, read} - timeout values in ms, or a single number to use for all three
 --   ssl_verify: boolean - whether to verify SSL certificates
 --   ssl_client_cert: string or cdata - (optional) path to client certificate for mTLS, or parsed PEM object
 --   ssl_client_priv_key: string or cdata - (optional) path to client private key for mTLS, or parsed PEM object
@@ -207,27 +207,47 @@ function M.new(url_str, options)
     use_tls_auth = (options.ssl_client_cert ~= nil and options.ssl_client_priv_key ~= nil)
   end
   
-  -- Build connection key with mTLS info if applicable
-  local connection_key = url_params.connection_key
-  if options.ssl_client_cert and options.ssl_client_priv_key then
-    connection_key = connection_key .. "|mtls"
+  -- Validate and set timeouts (ensure they're numbers and positive)
+  -- If timeouts are not provided, use nil to let resty.http use its defaults (60 seconds)
+  -- Support both: single number (applied to all three) or table with individual values
+  local timeouts = options.timeouts
+  if timeouts then
+    -- If a single number is passed, use it for all three timeouts
+    if type(timeouts) == "number" then
+      local timeout_value = tonumber(timeouts)
+      if timeout_value and timeout_value > 0 then
+        timeouts = {
+          connect = timeout_value,
+          send = timeout_value,
+          read = timeout_value
+        }
+      else
+        timeouts = {}
+      end
+    elseif type(timeouts) == "table" then
+      -- Table with individual timeout values (or missing values)
+      timeouts.connect = tonumber(timeouts.connect)
+      timeouts.send = tonumber(timeouts.send)
+      timeouts.read = tonumber(timeouts.read)
+      
+      -- Ensure timeouts are positive if provided
+      if timeouts.connect and timeouts.connect <= 0 then timeouts.connect = nil end
+      if timeouts.send and timeouts.send <= 0 then timeouts.send = nil end
+      if timeouts.read and timeouts.read <= 0 then timeouts.read = nil end
+    else
+      -- Invalid type, use defaults
+      timeouts = {}
+    end
+  else
+    -- No timeouts provided - will use resty.http defaults (60 seconds)
+    timeouts = {}
   end
   
-  -- Validate and set timeouts (ensure they're numbers and positive)
-  local timeouts = options.timeouts or {connect=3000, send=3000, read=3000}
-  timeouts.connect = tonumber(timeouts.connect) or 3000
-  timeouts.send = tonumber(timeouts.send) or 3000
-  timeouts.read = tonumber(timeouts.read) or 3000
-  
-  -- Ensure timeouts are positive
-  if timeouts.connect <= 0 then timeouts.connect = 3000 end
-  if timeouts.send <= 0 then timeouts.send = 3000 end
-  if timeouts.read <= 0 then timeouts.read = 3000 end
-  
   -- Create client object (no httpc instance stored - created per request)
+  -- Note: resty.http handles connection pooling automatically via set_keepalive()
+  -- Pool naming is automatic based on connection properties (SSL, proxy, etc.)
   local client = setmetatable({
     url_params = url_params,
-    connection_key = connection_key,
     timeouts = timeouts,
     ssl_verify = options.ssl_verify ~= false,  -- default true
     ssl_client_cert = options.ssl_client_cert,
@@ -294,24 +314,26 @@ function Client:_create_httpc()
   -- Create new HTTP client instance (resty.http will reuse connections from pool)
   local httpc = http.new()
   
-  -- Ensure timeouts are valid numbers before setting
-  local connect_timeout = tonumber(self.timeouts.connect) or 3000
-  local send_timeout = tonumber(self.timeouts.send) or 3000
-  local read_timeout = tonumber(self.timeouts.read) or 3000
-  
-  -- Validate timeouts are positive
-  if connect_timeout <= 0 then connect_timeout = 3000 end
-  if send_timeout <= 0 then send_timeout = 3000 end
-  if read_timeout <= 0 then read_timeout = 3000 end
-  
-  httpc:set_timeouts(connect_timeout, send_timeout, read_timeout)
+  -- Set timeouts only if they were provided (otherwise use resty.http defaults: 60 seconds)
+  if self.timeouts and (self.timeouts.connect or self.timeouts.send or self.timeouts.read) then
+    local connect_timeout = tonumber(self.timeouts.connect) or 3000
+    local send_timeout = tonumber(self.timeouts.send) or 3000
+    local read_timeout = tonumber(self.timeouts.read) or 3000
+    
+    -- Validate timeouts are positive
+    if connect_timeout <= 0 then connect_timeout = 3000 end
+    if send_timeout <= 0 then send_timeout = 3000 end
+    if read_timeout <= 0 then read_timeout = 3000 end
+    
+    httpc:set_timeouts(connect_timeout, send_timeout, read_timeout)
+  end
+  -- If timeouts are nil/not provided, resty.http will use its default (60 seconds)
   
   -- Build connection options - automatically handles unix/http/https
   local connect_opts = {}
   
   if self.url_params.is_unix then
     -- For Unix sockets, resty.http expects the full "unix:/path" in the host field
-    -- Use connection_key which already contains "unix:/path"
     connect_opts.host = self.url_params.connection_key
     -- Explicitly set scheme and port to nil for Unix sockets (resty.http requirement)
     connect_opts.scheme = nil
@@ -525,8 +547,8 @@ function Client:request(method, path, headers, body)
   })
   
   if not res then
-    -- Request failed, close connection
-    pcall(function() httpc:close() end)
+    -- Request failed, release connection (set_keepalive will close if needed)
+    self:_release_httpc(httpc)
     return nil, "Request to " .. full_url .. " failed: " .. (err or "unknown")
   end
   

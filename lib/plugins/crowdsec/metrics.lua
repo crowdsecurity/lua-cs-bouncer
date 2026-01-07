@@ -31,19 +31,7 @@ function metrics:new(userAgent, conf)
                         conf["TLS_CLIENT_CERT_PARSED"] ~= nil and 
                         conf["TLS_CLIENT_KEY_PARSED"] ~= nil
     
-    -- Ensure REQUEST_TIMEOUT is a valid number, default to 3000ms if not set
-    local request_timeout = tonumber(conf["REQUEST_TIMEOUT"])
-    if not request_timeout or request_timeout <= 0 then
-      request_timeout = 3000  -- Default to 3 seconds
-      ngx.log(ngx.WARN, "REQUEST_TIMEOUT not set or invalid, using default: " .. request_timeout .. "ms")
-    end
-    
     local client_options = {
-      timeouts = {
-        connect = request_timeout,
-        send = request_timeout,
-        read = request_timeout
-      },
       ssl_verify = conf["SSL_VERIFY"],
       keepalive_timeout = conf["KEEPALIVE_TIMEOUT"],
       keepalive_pool_size = conf["KEEPALIVE_POOL_SIZE"],
@@ -66,7 +54,7 @@ function metrics:new(userAgent, conf)
     local client, err = http_client.new(conf["API_URL"], client_options)
     if client then
       self.metrics_client = client
-      ngx.log(ngx.DEBUG, "[METRICS] Created HTTP client with timeouts: connect=" .. request_timeout .. "ms, send=" .. request_timeout .. "ms, read=" .. request_timeout .. "ms")
+      ngx.log(ngx.DEBUG, "[METRICS] Created HTTP client (using resty.http default timeouts: 60 seconds)")
     else
       ngx.log(ngx.WARN, "Failed to create metrics HTTP client: " .. (err or "unknown"))
     end
