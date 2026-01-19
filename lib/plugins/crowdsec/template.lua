@@ -1,7 +1,27 @@
+---@class Template
+---@field get_request_vars fun(extra_vars?: table<string, string>): table<string, string>
+---@field precompile fun(template_str: string): CompiledTemplate?
+---@field render fun(compiled: CompiledTemplate, args?: table<string, string>): string
+---@field compile fun(template_str: string, args?: table<string, string>): string
 local template = {}
 
--- Gather template variables from the current request context
--- Can be extended with extra_vars table
+---@class CompiledTemplate
+---@field segments Segment[]
+---@field raw string
+
+---@class Segment
+---@field type "text"|"var"|"cond"
+---@field content? string      -- for type="text"
+---@field name? string         -- for type="var"
+---@field var? string          -- for type="cond"
+---@field negated? boolean     -- for type="cond"
+---@field if_branch? Segment[] -- for type="cond"
+---@field else_branch? Segment[] -- for type="cond"
+
+--- Gather template variables from the current request context
+--- Can be extended with extra_vars table
+---@param extra_vars? table<string, string> Additional variables to merge
+---@return table<string, string> vars All template variables
 function template.get_request_vars(extra_vars)
     local vars = {
         -- Request identification (requires nginx request_id module)
@@ -42,7 +62,9 @@ function template.get_request_vars(extra_vars)
     return vars
 end
 
--- Helper function to check if a value is truthy
+--- Check if a value is truthy
+---@param value any
+---@return boolean
 local function is_truthy(value)
     if value == nil then return false end
     if type(value) == "boolean" then return value end
@@ -52,7 +74,9 @@ local function is_truthy(value)
     return true
 end
 
--- Escape special characters in a value for use in gsub replacement
+--- Escape special characters in a value for use in gsub replacement
+---@param str any
+---@return string
 local function escape_replacement(str)
     if type(str) ~= "string" then
         str = tostring(str)
@@ -61,13 +85,16 @@ local function escape_replacement(str)
     return str:gsub("%%", "%%%%")
 end
 
--- Escape special characters in pattern for literal matching
+--- Escape special characters in pattern for literal matching
+---@param str string
+---@return string
 local function escape_pattern(str)
     return str:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
 end
 
--- Parse template into segments for fast rendering
--- Returns a list of segments: {type="text|var|cond", ...}
+--- Parse template into segments for fast rendering
+---@param template_str string
+---@return Segment[]
 local function parse_template(template_str)
     local segments = {}
     local pos = 1
@@ -90,11 +117,11 @@ local function parse_template(template_str)
             table.insert(segments, {type = "text", content = template_str:sub(pos, start_pos - 1)})
         end
 
-        -- Check if this is a conditional
-        local cond_match = template_str:match("^{{#if%s+([^}]+)}}", start_pos)
+        -- Check if this is a conditional by looking at substring from start_pos
+        local substring = template_str:sub(start_pos)
+        local cond_match = substring:match("^{{#if%s+([^}]+)}}")
         if cond_match then
             -- Find matching {{/if}}
-            local cond_start = start_pos
             local cond_open_end = template_str:find("}}", start_pos, true) + 2
             local depth = 1
             local search_pos = cond_open_end
@@ -175,7 +202,10 @@ local function parse_template(template_str)
     return segments
 end
 
--- Render parsed segments with given variables
+--- Render parsed segments with given variables
+---@param segments Segment[]
+---@param args table<string, string>
+---@return string
 local function render_segments(segments, args)
     local result = {}
 
@@ -209,8 +239,10 @@ local function render_segments(segments, args)
     return table.concat(result)
 end
 
--- Precompile a template string into a parsed structure
--- Call this once at init time
+--- Precompile a template string into a parsed structure
+--- Call this once at init time
+---@param template_str string
+---@return CompiledTemplate?
 function template.precompile(template_str)
     if template_str == nil or template_str == "" then
         return nil
@@ -221,8 +253,11 @@ function template.precompile(template_str)
     }
 end
 
--- Render a precompiled template with variables
--- Call this at request time for fast rendering
+--- Render a precompiled template with variables
+--- Call this at request time for fast rendering
+---@param compiled CompiledTemplate
+---@param args? table<string, string>
+---@return string
 function template.render(compiled, args)
     if compiled == nil then
         return ""
@@ -233,8 +268,11 @@ function template.render(compiled, args)
     return render_segments(compiled.segments, args)
 end
 
--- Original compile function for backward compatibility
--- Parses and renders in one step (less efficient for repeated use)
+--- Original compile function for backward compatibility
+--- Parses and renders in one step (less efficient for repeated use)
+---@param template_str string
+---@param args? table<string, string>
+---@return string
 function template.compile(template_str, args)
     if args == nil then
         args = {}

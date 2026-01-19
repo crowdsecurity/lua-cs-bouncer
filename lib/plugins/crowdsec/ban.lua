@@ -1,16 +1,25 @@
 local utils = require "plugins.crowdsec.utils"
 local template = require "plugins.crowdsec.template"
 
-
+---@class BanModule
+---@field compiled_template CompiledTemplate?
+---@field redirect_location string
+---@field ret_code number
+---@field new fun(template_path: string?, redirect_location: string?, ret_code: number?): string?
+---@field apply fun(ret_code?: number, extra_vars?: table<string, string>)
 local M = {_TYPE='module', _NAME='ban.funcs', _VERSION='1.0-0'}
 
 M.compiled_template = nil
 M.redirect_location = ""
 M.ret_code = ngx.HTTP_FORBIDDEN
 
-
+--- Initialize the ban module
+---@param template_path string? Path to the ban template file
+---@param redirect_location string? URL to redirect to instead of showing template
+---@param ret_code number? HTTP status code to return
+---@return string? error Error message if initialization failed
 function M.new(template_path, redirect_location, ret_code)
-    M.redirect_location = redirect_location
+    M.redirect_location = redirect_location or ""
 
     local ret_code_ok = false
     if ret_code ~= nil and ret_code ~= 0 and ret_code ~= "" then
@@ -46,20 +55,13 @@ function M.new(template_path, redirect_location, ret_code)
     return nil
 end
 
+--- Apply the ban remediation
+---@param ret_code? number Optional HTTP status code override
+---@param extra_vars? table<string, string> Optional additional template variables
+function M.apply(ret_code, extra_vars)
+    ngx.log(ngx.DEBUG, "args:" .. tostring(ret_code))
 
-function M.apply(...)
-    local args = {...}
-    local ret_code = args[1]
-    local extra_vars = args[2]  -- Optional table of additional template variables
-
-    ngx.log(ngx.DEBUG, "args:" .. tostring(args[1]))
-
-    local status = 0
-    if ret_code ~= nil then
-        status = ret_code
-    else
-        status = M.ret_code
-    end
+    local status = ret_code or M.ret_code
 
     ngx.log(ngx.DEBUG, "BAN: status=" .. status .. ", redirect_location=" .. M.redirect_location)
     if M.redirect_location ~= "" then
@@ -81,8 +83,6 @@ function M.apply(...)
     end
 
     ngx.exit(status)
-
-    return
 end
 
 return M
