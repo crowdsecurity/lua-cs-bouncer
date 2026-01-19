@@ -4,7 +4,7 @@ local template = require "plugins.crowdsec.template"
 
 local M = {_TYPE='module', _NAME='ban.funcs', _VERSION='1.0-0'}
 
-M.template_str = ""
+M.compiled_template = nil
 M.redirect_location = ""
 M.ret_code = ngx.HTTP_FORBIDDEN
 
@@ -12,7 +12,7 @@ M.ret_code = ngx.HTTP_FORBIDDEN
 function M.new(template_path, redirect_location, ret_code)
     M.redirect_location = redirect_location
 
-    ret_code_ok = false
+    local ret_code_ok = false
     if ret_code ~= nil and ret_code ~= 0 and ret_code ~= "" then
         for k, v in pairs(utils.HTTP_CODE) do
             if k == ret_code then
@@ -26,11 +26,16 @@ function M.new(template_path, redirect_location, ret_code)
         end
     end
 
-    template_file_ok = false
+    local template_file_ok = false
     if (template_path ~= nil and template_path ~= "" and utils.file_exist(template_path) == true) then
-        M.template_str = utils.read_file(template_path)
-        if M.template_str ~= nil then
-            template_file_ok = true
+        local template_str = utils.read_file(template_path)
+        if template_str ~= nil then
+            -- Precompile template at init time for faster rendering
+            M.compiled_template = template.precompile(template_str)
+            if M.compiled_template ~= nil then
+                template_file_ok = true
+                ngx.log(ngx.DEBUG, "Ban template precompiled successfully")
+            end
         end
     end
 
@@ -111,21 +116,21 @@ function M.apply(...)
         status = M.ret_code
     end
 
-    ngx.log(ngx.DEBUG, "BAN: status=" .. status .. ", redirect_location=" .. M.redirect_location .. ", template_str=" .. M.template_str)
+    ngx.log(ngx.DEBUG, "BAN: status=" .. status .. ", redirect_location=" .. M.redirect_location)
     if M.redirect_location ~= "" then
         ngx.redirect(M.redirect_location)
         return
     end
-    if M.template_str ~= "" then
+    if M.compiled_template ~= nil then
         ngx.header.content_type = "text/html"
         ngx.header.cache_control = "no-cache"
         ngx.status = status
 
-        -- Compile template with request-specific variables
+        -- Render precompiled template with request-specific variables
         local template_vars = get_template_vars(extra_vars)
-        local compiled = template.compile(M.template_str, template_vars)
+        local rendered = template.render(M.compiled_template, template_vars)
 
-        ngx.say(compiled)
+        ngx.say(rendered)
         ngx.exit(status)
         return
     end
