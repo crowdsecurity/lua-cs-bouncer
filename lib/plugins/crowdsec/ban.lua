@@ -47,61 +47,6 @@ function M.new(template_path, redirect_location, ret_code)
 end
 
 
--- Generate a unique request ID
-local function generate_request_id()
-    -- Use ngx.var.request_id if available (OpenResty 1.11.2+)
-    if ngx.var.request_id then
-        return ngx.var.request_id
-    end
-    -- Fallback: generate a simple unique ID
-    local random_part = string.format("%08x", math.random(0, 0xFFFFFFFF))
-    local time_part = string.format("%08x", ngx.now() * 1000)
-    return time_part .. "-" .. random_part
-end
-
-
--- Gather template variables from the current request context
-local function get_template_vars(extra_vars)
-    local vars = {
-        -- Request identification
-        request_id = generate_request_id(),
-
-        -- Client information
-        client_ip = ngx.var.remote_addr or "",
-        client_port = ngx.var.remote_port or "",
-
-        -- Request details
-        request_uri = ngx.var.request_uri or "",
-        request_method = ngx.var.request_method or "",
-        host = ngx.var.host or "",
-        server_name = ngx.var.server_name or "",
-        scheme = ngx.var.scheme or "",
-
-        -- User agent and headers
-        user_agent = ngx.var.http_user_agent or "",
-        referer = ngx.var.http_referer or "",
-
-        -- Timing
-        timestamp = os.date("%Y-%m-%d %H:%M:%S"),
-        timestamp_iso = os.date("!%Y-%m-%dT%H:%M:%SZ"),
-        timestamp_unix = tostring(os.time()),
-
-        -- Server info
-        server_addr = ngx.var.server_addr or "",
-        server_port = ngx.var.server_port or "",
-    }
-
-    -- Merge in any extra variables passed (e.g., from CrowdSec decision)
-    if extra_vars then
-        for k, v in pairs(extra_vars) do
-            vars[k] = v
-        end
-    end
-
-    return vars
-end
-
-
 function M.apply(...)
     local args = {...}
     local ret_code = args[1]
@@ -127,7 +72,7 @@ function M.apply(...)
         ngx.status = status
 
         -- Render precompiled template with request-specific variables
-        local template_vars = get_template_vars(extra_vars)
+        local template_vars = template.get_request_vars(extra_vars)
         local rendered = template.render(M.compiled_template, template_vars)
 
         ngx.say(rendered)

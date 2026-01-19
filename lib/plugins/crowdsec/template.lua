@@ -1,5 +1,47 @@
 local template = {}
 
+-- Gather template variables from the current request context
+-- Can be extended with extra_vars table
+function template.get_request_vars(extra_vars)
+    local vars = {
+        -- Request identification (requires nginx request_id module)
+        request_id = ngx.var.request_id or "",
+
+        -- Client information
+        client_ip = ngx.var.remote_addr or "",
+        client_port = ngx.var.remote_port or "",
+
+        -- Request details
+        request_uri = ngx.var.request_uri or "",
+        request_method = ngx.var.request_method or "",
+        host = ngx.var.host or "",
+        server_name = ngx.var.server_name or "",
+        scheme = ngx.var.scheme or "",
+
+        -- User agent and headers
+        user_agent = ngx.var.http_user_agent or "",
+        referer = ngx.var.http_referer or "",
+
+        -- Timing
+        timestamp = os.date("%Y-%m-%d %H:%M:%S"),
+        timestamp_iso = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+        timestamp_unix = tostring(os.time()),
+
+        -- Server info
+        server_addr = ngx.var.server_addr or "",
+        server_port = ngx.var.server_port or "",
+    }
+
+    -- Merge in any extra variables passed
+    if extra_vars then
+        for k, v in pairs(extra_vars) do
+            vars[k] = v
+        end
+    end
+
+    return vars
+end
+
 -- Helper function to check if a value is truthy
 local function is_truthy(value)
     if value == nil then return false end

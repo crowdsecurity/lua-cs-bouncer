@@ -22,7 +22,8 @@ captcha_frontend_key["turnstile"] = "cf-turnstile"
 
 M.SecretKey = ""
 M.SiteKey = ""
-M.Template = ""
+M.compiled_template = nil
+M.static_vars = {}
 M.ret_code = ngx.HTTP_OK
 
 function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
@@ -66,21 +67,35 @@ function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
         end
     end
 
-    local template_data = {}
-    template_data["captcha_site_key"] =  M.SiteKey
-    template_data["captcha_frontend_js"] = captcha_frontend_js[M.CaptchaProvider]
-    template_data["captcha_frontend_key"] = captcha_frontend_key[M.CaptchaProvider]
-    local view = template.compile(captcha_template, template_data)
-    M.Template = view
+    -- Store static captcha variables
+    M.static_vars = {
+        captcha_site_key = M.SiteKey,
+        captcha_frontend_js = captcha_frontend_js[M.CaptchaProvider],
+        captcha_frontend_key = captcha_frontend_key[M.CaptchaProvider]
+    }
+
+    -- Precompile template at init time
+    M.compiled_template = template.precompile(captcha_template)
+    if M.compiled_template ~= nil then
+        ngx.log(ngx.DEBUG, "Captcha template precompiled successfully")
+    end
 
     return nil
 end
+
 
 function M.apply()
     ngx.header.content_type = "text/html"
     ngx.header.cache_control = "no-cache"
     ngx.status = M.ret_code
-    ngx.say(M.Template)
+
+    if M.compiled_template ~= nil then
+        -- Use shared helper, pass static captcha vars as extras
+        local template_vars = template.get_request_vars(M.static_vars)
+        local rendered = template.render(M.compiled_template, template_vars)
+        ngx.say(rendered)
+    end
+
     ngx.exit(M.ret_code)
 end
 
@@ -124,7 +139,7 @@ function M.Validate(captcha_res, remote_ip)
           ngx.log(ngx.ERR, "reCaptcha secret key is invalid")
           return true, nil
         end
-      end 
+      end
     end
 
     return result.success, nil
