@@ -730,7 +730,7 @@ function csmod.Allow(ip)
     local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_" .. ip)
     local source, state_id, err = flag.GetFlags(flags)
 
-    if previous_uri ~= nil and state_id == flag.VERIFY_STATE then
+    if previous_uri ~= nil and state_id == flag.VERIFY_STATE and ngx.req.get_method() == "POST" then
       ngx.req.read_body()
       local args, err = ngx.req.get_post_args()
 
@@ -789,7 +789,7 @@ function csmod.Allow(ip)
           local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ip)
           local source, state_id, err = flag.GetFlags(flags)
           -- we check if the IP is already in cache for captcha and not yet validated
-          if previous_uri == nil or state_id ~= flag.VALIDATED_STATE or remediationSource == flag.APPSEC_SOURCE then 
+          if previous_uri == nil or state_id ~= flag.VALIDATED_STATE or remediationSource == flag.APPSEC_SOURCE then
               local uri = ngx.var.uri
               -- in case its not a GET request, we prefer to fallback on referer
               if ngx.req.get_method() ~= "GET" then
