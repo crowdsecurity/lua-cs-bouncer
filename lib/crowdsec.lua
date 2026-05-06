@@ -30,6 +30,7 @@ local APPSEC_HOST_HEADER = "x-crowdsec-appsec-host"
 local APPSEC_VERB_HEADER = "x-crowdsec-appsec-verb"
 local APPSEC_URI_HEADER = "x-crowdsec-appsec-uri"
 local APPSEC_USER_AGENT_HEADER = "x-crowdsec-appsec-user-agent"
+local APPSEC_TRANSFER_ENCODING_HEADER = "x-crowdsec-appsec-transfer-encoding"
 local REMEDIATION_API_KEY_HEADER = 'x-api-key'
 local METRICS_PERIOD = 900
 
@@ -604,6 +605,10 @@ function csmod.AppSecCheck(ip)
       method = "POST"
       if headers["content-length"] == nil then
         headers["content-length"] = tostring(#body)
+      end
+      if headers["transfer-encoding"] ~= nil then
+        headers[APPSEC_TRANSFER_ENCODING_HEADER] = headers["transfer-encoding"]
+        headers["transfer-encoding"] = nil
       end
     end
   else
