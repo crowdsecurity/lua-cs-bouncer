@@ -34,6 +34,13 @@ local APPSEC_TRANSFER_ENCODING_HEADER = "x-crowdsec-appsec-transfer-encoding"
 local REMEDIATION_API_KEY_HEADER = 'x-api-key'
 local METRICS_PERIOD = 900
 
+local METHODS_WITH_BODY = {
+  POST = true,
+  PUT = true,
+  PATCH = true,
+  DELETE = true,
+}
+
 --- only for debug purpose
 --- called only from within the nginx configuration file in the CI
 function csmod.debug_metrics()
@@ -218,6 +225,12 @@ function csmod.init(configFile, userAgent)
     runtime.conf["ALWAYS_SEND_TO_APPSEC"] = true
   end
 
+  if runtime.conf["APPSEC_DROP_UNREADABLE_BODY"] == "true" then
+    runtime.conf["APPSEC_DROP_UNREADABLE_BODY"] = true
+  else
+    runtime.conf["APPSEC_DROP_UNREADABLE_BODY"] = false
+  end
+
   runtime.conf["APPSEC_ENABLED"] = false
 
   if runtime.conf["APPSEC_URL"] ~= "" then
@@ -343,7 +356,7 @@ local function get_body()
   -- do not even try to read the body if there's no content-length as the LUA API will throw an error
   if ngx.req.http_version() >= 2 and ngx.var.http_content_length == nil then
     ngx.log(ngx.DEBUG, "No content-length header in request")
-    return nil
+    return nil, METHODS_WITH_BODY[ngx.var.request_method] == true
   end
   ngx.req.read_body()
   local body = ngx.req.get_body_data()
@@ -357,7 +370,7 @@ local function get_body()
       end
     end
   end
-  return body
+  return body, false
 end
 
 function csmod.GetCaptchaBackendKey()
@@ -599,7 +612,11 @@ function csmod.AppSecCheck(ip)
 
   local method = "GET"
 
-  local body = get_body()
+  local body, unreadable_body = get_body()
+  if unreadable_body and runtime.conf["APPSEC_DROP_UNREADABLE_BODY"] then
+    ngx.log(ngx.WARN, "Dropping request because body is unreadable and APPSEC_DROP_UNREADABLE_BODY is enabled")
+    return false, runtime.conf["FALLBACK_REMEDIATION"], ngx.HTTP_FORBIDDEN, nil
+  end
   if body ~= nil then
     if #body > 0 then
       method = "POST"
