@@ -1,0 +1,6 @@
+Banned
+IP: {{client_ip}}
+ID: {{request_id}}
+{{#if timestamp}}Time: {{timestamp}}{{/if}}
+{{#if custom_message}}{{custom_message}}{{else}}No custom message{{/if}}
+{{#if !show_details}}Details hidden{{/if}}

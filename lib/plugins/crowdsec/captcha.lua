@@ -3,28 +3,54 @@ local cjson = require "cjson"
 local template = require "plugins.crowdsec.template"
 local utils = require "plugins.crowdsec.utils"
 
+---@class CaptchaModule
+---@field SecretKey string
+---@field SiteKey string
+---@field CaptchaProvider string
+---@field compiled_template CompiledTemplate?
+---@field static_vars table<string, string>
+---@field ret_code number
+---@field New fun(siteKey: string?, secretKey: string?, TemplateFilePath: string?, captcha_provider: string?, ret_code: number?): string?
+---@field apply fun()
+---@field GetCaptchaBackendKey fun(): string
+---@field Validate fun(captcha_res: string, remote_ip: string): boolean, string?
 local M = {_TYPE='module', _NAME='recaptcha.funcs', _VERSION='1.0-0'}
 
-local captcha_backend_url = {}
-captcha_backend_url["recaptcha"] = "https://www.recaptcha.net/recaptcha/api/siteverify"
-captcha_backend_url["hcaptcha"] = "https://hcaptcha.com/siteverify"
-captcha_backend_url["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+---@type table<string, string>
+local captcha_backend_url = {
+    ["recaptcha"] = "https://www.recaptcha.net/recaptcha/api/siteverify",
+    ["hcaptcha"] = "https://hcaptcha.com/siteverify",
+    ["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+}
 
-local captcha_frontend_js = {}
-captcha_frontend_js["recaptcha"] = "https://www.recaptcha.net/recaptcha/api.js"
-captcha_frontend_js["hcaptcha"] = "https://js.hcaptcha.com/1/api.js"
-captcha_frontend_js["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/api.js"
+---@type table<string, string>
+local captcha_frontend_js = {
+    ["recaptcha"] = "https://www.recaptcha.net/recaptcha/api.js",
+    ["hcaptcha"] = "https://js.hcaptcha.com/1/api.js",
+    ["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/api.js"
+}
 
-local captcha_frontend_key = {}
-captcha_frontend_key["recaptcha"] = "g-recaptcha"
-captcha_frontend_key["hcaptcha"] = "h-captcha"
-captcha_frontend_key["turnstile"] = "cf-turnstile"
+---@type table<string, string>
+local captcha_frontend_key = {
+    ["recaptcha"] = "g-recaptcha",
+    ["hcaptcha"] = "h-captcha",
+    ["turnstile"] = "cf-turnstile"
+}
 
 M.SecretKey = ""
 M.SiteKey = ""
-M.Template = ""
+M.CaptchaProvider = ""
+M.compiled_template = nil
+M.static_vars = {}
 M.ret_code = ngx.HTTP_OK
 
+--- Initialize the captcha module
+---@param siteKey string? Public site key from captcha provider
+---@param secretKey string? Secret key from captcha provider
+---@param TemplateFilePath string? Path to the captcha template file
+---@param captcha_provider string? Provider name (recaptcha, hcaptcha, turnstile)
+---@param ret_code number? HTTP status code to return
+---@return string? error Error message if initialization failed
 function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
 
     if siteKey == nil or siteKey == "" then
@@ -50,7 +76,7 @@ function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
         return "Template file " .. TemplateFilePath .. "not found."
     end
 
-    M.CaptchaProvider = captcha_provider
+    M.CaptchaProvider = captcha_provider or "recaptcha"
 
     local ret_code_ok = false
     if ret_code ~= nil and ret_code ~= 0 and ret_code ~= "" then
@@ -66,34 +92,60 @@ function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
         end
     end
 
-    local template_data = {}
-    template_data["captcha_site_key"] =  M.SiteKey
-    template_data["captcha_frontend_js"] = captcha_frontend_js[M.CaptchaProvider]
-    template_data["captcha_frontend_key"] = captcha_frontend_key[M.CaptchaProvider]
-    local view = template.compile(captcha_template, template_data)
-    M.Template = view
+    -- Store static captcha variables
+    M.static_vars = {
+        captcha_site_key = M.SiteKey,
+        captcha_frontend_js = captcha_frontend_js[M.CaptchaProvider],
+        captcha_frontend_key = captcha_frontend_key[M.CaptchaProvider]
+    }
+
+    -- Precompile template at init time
+    M.compiled_template = template.precompile(captcha_template)
+    if M.compiled_template ~= nil then
+        ngx.log(ngx.DEBUG, "Captcha template precompiled successfully")
+    end
 
     return nil
 end
 
+--- Apply the captcha remediation (show captcha page)
 function M.apply()
     ngx.header.content_type = "text/html"
     ngx.header.cache_control = "no-cache"
     ngx.status = M.ret_code
-    ngx.say(M.Template)
+
+    if M.compiled_template ~= nil then
+        -- Use shared helper, pass static captcha vars as extras
+        local template_vars = template.get_request_vars(M.static_vars)
+        local rendered = template.render(M.compiled_template, template_vars)
+        ngx.say(rendered)
+    end
+
     ngx.exit(M.ret_code)
 end
 
+--- Get the form field name for the captcha response
+---@return string key The form field name
 function M.GetCaptchaBackendKey()
     return captcha_frontend_key[M.CaptchaProvider] .. "-response"
 end
 
-function table_to_encoded_url(args)
+--- Convert a table to URL-encoded form data
+---@param args table<string, string>
+---@return string encoded URL-encoded string
+local function table_to_encoded_url(args)
     local params = {}
-    for k, v in pairs(args) do table.insert(params, k .. '=' .. v) end
+    for k, v in pairs(args) do
+        table.insert(params, k .. '=' .. v)
+    end
     return table.concat(params, "&")
 end
 
+--- Validate a captcha response with the provider
+---@param captcha_res string The captcha response token from the form
+---@param remote_ip string The client's IP address
+---@return boolean success Whether the captcha was valid
+---@return string? error Error message if validation failed
 function M.Validate(captcha_res, remote_ip)
     local body = {
         secret   = M.SecretKey,
@@ -124,7 +176,7 @@ function M.Validate(captcha_res, remote_ip)
           ngx.log(ngx.ERR, "reCaptcha secret key is invalid")
           return true, nil
         end
-      end 
+      end
     end
 
     return result.success, nil
