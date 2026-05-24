@@ -753,8 +753,18 @@ function csmod.Allow(ip)
     local source, state_id, err = flag.GetFlags(flags)
 
     if previous_uri ~= nil and state_id == flag.VERIFY_STATE then
-      ngx.req.read_body()
-      local args, err = ngx.req.get_post_args()
+      -- HTTP/2 and HTTP/3 requests without Content-Length cause read_body to error.
+      -- Browsers reloading the captcha page send HTTP/2 GET with no Content-Length,
+      -- so we skip body-reading in that case and fall through to re-serve the captcha.
+      -- Genuine captcha form submissions are POSTs with Content-Length set.
+      local can_read_body = not (ngx.req.http_version() >= 2 and ngx.var.http_content_length == nil)
+      local args, err
+      if can_read_body then
+        ngx.req.read_body()
+        args, err = ngx.req.get_post_args()
+      else
+        args = {}
+      end
 
       if args and not err then
         local captcha_res = args[csmod.GetCaptchaBackendKey()] or 0
