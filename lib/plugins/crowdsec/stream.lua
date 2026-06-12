@@ -136,7 +136,9 @@ end
 -- @param user_agent string: the user agent to use for the request
 -- @param ssl_verify boolean: whether to verify the SSL certificate or not
 -- @param bouncing_on_type string: the type of decision to bounce on
-function stream:stream_query_api(api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type)
+-- @param scenarios_containing string: comma-separated substrings; only pull decisions whose scenario contains one of them
+-- @param scenarios_not_containing string: comma-separated substrings; skip decisions whose scenario contains one of them
+function stream:stream_query_api(api_url, timeout, api_key_header, api_key, user_agent, ssl_verify, bouncing_on_type, scenarios_containing, scenarios_not_containing)
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
@@ -149,7 +151,7 @@ function stream:stream_query_api(api_url, timeout, api_key_header, api_key, user
   local is_startup = stream.cache:get("startup")
   ngx.log(ngx.DEBUG, "startup: " .. tostring(is_startup))
   ngx.log(ngx.DEBUG, "Stream Query API from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
-  local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
+  local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup) .. utils.scenario_filters(scenarios_containing, scenarios_not_containing)
 
   local res, err = utils.get_remediation_http_request(link,
                                                       timeout,
@@ -175,7 +177,9 @@ end
 -- @param ssl_client_cert string: path to the client certificate file
 -- @param ssl_client_priv_key string: path to the client private key file
 -- @param bouncing_on_type string: the type of decision to bounce on
-function stream:stream_query_tls(api_url, timeout, user_agent, ssl_verify, ssl_client_cert, ssl_client_priv_key, bouncing_on_type)
+-- @param scenarios_containing string: comma-separated substrings; only pull decisions whose scenario contains one of them
+-- @param scenarios_not_containing string: comma-separated substrings; skip decisions whose scenario contains one of them
+function stream:stream_query_tls(api_url, timeout, user_agent, ssl_verify, ssl_client_cert, ssl_client_priv_key, bouncing_on_type, scenarios_containing, scenarios_not_containing)
   -- As this function is running inside coroutine (with ngx.timer.at),
   -- we need to raise error instead of returning them
 
@@ -188,7 +192,7 @@ function stream:stream_query_tls(api_url, timeout, user_agent, ssl_verify, ssl_c
   local is_startup = stream.cache:get("startup")
   ngx.log(ngx.DEBUG, "startup: " .. tostring(is_startup))
   ngx.log(ngx.DEBUG, "Stream Query TLS from worker : " .. tostring(ngx.worker.id()) .. " with startup "..tostring(is_startup))
-  local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup)
+  local link = api_url .. "/v1/decisions/stream?startup=" .. tostring(is_startup) .. utils.scenario_filters(scenarios_containing, scenarios_not_containing)
 
   local res, err = utils.get_remediation_http_request_tls(link,
                                                           timeout,

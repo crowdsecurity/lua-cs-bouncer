@@ -405,7 +405,9 @@ function csmod.SetupStream()
           runtime.conf["SSL_VERIFY"],
           runtime.conf["TLS_CLIENT_CERT_PARSED"],
           runtime.conf["TLS_CLIENT_KEY_PARSED"],
-          runtime.conf["BOUNCING_ON_TYPE"]
+          runtime.conf["BOUNCING_ON_TYPE"],
+          runtime.conf["SCENARIOS_CONTAINING"],
+          runtime.conf["SCENARIOS_NOT_CONTAINING"]
         )
       else
         err = stream:stream_query_api(
@@ -415,7 +417,9 @@ function csmod.SetupStream()
           runtime.conf["API_KEY"],
           runtime.userAgent,
           runtime.conf["SSL_VERIFY"],
-          runtime.conf["BOUNCING_ON_TYPE"]
+          runtime.conf["BOUNCING_ON_TYPE"],
+          runtime.conf["SCENARIOS_CONTAINING"],
+          runtime.conf["SCENARIOS_NOT_CONTAINING"]
         )
       end
       if err ~=nil then
@@ -554,7 +558,9 @@ function csmod.allowIp(ip)
         runtime.conf["SSL_VERIFY"],
         runtime.conf["TLS_CLIENT_CERT_PARSED"],
         runtime.conf["TLS_CLIENT_KEY_PARSED"],
-        runtime.conf["BOUNCING_ON_TYPE"]
+        runtime.conf["BOUNCING_ON_TYPE"],
+        runtime.conf["SCENARIOS_CONTAINING"],
+        runtime.conf["SCENARIOS_NOT_CONTAINING"]
       )
     else
       ok, remediation, origin, err = live:live_query_api(
@@ -566,7 +572,9 @@ function csmod.allowIp(ip)
         runtime.conf['API_KEY'],
         runtime.userAgent,
         runtime.conf["SSL_VERIFY"],
-        runtime.conf["BOUNCING_ON_TYPE"]
+        runtime.conf["BOUNCING_ON_TYPE"],
+        runtime.conf["SCENARIOS_CONTAINING"],
+        runtime.conf["SCENARIOS_NOT_CONTAINING"]
       )
     end
     -- debug: wip
