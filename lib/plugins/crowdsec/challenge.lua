@@ -1,4 +1,8 @@
-local M = {_TYPE='module', _NAME='challenge.funcs', _VERSION='1.0-0'}
+local M = {
+    _TYPE = 'module',
+    _NAME = 'challenge.funcs',
+    _VERSION = '1.0-0'
+}
 
 --- Serve a challenge response from AppSec.
 -- Sets the HTTP status, response headers, cookies, and body as provided by CrowdSec.
@@ -32,7 +36,7 @@ function M.apply(status_code, body, headers, cookies)
     end
 
     if body ~= nil then
-        ngx.say(body)
+        ngx.print(body)
     end
 
     ngx.exit(ngx.status)
