@@ -167,6 +167,24 @@ function M.table_to_string(t)
     return ret
 end
 
+--- Build the scenario filter query string fragment for the decisions endpoints.
+--- Maps to the LAPI `scenarios_containing`/`scenarios_not_containing` filters,
+--- which match decisions whose scenario contains (or does not contain) any of
+--- the comma-separated values.
+--- @param scenarios_containing string: comma-separated substrings ("" or nil to disable)
+--- @param scenarios_not_containing string: comma-separated substrings ("" or nil to disable)
+--- @return string: query string fragment to append to a decisions URL ("" when no filter is set)
+function M.scenario_filters(scenarios_containing, scenarios_not_containing)
+  local filters = ""
+  if scenarios_containing ~= nil and scenarios_containing ~= "" then
+    filters = filters .. "&scenarios_containing=" .. ngx.escape_uri(scenarios_containing)
+  end
+  if scenarios_not_containing ~= nil and scenarios_not_containing ~= "" then
+    filters = filters .. "&scenarios_not_containing=" .. ngx.escape_uri(scenarios_not_containing)
+  end
+  return filters
+end
+
 --- Convert a string to a labels key, value table.
 --- @param str string to convert.
 --- @return table ordered table
