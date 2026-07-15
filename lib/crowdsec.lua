@@ -406,7 +406,9 @@ function csmod.SetupStream()
           runtime.conf["SSL_VERIFY"],
           runtime.conf["TLS_CLIENT_CERT_PARSED"],
           runtime.conf["TLS_CLIENT_KEY_PARSED"],
-          runtime.conf["BOUNCING_ON_TYPE"]
+          runtime.conf["BOUNCING_ON_TYPE"],
+          runtime.conf["SCENARIOS_CONTAINING"],
+          runtime.conf["SCENARIOS_NOT_CONTAINING"]
         )
       else
         err = stream:stream_query_api(
@@ -416,7 +418,9 @@ function csmod.SetupStream()
           runtime.conf["API_KEY"],
           runtime.userAgent,
           runtime.conf["SSL_VERIFY"],
-          runtime.conf["BOUNCING_ON_TYPE"]
+          runtime.conf["BOUNCING_ON_TYPE"],
+          runtime.conf["SCENARIOS_CONTAINING"],
+          runtime.conf["SCENARIOS_NOT_CONTAINING"]
         )
       end
       if err ~=nil then
@@ -555,7 +559,9 @@ function csmod.allowIp(ip)
         runtime.conf["SSL_VERIFY"],
         runtime.conf["TLS_CLIENT_CERT_PARSED"],
         runtime.conf["TLS_CLIENT_KEY_PARSED"],
-        runtime.conf["BOUNCING_ON_TYPE"]
+        runtime.conf["BOUNCING_ON_TYPE"],
+        runtime.conf["SCENARIOS_CONTAINING"],
+        runtime.conf["SCENARIOS_NOT_CONTAINING"]
       )
     else
       ok, remediation, origin, err = live:live_query_api(
@@ -567,7 +573,9 @@ function csmod.allowIp(ip)
         runtime.conf['API_KEY'],
         runtime.userAgent,
         runtime.conf["SSL_VERIFY"],
-        runtime.conf["BOUNCING_ON_TYPE"]
+        runtime.conf["BOUNCING_ON_TYPE"],
+        runtime.conf["SCENARIOS_CONTAINING"],
+        runtime.conf["SCENARIOS_NOT_CONTAINING"]
       )
     end
     -- debug: wip
@@ -764,8 +772,18 @@ function csmod.Allow(ip)
     local source, state_id, err = flag.GetFlags(flags)
 
     if previous_uri ~= nil and state_id == flag.VERIFY_STATE then
-      ngx.req.read_body()
-      local args, err = ngx.req.get_post_args()
+      -- HTTP/2 and HTTP/3 requests without Content-Length cause read_body to error.
+      -- Browsers reloading the captcha page send HTTP/2 GET with no Content-Length,
+      -- so we skip body-reading in that case and fall through to re-serve the captcha.
+      -- Genuine captcha form submissions are POSTs with Content-Length set.
+      local can_read_body = not (ngx.req.http_version() >= 2 and ngx.var.http_content_length == nil)
+      local args, err
+      if can_read_body then
+        ngx.req.read_body()
+        args, err = ngx.req.get_post_args()
+      else
+        args = {}
+      end
 
       if args and not err then
         local captcha_res = args[csmod.GetCaptchaBackendKey()] or 0
