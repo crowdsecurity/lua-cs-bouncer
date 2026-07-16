@@ -146,7 +146,13 @@ function metrics:toJson(window)
     }
   }
   table.insert(remediation_components, remediation_component)
-  return cjson.encode({log_processors = cjson.null, remediation_components = remediation_components})
+  local encoded = cjson.encode({log_processors = cjson.null, remediation_components = remediation_components})
+  -- feature_flags must serialize as a JSON array []. OpenResty's cjson honors the
+  -- array_mt set above, but vanilla lua-cjson (e.g. Alpine's lua5.1-cjson, used by
+  -- some builds) has no array_mt and emits {} for empty tables, which LAPI rejects
+  -- with HTTP 400 (cannot unmarshal object into []string). Force the literal here so
+  -- the payload is valid regardless of the cjson variant in use.
+  return (encoded:gsub('"feature_flags":{}', '"feature_flags":[]'))
 end
 
 function metrics:sendMetrics(link, headers, ssl, window)
