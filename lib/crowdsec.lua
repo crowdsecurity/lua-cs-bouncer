@@ -720,6 +720,7 @@ function csmod.Allow(ip)
         end
         if utils.starts_with(ngx.var.uri, uri_to_check) then
           ngx.log(ngx.ERR, "whitelisted location: " .. uri_to_check)
+          ngx.exit(ngx.DECLINED)
         end
       end
     end
