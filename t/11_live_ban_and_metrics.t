@@ -114,6 +114,11 @@ server {
                 local cjson = require "cjson"
                 ngx.req.read_body()
                 local body = ngx.req.get_body_data()
+                -- feature_flags must be a JSON array []; assert on the raw body since
+                -- decoding collapses [] and {} to the same empty Lua table (see issue #134)
+                if body:find('"feature_flags":%[%]') then
+                    print("EXTRACT METRICS JSON:feature_flags:array ")
+                end
                 json = cjson.decode(body)
                 print("EXTRACT METRICS JSON:" .. "type:" .. json["remediation_components"][1]["type"] .. " ")
                 print("EXTRACT METRICS JSON:" .. "name:" .. json["remediation_components"][1]["name"] .. " ")
@@ -157,6 +162,7 @@ GET /t
 --- grep_error_log eval
 qr/EXTRACT METRICS JSON:[^ ]*/
 --- grep_error_log_out
+EXTRACT METRICS JSON:feature_flags:array
 EXTRACT METRICS JSON:type:lua-bouncer
 EXTRACT METRICS JSON:name:nginx
 EXTRACT METRICS JSON:window_size:15
