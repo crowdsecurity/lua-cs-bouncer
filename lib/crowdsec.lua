@@ -8,6 +8,7 @@ local captcha = require "plugins.crowdsec.captcha"
 local flag = require "plugins.crowdsec.flag"
 local utils = require "plugins.crowdsec.utils"
 local ban = require "plugins.crowdsec.ban"
+local challenge = require "plugins.crowdsec.challenge"
 local url = require "plugins.crowdsec.url"
 local metrics = require "plugins.crowdsec.metrics"
 local live = require "plugins.crowdsec.live"
@@ -594,6 +595,11 @@ function csmod.allowIp(ip)
   return true, nil, nil
 end
 
+--- @return boolean: true if the IP did not trigger any WAF rule, false otherwise
+--- @return string: remediation returned by the WAF
+--- @return number: HTTP status code to return to the client
+--- @return table: if the WAF returned a challenge, this table contains the body, headers and cookies to return to the client
+--- @return string: error message if any
 function csmod.AppSecCheck(ip)
   local httpc = http.new()
   httpc:set_timeouts(runtime.conf["APPSEC_CONNECT_TIMEOUT"], runtime.conf["APPSEC_SEND_TIMEOUT"], runtime.conf["APPSEC_PROCESS_TIMEOUT"])
@@ -623,7 +629,7 @@ function csmod.AppSecCheck(ip)
   local body, unreadable_body = get_body()
   if unreadable_body and runtime.conf["APPSEC_DROP_UNREADABLE_BODY"] then
     ngx.log(ngx.WARN, "Dropping request because body is unreadable and APPSEC_DROP_UNREADABLE_BODY is enabled")
-    return false, runtime.conf["FALLBACK_REMEDIATION"], ngx.HTTP_FORBIDDEN, nil
+    return false, runtime.conf["FALLBACK_REMEDIATION"], ngx.HTTP_FORBIDDEN, {}, ""
   end
   if body ~= nil then
     if #body > 0 then
@@ -650,7 +656,7 @@ function csmod.AppSecCheck(ip)
 
   if err ~= nil then
     ngx.log(ngx.ERR, "Fallback because of err: " .. err)
-    return ok, remediation, status_code, err
+    return ok, remediation, status_code, {}, err
   end
 
   if res.status == 200 then
@@ -667,13 +673,21 @@ function csmod.AppSecCheck(ip)
     else
       status_code = ngx.HTTP_FORBIDDEN
     end
+    if remediation == "challenge" then
+      local appsec_response = {
+        body = response.user_body_content,
+        headers = response.user_headers,
+        cookies = response.user_cookies,
+      }
+      return ok, remediation, status_code, appsec_response, ""
+    end
   elseif res.status == 401 then
     ngx.log(ngx.ERR, "Unauthenticated request to APPSEC")
   else
     ngx.log(ngx.ERR, "Bad request to APPSEC (" .. res.status .. "): " .. res.body)
   end
 
-  return ok, remediation, status_code, err
+  return ok, remediation, status_code, {}, ""
 
 end
 
@@ -685,6 +699,7 @@ function csmod.Allow(ip)
   local remediationSource = flag.BOUNCER_SOURCE
   local ret_code = nil
   local remediation = ""
+  local appsec_response = nil
   local ok = true
   local err = ""
   if runtime.conf["ENABLED"] ~= "false" then
@@ -728,7 +743,7 @@ function csmod.Allow(ip)
   -- OR
   -- that user configured the remediation component to always check on the appSec (even if there is a decision for the IP)
   if is_appsec_enabled() and (ok == true or is_always_send_to_appsec())  then
-    local appsecOk, appsecRemediation, status_code, err = csmod.AppSecCheck(ip)
+    local appsecOk, appsecRemediation, status_code, appsec_resp, err = csmod.AppSecCheck(ip)
     if err ~= nil then
       ngx.log(ngx.ERR, "AppSec check: " .. err)
     end
@@ -737,6 +752,7 @@ function csmod.Allow(ip)
       remediationSource = flag.APPSEC_SOURCE
       remediation = appsecRemediation
       ret_code = status_code
+      appsec_response = appsec_resp
     end
   end
 
@@ -749,7 +765,7 @@ function csmod.Allow(ip)
     end
 
     -- if remediation is not supported, fallback
-    if remediation ~= "captcha" and remediation ~= "ban" then
+    if remediation ~= "captcha" and remediation ~= "ban" and remediation ~= "challenge" then
       remediation = runtime.fallback
     end
   end
@@ -823,6 +839,17 @@ function csmod.Allow(ip)
         ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."' (by " .. flag.Flags[remediationSource] .. ")")
         ban.apply(ret_code)
         return
+      end
+      if remediation == "challenge" then
+        if appsec_response ~= nil then
+          ngx.log(ngx.DEBUG, "[Crowdsec] challenge '" .. ip .. "' (by " .. flag.Flags[remediationSource] .. ")")
+          challenge.apply(ret_code, appsec_response.body, appsec_response.headers, appsec_response.cookies)
+          return
+        else
+          ngx.log(ngx.ERR, "[Crowdsec] challenge remediation for '" .. ip .. "' but no response data, falling back to ban")
+          ban.apply(ret_code)
+          return
+        end
       end
       -- if the remediation is a captcha and captcha is well configured
       if remediation == "captcha" and captcha_ok and ngx.var.uri ~= "/favicon.ico" then
