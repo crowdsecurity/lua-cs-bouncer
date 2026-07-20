@@ -745,7 +745,7 @@ function csmod.Allow(ip)
   -- that user configured the remediation component to always check on the appSec (even if there is a decision for the IP)
   if is_appsec_enabled() and (ok == true or is_always_send_to_appsec())  then
     local appsecOk, appsecRemediation, status_code, appsec_resp, err = csmod.AppSecCheck(ip)
-    if err ~= nil then
+    if err ~= nil and err ~= "" then
       ngx.log(ngx.ERR, "AppSec check: " .. err)
     end
     if appsecOk == false then
