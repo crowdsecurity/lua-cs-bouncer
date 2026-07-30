@@ -599,7 +599,7 @@ end
 --- @return string: remediation returned by the WAF
 --- @return number: HTTP status code to return to the client
 --- @return table: if the WAF returned a challenge, this table contains the body, headers and cookies to return to the client
---- @return string: error message if any
+--- @return string|nil: error message if any, nil otherwise
 function csmod.AppSecCheck(ip)
   local httpc = http.new()
   httpc:set_timeouts(runtime.conf["APPSEC_CONNECT_TIMEOUT"], runtime.conf["APPSEC_SEND_TIMEOUT"], runtime.conf["APPSEC_PROCESS_TIMEOUT"])
@@ -629,7 +629,7 @@ function csmod.AppSecCheck(ip)
   local body, unreadable_body = get_body()
   if unreadable_body and runtime.conf["APPSEC_DROP_UNREADABLE_BODY"] then
     ngx.log(ngx.WARN, "Dropping request because body is unreadable and APPSEC_DROP_UNREADABLE_BODY is enabled")
-    return false, runtime.conf["FALLBACK_REMEDIATION"], ngx.HTTP_FORBIDDEN, {}, ""
+    return false, runtime.conf["FALLBACK_REMEDIATION"], ngx.HTTP_FORBIDDEN, {}, nil
   end
   if body ~= nil then
     if #body > 0 then
@@ -679,7 +679,7 @@ function csmod.AppSecCheck(ip)
         headers = response.user_headers,
         cookies = response.user_cookies,
       }
-      return ok, remediation, status_code, appsec_response, ""
+      return ok, remediation, status_code, appsec_response, nil
     end
   elseif res.status == 401 then
     ngx.log(ngx.ERR, "Unauthenticated request to APPSEC")
@@ -687,7 +687,7 @@ function csmod.AppSecCheck(ip)
     ngx.log(ngx.ERR, "Bad request to APPSEC (" .. res.status .. "): " .. res.body)
   end
 
-  return ok, remediation, status_code, {}, ""
+  return ok, remediation, status_code, {}, nil
 
 end
 
