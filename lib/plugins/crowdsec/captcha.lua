@@ -9,23 +9,28 @@ local captcha_backend_url = {}
 captcha_backend_url["recaptcha"] = "https://www.recaptcha.net/recaptcha/api/siteverify"
 captcha_backend_url["hcaptcha"] = "https://hcaptcha.com/siteverify"
 captcha_backend_url["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+-- cap is self-hosted, so its verify URL is built from the configured endpoint in M.New()
 
 local captcha_frontend_js = {}
 captcha_frontend_js["recaptcha"] = "https://www.recaptcha.net/recaptcha/api.js"
 captcha_frontend_js["hcaptcha"] = "https://js.hcaptcha.com/1/api.js"
 captcha_frontend_js["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/api.js"
+-- cap-widget is still pre-1.0, so pin the version rather than tracking the latest tag
+captcha_frontend_js["cap"] = "https://cdn.jsdelivr.net/npm/cap-widget@0.1.56"
 
 local captcha_frontend_key = {}
 captcha_frontend_key["recaptcha"] = "g-recaptcha"
 captcha_frontend_key["hcaptcha"] = "h-captcha"
 captcha_frontend_key["turnstile"] = "cf-turnstile"
+-- yields the "cap-response" form field name via M.GetCaptchaBackendKey()
+captcha_frontend_key["cap"] = "cap"
 
 M.SecretKey = ""
 M.SiteKey = ""
 M.Template = ""
 M.ret_code = ngx.HTTP_OK
 
-function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
+function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code, api_endpoint, verify_endpoint)
 
     if siteKey == nil or siteKey == "" then
       return "no recaptcha site key provided, can't use recaptcha"
@@ -52,6 +57,28 @@ function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
 
     M.CaptchaProvider = captcha_provider
 
+    -- the provider drives every lookup below, so reject an unknown one here rather
+    -- than letting it surface as a nil concatenation while rendering the template
+    if captcha_frontend_key[M.CaptchaProvider] == nil then
+        return "unsupported captcha provider '" .. tostring(captcha_provider) .. "'"
+    end
+
+    -- cap is self-hosted, so every URL derives from the operator's own instance.
+    -- The browser and the bouncer can reach that instance on different addresses,
+    -- so verification may target a private endpoint while the widget uses the public one.
+    if M.CaptchaProvider == "cap" then
+        if api_endpoint == nil or api_endpoint == "" then
+            return "CAPTCHA_API_ENDPOINT is required when CAPTCHA_PROVIDER is 'cap'"
+        end
+        local public_base = api_endpoint:gsub("/+$", "")
+        local verify_base = public_base
+        if verify_endpoint ~= nil and verify_endpoint ~= "" then
+            verify_base = verify_endpoint:gsub("/+$", "")
+        end
+        M.ApiEndpoint = public_base .. "/" .. M.SiteKey .. "/"
+        captcha_backend_url["cap"] = verify_base .. "/" .. M.SiteKey .. "/siteverify"
+    end
+
     local ret_code_ok = false
     if ret_code ~= nil and ret_code ~= 0 and ret_code ~= "" then
         for k, v in pairs(utils.HTTP_CODE) do
@@ -67,9 +94,33 @@ function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
     end
 
     local template_data = {}
+    -- still exported so templates written against the previous layout keep rendering
     template_data["captcha_site_key"] =  M.SiteKey
     template_data["captcha_frontend_js"] = captcha_frontend_js[M.CaptchaProvider]
     template_data["captcha_frontend_key"] = captcha_frontend_key[M.CaptchaProvider]
+
+    -- providers disagree on how the widget is loaded and declared, and the template
+    -- engine has no conditionals, so the markup is rendered here and injected whole
+    if M.CaptchaProvider == "cap" then
+        template_data["captcha_frontend_js_tag"] =
+            '<script type="module" src="' .. captcha_frontend_js["cap"] .. '"></script>'
+        -- the widget injects its own hidden input, named so that it matches
+        -- M.GetCaptchaBackendKey() instead of cap's "cap-token" default
+        template_data["captcha_widget"] =
+            '<cap-widget id="captcha" data-cap-api-endpoint="' .. M.ApiEndpoint ..
+            '" data-cap-hidden-field-name="' .. M.GetCaptchaBackendKey() .. '"></cap-widget>' ..
+            -- wrapped in a function so captchaCallback resolves when the event fires
+            -- rather than while this script is parsed: it is declared further down
+            '<script>document.getElementById("captcha")' ..
+            '.addEventListener("solve", function () { captchaCallback() })</script>'
+    else
+        template_data["captcha_frontend_js_tag"] =
+            '<script src="' .. captcha_frontend_js[M.CaptchaProvider] .. '" async defer></script>'
+        template_data["captcha_widget"] =
+            '<div id="captcha" class="' .. captcha_frontend_key[M.CaptchaProvider] ..
+            '" data-sitekey="' .. M.SiteKey .. '" data-callback="captchaCallback"></div>'
+    end
+
     local view = template.compile(captcha_template, template_data)
     M.Template = view
 
@@ -94,7 +145,49 @@ function table_to_encoded_url(args)
     return table.concat(params, "&")
 end
 
+-- cap is reCAPTCHA-shaped but not reCAPTCHA-compatible: it takes a JSON body and
+-- reports failures as a plain "error" string rather than an "error-codes" array,
+-- so it gets its own request path instead of branching through the one below.
+function M.ValidateCap(captcha_res)
+    local body = cjson.encode({
+        secret   = M.SecretKey,
+        response = captcha_res
+    })
+
+    local httpc = http.new()
+    httpc:set_timeout(2000)
+    local res, err = httpc:request_uri(captcha_backend_url["cap"], {
+      method = "POST",
+      body = body,
+      headers = {
+          ["Content-Type"] = "application/json",
+      },
+    })
+    httpc:close()
+    if err ~= nil then
+      return true, err
+    end
+
+    -- a self-hosted instance can sit behind a proxy that answers with an HTML error
+    -- page, so a failed decode must not raise out of the access phase
+    local ok, result = pcall(cjson.decode, res.body)
+    if not ok or type(result) ~= "table" then
+      return true, "cap returned a non-JSON response (HTTP " .. tostring(res.status) .. ")"
+    end
+
+    if result.success ~= true and result.error ~= nil then
+      ngx.log(ngx.ERR, "cap captcha validation failed: " .. tostring(result.error))
+    end
+
+    return result.success == true, nil
+end
+
 function M.Validate(captcha_res, remote_ip)
+    if M.CaptchaProvider == "cap" then
+      -- cap has no remoteip field, the caller's IP is not forwarded
+      return M.ValidateCap(captcha_res)
+    end
+
     local body = {
         secret   = M.SecretKey,
         response = captcha_res,
