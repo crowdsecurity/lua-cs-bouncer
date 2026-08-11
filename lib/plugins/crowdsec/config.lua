@@ -1,6 +1,6 @@
 local config = {}
 
-local valid_params = {'ENABLED', 'ENABLE_INTERNAL', 'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'CAPTCHA_RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'CAPTCHA_API_ENDPOINT', 'CAPTCHA_VERIFY_ENDPOINT', 'APPSEC_URL', 'APPSEC_FAILURE_ACTION', 'ALWAYS_SEND_TO_APPSEC', 'APPSEC_DROP_UNREADABLE_BODY', 'SSL_VERIFY', 'USE_TLS_AUTH', 'TLS_CLIENT_CERT', 'TLS_CLIENT_KEY', 'SCENARIOS_CONTAINING', 'SCENARIOS_NOT_CONTAINING'}
+local valid_params = {'ENABLED', 'ENABLE_INTERNAL', 'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'CAPTCHA_RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'OVERRIDE_REMEDIATION', 'CAPTCHA_PROVIDER', 'CAPTCHA_API_ENDPOINT', 'CAPTCHA_VERIFY_ENDPOINT', 'APPSEC_URL', 'APPSEC_FAILURE_ACTION', 'ALWAYS_SEND_TO_APPSEC', 'APPSEC_DROP_UNREADABLE_BODY', 'SSL_VERIFY', 'USE_TLS_AUTH', 'TLS_CLIENT_CERT', 'TLS_CLIENT_KEY', 'SCENARIOS_CONTAINING', 'SCENARIOS_NOT_CONTAINING'}
 local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'APPSEC_CONNECT_TIMEOUT', 'APPSEC_SEND_TIMEOUT', 'APPSEC_PROCESS_TIMEOUT', 'STREAM_REQUEST_TIMEOUT'}
 -- CACHE_SIZE is not used in the code, but as is was valid parameter for the configuration file, not removing it now
 local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
@@ -18,6 +18,7 @@ local default_values = {
     ['REDIRECT_LOCATION'] = "",
     ['EXCLUDE_LOCATION'] = {},
     ['RET_CODE'] = 0,
+    ['OVERRIDE_REMEDIATION'] = "",
     ['CAPTCHA_PROVIDER'] = "recaptcha",
     ['CAPTCHA_API_ENDPOINT'] = "",
     ['CAPTCHA_VERIFY_ENDPOINT'] = "",
@@ -131,6 +132,12 @@ function config.loadConfig(file, default)
                 if not has_value({'captcha', 'ban'}, value) then
                 ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'ban' instead")
                 value = "ban"
+                end
+            elseif key == "OVERRIDE_REMEDIATION" then
+                -- empty means the remediation returned by the LAPI is used as-is
+                if value ~= "" and not has_value({'captcha', 'ban'}, value) then
+                ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value '' instead")
+                value = ""
                 end
             end
             conf[key] = value

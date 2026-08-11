@@ -759,6 +759,13 @@ function csmod.Allow(ip)
 
   local captcha_ok = runtime.cache:get("captcha_ok")
 
+  -- serve one remediation for every bounced decision, whatever type the LAPI or the
+  -- appsec component returned. Applied before the fallback below, so forcing captcha
+  -- while the captcha provider is misconfigured still degrades to FALLBACK_REMEDIATION.
+  if not ok and runtime.conf["OVERRIDE_REMEDIATION"] ~= "" then
+    remediation = runtime.conf["OVERRIDE_REMEDIATION"]
+  end
+
   if runtime.fallback ~= "" then
     -- if we can't use captcha, fallback
     if remediation == "captcha" and captcha_ok == false then
