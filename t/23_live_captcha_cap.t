@@ -118,7 +118,9 @@ server {
                ngx.say('{"success":false,"error":"Missing required parameters"}')
                return
             end
-            ngx.log(ngx.ALERT, "STUB SITEVERIFY: accepted response=" .. payload.response)
+            -- the bouncer, not the browser, calls siteverify, so the solving client's
+            -- address is only visible here if it was forwarded as X-Real-IP
+            ngx.log(ngx.ALERT, "STUB SITEVERIFY: accepted response=" .. payload.response .. " x-real-ip=" .. tostring(ngx.var.http_x_real_ip))
             ngx.say('{"success":true}')
             }
       }
@@ -149,4 +151,4 @@ Location: /t
 --- grep_error_log eval
 qr/STUB SITEVERIFY: [^,]*/
 --- grep_error_log_out
-STUB SITEVERIFY: accepted response=capsitekey:redeemid:redeemsecret
+STUB SITEVERIFY: accepted response=capsitekey:redeemid:redeemsecret x-real-ip=1.1.1.1

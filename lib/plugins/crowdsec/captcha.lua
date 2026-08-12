@@ -148,7 +148,7 @@ end
 -- cap is reCAPTCHA-shaped but not reCAPTCHA-compatible: it takes a JSON body and
 -- reports failures as a plain "error" string rather than an "error-codes" array,
 -- so it gets its own request path instead of branching through the one below.
-function M.ValidateCap(captcha_res)
+function M.ValidateCap(captcha_res, remote_ip)
     local body = cjson.encode({
         secret   = M.SecretKey,
         response = captcha_res
@@ -161,6 +161,11 @@ function M.ValidateCap(captcha_res)
       body = body,
       headers = {
           ["Content-Type"] = "application/json",
+          -- verification is server-to-server, so the connecting address is the
+          -- bouncer's own. Forward the address that actually solved the challenge
+          -- so the cap instance (or a proxy in front of it) logs and rate limits
+          -- against the client rather than against nginx.
+          ["X-Real-IP"] = remote_ip,
       },
     })
     httpc:close()
@@ -184,8 +189,8 @@ end
 
 function M.Validate(captcha_res, remote_ip)
     if M.CaptchaProvider == "cap" then
-      -- cap has no remoteip field, the caller's IP is not forwarded
-      return M.ValidateCap(captcha_res)
+      -- cap has no remoteip body field, so the IP travels as an X-Real-IP header
+      return M.ValidateCap(captcha_res, remote_ip)
     end
 
     local body = {
