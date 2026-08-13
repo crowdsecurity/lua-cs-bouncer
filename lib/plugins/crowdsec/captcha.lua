@@ -29,8 +29,9 @@ M.SecretKey = ""
 M.SiteKey = ""
 M.Template = ""
 M.ret_code = ngx.HTTP_OK
+M.SSLVerify = true
 
-function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code, api_endpoint, verify_endpoint)
+function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code, api_endpoint, verify_endpoint, ssl_verify)
 
     if siteKey == nil or siteKey == "" then
       return "no recaptcha site key provided, can't use recaptcha"
@@ -56,6 +57,11 @@ function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code,
     end
 
     M.CaptchaProvider = captcha_provider
+
+    -- New() runs before crowdsec.lua turns SSL_VERIFY into a boolean, so the raw
+    -- config string arrives here and "false" would be truthy in Lua. Normalize both
+    -- shapes, and only ever opt out on an explicit false.
+    M.SSLVerify = not (ssl_verify == false or ssl_verify == "false")
 
     -- the provider drives every lookup below, so reject an unknown one here rather
     -- than letting it surface as a nil concatenation while rendering the template
@@ -167,6 +173,11 @@ function M.ValidateCap(captcha_res, remote_ip)
           -- against the client rather than against nginx.
           ["X-Real-IP"] = remote_ip,
       },
+      -- a self-hosted instance is commonly reached over TLS it terminates itself,
+      -- so honor SSL_VERIFY here the way the LAPI and appsec calls already do.
+      -- Only cap gets this: the hosted providers present publicly trusted certs,
+      -- and skipping verification against them would be a downgrade for no gain.
+      ssl_verify = M.SSLVerify,
     })
     httpc:close()
     if err ~= nil then
