@@ -180,15 +180,28 @@ function M.ValidateCap(captcha_res, remote_ip)
       ssl_verify = M.SSLVerify,
     })
     httpc:close()
+
+    -- Every path below fails closed: anything short of cap explicitly answering
+    -- "success" leaves the visitor on the captcha page to try again. The instance
+    -- is self-hosted and rate limited per client, so a visitor can provoke these
+    -- failures for themselves on demand; treating them as a solve would hand out
+    -- CAPTCHA_EXPIRATION worth of access for a token nothing ever verified.
     if err ~= nil then
-      return true, err
+      return false, err
     end
 
     -- a self-hosted instance can sit behind a proxy that answers with an HTML error
     -- page, so a failed decode must not raise out of the access phase
     local ok, result = pcall(cjson.decode, res.body)
     if not ok or type(result) ~= "table" then
-      return true, "cap returned a non-JSON response (HTTP " .. tostring(res.status) .. ")"
+      return false, "cap returned a non-JSON response (HTTP " .. tostring(res.status) .. ")"
+    end
+
+    -- separated from the decode failure above so an outage or a tripped rate limit
+    -- is distinguishable in the logs from a visitor submitting a bad token
+    if res.status ~= ngx.HTTP_OK then
+      return false, "cap verification failed with HTTP " .. tostring(res.status) ..
+                    " (" .. tostring(result.error) .. ")"
     end
 
     if result.success ~= true and result.error ~= nil then
@@ -200,7 +213,9 @@ end
 
 function M.Validate(captcha_res, remote_ip)
     if M.CaptchaProvider == "cap" then
-      -- cap has no remoteip body field, so the IP travels as an X-Real-IP header
+      -- cap has no remoteip body field, so the IP travels as an X-Real-IP header.
+      -- Note this path fails closed, unlike the hosted providers below: their
+      -- endpoints are not something a visitor can knock over to skip the captcha.
       return M.ValidateCap(captcha_res, remote_ip)
     end
 
