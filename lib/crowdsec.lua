@@ -735,45 +735,28 @@ function csmod.Allow(ip)
       ngx.log(ngx.ERR, "[Crowdsec] bouncer error: " .. err)
     end
 
-    -- if the ip is now allowed, try to delete its captcha state in cache
+    -- if the ip is now allowed, try to delete its captcha state in cache.
+    -- only a state created for a LAPI decision is dropped here: an appsec captcha
+    -- does not depend on the IP having a decision, so deleting it would destroy the
+    -- pending verification (or the validated grace period) on every single request
+    -- and make the captcha impossible to solve.
     if ok == true then
-      ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
-    end
-  end
-  -- check with appSec if the remediation component doesn't have decisions for the IP
-  -- OR
-  -- that user configured the remediation component to always check on the appSec (even if there is a decision for the IP)
-  if is_appsec_enabled() and (ok == true or is_always_send_to_appsec())  then
-    local appsecOk, appsecRemediation, status_code, appsec_resp, err = csmod.AppSecCheck(ip)
-    if err ~= nil then
-      ngx.log(ngx.ERR, "AppSec check: " .. err)
-    end
-    if appsecOk == false then
-      ok = false
-      remediationSource = flag.APPSEC_SOURCE
-      remediation = appsecRemediation
-      ret_code = status_code
-      appsec_response = appsec_resp
+      local _, cached_flags = ngx.shared.crowdsec_cache:get("captcha_" .. ip)
+      local cached_source = flag.GetFlags(cached_flags)
+      if cached_source ~= flag.APPSEC_SOURCE then
+        ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
+      end
     end
   end
 
   local captcha_ok = runtime.cache:get("captcha_ok")
 
-  if runtime.fallback ~= "" then
-    -- if we can't use captcha, fallback
-    if remediation == "captcha" and captcha_ok == false then
-      remediation = runtime.fallback
-    end
-
-    -- if remediation is not supported, fallback
-    if remediation ~= "captcha" and remediation ~= "ban" and remediation ~= "challenge" then
-      remediation = runtime.fallback
-    end
-  end
-
+  -- if captcha can be used (configuration is valid), we check whether this request is
+  -- the submission of a captcha we are waiting for. this is done before querying the
+  -- appsec: the form is posted back to the URI that triggered the captcha, so letting
+  -- the appsec judge it again would just return the same remediation and we would
+  -- never get a chance to validate the answer.
   if captcha_ok then
-    -- if captcha can be used (configuration is valid)
-    -- we check if the IP needs to validate its captcha before checking it against CrowdSec local API
     local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_" .. ip)
     local source, state_id, err = flag.GetFlags(flags)
 
@@ -802,27 +785,24 @@ function csmod.Allow(ip)
           end
 
           if valid == true then
-            -- if the captcha is valid and has been applied by the application security component
-            -- then we delete the state from the cache because from the bouncing part, if the user solves the captcha
-            -- we will not propose a captcha until the 'CAPTCHA_EXPIRATION'.
-            -- But for the Application Security component, we serve the captcha each time the user triggers it.
-            if source == flag.APPSEC_SOURCE then
-              ngx.shared.crowdsec_cache:delete("captcha_" .. ip)
-            else
-              local succ, err, forcible = ngx.shared.crowdsec_cache:set(
-                "captcha_" .. ip,
-                previous_uri,
-                runtime.conf["CAPTCHA_EXPIRATION"],
-                bit.bor(flag.VALIDATED_STATE, source)
-              )
+            -- the captcha has been solved: remember it for 'CAPTCHA_EXPIRATION' so we do
+            -- not ask for another one right away. this applies to both sources: an appsec
+            -- captcha is triggered by the request itself, so without this grace period the
+            -- redirect below would hit the very rule that asked for the captcha and we
+            -- would serve it again, forever.
+            local succ, err, forcible = ngx.shared.crowdsec_cache:set(
+              "captcha_" .. ip,
+              previous_uri,
+              runtime.conf["CAPTCHA_EXPIRATION"],
+              bit.bor(flag.VALIDATED_STATE, source)
+            )
 
-              if not succ then
-                ngx.log(ngx.ERR, "failed to add key about captcha for ip '" .. ip .. "' in cache: " .. err)
-              end
+            if not succ then
+              ngx.log(ngx.ERR, "failed to add key about captcha for ip '" .. ip .. "' in cache: " .. err)
+            end
 
-              if forcible then
-                ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
-              end
+            if forcible then
+              ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
             end
 
             -- captcha is valid, we redirect the IP to its previous URI using the GET method
@@ -835,6 +815,36 @@ function csmod.Allow(ip)
       end
     end
   end
+
+  -- check with appSec if the remediation component doesn't have decisions for the IP
+  -- OR
+  -- that user configured the remediation component to always check on the appSec (even if there is a decision for the IP)
+  if is_appsec_enabled() and (ok == true or is_always_send_to_appsec())  then
+    local appsecOk, appsecRemediation, status_code, appsec_resp, err = csmod.AppSecCheck(ip)
+    if err ~= nil then
+      ngx.log(ngx.ERR, "AppSec check: " .. err)
+    end
+    if appsecOk == false then
+      ok = false
+      remediationSource = flag.APPSEC_SOURCE
+      remediation = appsecRemediation
+      ret_code = status_code
+      appsec_response = appsec_resp
+    end
+  end
+
+  if runtime.fallback ~= "" then
+    -- if we can't use captcha, fallback
+    if remediation == "captcha" and captcha_ok == false then
+      remediation = runtime.fallback
+    end
+
+    -- if remediation is not supported, fallback
+    if remediation ~= "captcha" and remediation ~= "ban" and remediation ~= "challenge" then
+      remediation = runtime.fallback
+    end
+  end
+
   if not ok then
       if remediation == "ban" then
         ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."' (by " .. flag.Flags[remediationSource] .. ")")
@@ -856,8 +866,11 @@ function csmod.Allow(ip)
       if remediation == "captcha" and captcha_ok and ngx.var.uri ~= "/favicon.ico" then
           local previous_uri, flags = ngx.shared.crowdsec_cache:get("captcha_"..ip)
           local source, state_id, err = flag.GetFlags(flags)
-          -- we check if the IP is already in cache for captcha and not yet validated
-          if previous_uri == nil or state_id ~= flag.VALIDATED_STATE or remediationSource == flag.APPSEC_SOURCE then 
+          -- we check if the IP is already in cache for captcha and not yet validated.
+          -- a captcha solved for a LAPI decision does not grant a free pass on the appsec
+          -- (and the other way around), so a validated state only counts for the source
+          -- that asked for it.
+          if previous_uri == nil or state_id ~= flag.VALIDATED_STATE or source ~= remediationSource then
               local uri = ngx.var.uri
               -- in case its not a GET request, we prefer to fallback on referer
               if ngx.req.get_method() ~= "GET" then
