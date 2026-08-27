@@ -42,6 +42,10 @@ local METHODS_WITH_BODY = {
   DELETE = true,
 }
 
+-- chunk size used when streaming a file-backed request body to the appsec.
+-- same value as lua-resty-http's own default reader chunk: few enough syscalls, small enough allocations.
+local BODY_CHUNK_SIZE = 65536
+
 --- only for debug purpose
 --- called only from within the nginx configuration file in the CI
 function csmod.debug_metrics()
@@ -350,6 +354,14 @@ function csmod.validateCaptcha(captcha_res, remote_ip)
 end
 
 
+--- read the request body to forward it to the appsec.
+--- a body that nginx kept in memory is returned as-is, a body it buffered to a temporary file is
+--- returned as an iterator that lua-resty-http pumps chunk by chunk: such a body can be arbitrarily
+--- large (client_max_body_size), and reading it at once would blow up the lua heap.
+--- @return string|function|nil: the body, an iterator over it, or nil if there's none
+--- @return number: number of bytes the appsec should expect, 0 if there's no body
+--- @return boolean: true if the request should have a body but we could not read it
+--- @return function|nil: cleanup, to call once the appsec request is done
 local function get_body()
 
   -- the LUA module requires a content-length header to read a body for HTTP 2/3 requests, although it's not mandatory.
@@ -357,21 +369,57 @@ local function get_body()
   -- do not even try to read the body if there's no content-length as the LUA API will throw an error
   if ngx.req.http_version() >= 2 and ngx.var.http_content_length == nil then
     ngx.log(ngx.DEBUG, "No content-length header in request")
-    return nil, METHODS_WITH_BODY[ngx.var.request_method] == true
+    return nil, 0, METHODS_WITH_BODY[ngx.var.request_method] == true, nil
   end
   ngx.req.read_body()
+
   local body = ngx.req.get_body_data()
-  if body == nil then
-    local bodyfile = ngx.req.get_body_file()
-    if bodyfile then
-      local fh, err = io.open(bodyfile, "r")
-      if fh then
-        body = fh:read("*a")
-        fh:close()
-      end
+  if body ~= nil then
+    return body, #body, false, nil
+  end
+
+  -- body did not fit in client_body_buffer_size and nginx buffered it to a temporary file
+  local bodyfile = ngx.req.get_body_file()
+  if bodyfile == nil then
+    return nil, 0, false, nil
+  end
+
+  local fh, err = io.open(bodyfile, "rb")
+  if fh == nil then
+    ngx.log(ngx.ERR, "failed to open request body file " .. bodyfile .. ": " .. (err or "unknown"))
+    return nil, 0, false, nil
+  end
+
+  -- the file holds the decoded body, so its size is what we have to announce to the appsec,
+  -- no matter what the client sent as content-length
+  local size = fh:seek("end")
+  if size == nil then
+    fh:close()
+    ngx.log(ngx.ERR, "failed to get the size of request body file " .. bodyfile)
+    return nil, 0, false, nil
+  end
+  fh:seek("set")
+
+  local closed = false
+  local close_body = function()
+    if not closed then
+      closed = true
+      fh:close()
     end
   end
-  return body, false
+
+  local iterator = function()
+    if closed then
+      return nil
+    end
+    local chunk = fh:read(BODY_CHUNK_SIZE)
+    if chunk == nil then -- EOF
+      close_body()
+    end
+    return chunk
+  end
+
+  return iterator, size, false, close_body
 end
 
 function csmod.GetCaptchaBackendKey()
@@ -626,23 +674,22 @@ function csmod.AppSecCheck(ip)
 
   local method = "GET"
 
-  local body, unreadable_body = get_body()
+  local body, body_len, unreadable_body, close_body = get_body()
   if unreadable_body and runtime.conf["APPSEC_DROP_UNREADABLE_BODY"] then
     ngx.log(ngx.WARN, "Dropping request because body is unreadable and APPSEC_DROP_UNREADABLE_BODY is enabled")
     return false, runtime.conf["FALLBACK_REMEDIATION"], ngx.HTTP_FORBIDDEN, {}, nil
   end
-  if body ~= nil then
-    if #body > 0 then
-      method = "POST"
-      if headers["content-length"] == nil then
-        headers["content-length"] = tostring(#body)
-      end
-      if headers["transfer-encoding"] ~= nil then
-        headers[APPSEC_TRANSFER_ENCODING_HEADER] = headers["transfer-encoding"]
-        headers["transfer-encoding"] = nil
-      end
+  if body_len > 0 then
+    method = "POST"
+    -- announce what we are really going to send: a chunked body has no content-length at all,
+    -- and lua-resty-http requires one anyway when the body is an iterator
+    headers["content-length"] = tostring(body_len)
+    if headers["transfer-encoding"] ~= nil then
+      headers[APPSEC_TRANSFER_ENCODING_HEADER] = headers["transfer-encoding"]
+      headers["transfer-encoding"] = nil
     end
   else
+    body = nil
     headers["content-length"] = nil
   end
 
@@ -653,9 +700,14 @@ function csmod.AppSecCheck(ip)
     ssl_verify = runtime.conf["SSL_VERIFY"],
   })
   httpc:close()
+  if close_body ~= nil then
+    close_body()
+  end
 
   if err ~= nil then
-    ngx.log(ngx.ERR, "Fallback because of err: " .. err)
+    -- the appsec stops reading at max_body_size (and after body_read_timeout), answers and closes
+    -- the connection: on a large body we are still sending at that point and end up here
+    ngx.log(ngx.ERR, "Fallback because of err: " .. err .. " (body: " .. body_len .. " bytes)")
     return ok, remediation, status_code, {}, err
   end
 
