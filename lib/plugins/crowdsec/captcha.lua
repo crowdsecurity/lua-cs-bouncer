@@ -2,6 +2,7 @@ local http = require "resty.http"
 local cjson = require "cjson"
 local template = require "plugins.crowdsec.template"
 local utils = require "plugins.crowdsec.utils"
+local altcha = require "plugins.crowdsec.altcha"
 
 local M = {_TYPE='module', _NAME='recaptcha.funcs', _VERSION='1.0-0'}
 
@@ -9,16 +10,19 @@ local captcha_backend_url = {}
 captcha_backend_url["recaptcha"] = "https://www.recaptcha.net/recaptcha/api/siteverify"
 captcha_backend_url["hcaptcha"] = "https://hcaptcha.com/siteverify"
 captcha_backend_url["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+captcha_backend_url["altcha"] = ""
 
 local captcha_frontend_js = {}
 captcha_frontend_js["recaptcha"] = "https://www.recaptcha.net/recaptcha/api.js"
 captcha_frontend_js["hcaptcha"] = "https://js.hcaptcha.com/1/api.js"
 captcha_frontend_js["turnstile"] = "https://challenges.cloudflare.com/turnstile/v0/api.js"
+captcha_frontend_js["altcha"] = ""
 
 local captcha_frontend_key = {}
 captcha_frontend_key["recaptcha"] = "g-recaptcha"
 captcha_frontend_key["hcaptcha"] = "h-captcha"
 captcha_frontend_key["turnstile"] = "cf-turnstile"
+captcha_frontend_key["altcha"] = "altcha"
 
 M.SecretKey = ""
 M.SiteKey = ""
@@ -26,12 +30,12 @@ M.Template = ""
 M.ret_code = ngx.HTTP_OK
 
 function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
+    M.CaptchaProvider = captcha_provider
 
-    if siteKey == nil or siteKey == "" then
+    if (siteKey == nil or siteKey == "") and M.CaptchaProvider ~= "altcha" then
       return "no recaptcha site key provided, can't use recaptcha"
     end
     M.SiteKey = siteKey
-
     if secretKey == nil or secretKey == "" then
       return "no recaptcha secret key provided, can't use recaptcha"
     end
@@ -50,8 +54,6 @@ function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
         return "Template file " .. TemplateFilePath .. "not found."
     end
 
-    M.CaptchaProvider = captcha_provider
-
     local ret_code_ok = false
     if ret_code ~= nil and ret_code ~= 0 and ret_code ~= "" then
         for k, v in pairs(utils.HTTP_CODE) do
@@ -67,7 +69,7 @@ function M.New(siteKey, secretKey, TemplateFilePath, captcha_provider, ret_code)
     end
 
     local template_data = {}
-    template_data["captcha_site_key"] =  M.SiteKey
+    template_data["captcha_site_key"] = M.SiteKey
     template_data["captcha_frontend_js"] = captcha_frontend_js[M.CaptchaProvider]
     template_data["captcha_frontend_key"] = captcha_frontend_key[M.CaptchaProvider]
     local view = template.compile(captcha_template, template_data)
@@ -95,6 +97,17 @@ function table_to_encoded_url(args)
 end
 
 function M.Validate(captcha_res, remote_ip)
+    if M.CaptchaProvider == "altcha" then
+        local unescaped_res = ngx.unescape_uri(captcha_res)
+        local ok, err = altcha.verify_payload(M.SecretKey, unescaped_res)
+        if not ok then
+            ngx.log(ngx.ERR, "ALTCHA validation failed : ", err)
+            return false, err
+        end
+        return true, nil
+    end
+
+
     local body = {
         secret   = M.SecretKey,
         response = captcha_res,
