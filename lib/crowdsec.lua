@@ -449,7 +449,7 @@ function csmod.SetupStream()
       if runtime.conf["USE_TLS_AUTH"] then
         err = stream:stream_query_tls(
           runtime.conf["API_URL"],
-          runtime.conf["REQUEST_TIMEOUT"],
+          runtime.conf["STREAM_REQUEST_TIMEOUT"],
           runtime.userAgent,
           runtime.conf["SSL_VERIFY"],
           runtime.conf["TLS_CLIENT_CERT_PARSED"],
@@ -461,7 +461,7 @@ function csmod.SetupStream()
       else
         err = stream:stream_query_api(
           runtime.conf["API_URL"],
-          runtime.conf["REQUEST_TIMEOUT"],
+          runtime.conf["STREAM_REQUEST_TIMEOUT"],
           REMEDIATION_API_KEY_HEADER,
           runtime.conf["API_KEY"],
           runtime.userAgent,
