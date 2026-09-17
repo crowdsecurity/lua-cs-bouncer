@@ -670,6 +670,9 @@ function csmod.AppSecCheck(ip)
   if runtime.conf["APPSEC_FAILURE_ACTION"] == DENY then
     ok = false
     remediation = runtime.conf["FALLBACK_REMEDIATION"]
+    -- a failing AppSec call returns this initial status code, so a deny
+    -- failure action must carry the forbidden code, not the 200 placeholder
+    status_code = ngx.HTTP_FORBIDDEN
   end
 
   local method = "GET"
