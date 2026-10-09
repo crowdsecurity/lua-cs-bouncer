@@ -354,6 +354,27 @@ function csmod.validateCaptcha(captcha_res, remote_ip)
 end
 
 
+--- whether ngx.req.read_body() can be called on the current request.
+--- the body of a HTTP/2 or HTTP/3 request without content-length can't be read when:
+---  - lua-nginx-module is 0.10.26: it throws an error for such requests (openresty/lua-nginx-module#2237,
+---    reverted in 0.10.27)
+---  - it is a gRPC request: the stream can stay open forever, read_body() would block until
+---    client_body_timeout and nginx would then drop the request (openresty/lua-nginx-module#2172)
+--- @return boolean: false if reading the body would fail or block
+local function can_read_body()
+  if ngx.req.http_version() < 2 or ngx.var.http_content_length ~= nil then
+    return true
+  end
+  if ngx.config.ngx_lua_version == 10026 then
+    return false
+  end
+  local content_type = ngx.var.http_content_type
+  if content_type ~= nil and content_type:sub(1, 16):lower() == "application/grpc" then
+    return false
+  end
+  return true
+end
+
 --- read the request body to forward it to the appsec.
 --- a body that nginx kept in memory is returned as-is, a body it buffered to a temporary file is
 --- returned as an iterator that lua-resty-http pumps chunk by chunk: such a body can be arbitrarily
@@ -364,11 +385,8 @@ end
 --- @return function|nil: cleanup, to call once the appsec request is done
 local function get_body()
 
-  -- the LUA module requires a content-length header to read a body for HTTP 2/3 requests, although it's not mandatory.
-  -- This means that we will likely miss body, but AFAIK, there's no workaround for this.
-  -- do not even try to read the body if there's no content-length as the LUA API will throw an error
-  if ngx.req.http_version() >= 2 and ngx.var.http_content_length == nil then
-    ngx.log(ngx.DEBUG, "No content-length header in request")
+  if not can_read_body() then
+    ngx.log(ngx.DEBUG, "Cannot read the body of a HTTP/2+ request without content-length")
     return nil, 0, METHODS_WITH_BODY[ngx.var.request_method] == true, nil
   end
   ngx.req.read_body()
@@ -813,13 +831,11 @@ function csmod.Allow(ip)
     local source, state_id, err = flag.GetFlags(flags)
 
     if previous_uri ~= nil and state_id == flag.VERIFY_STATE then
-      -- HTTP/2 and HTTP/3 requests without Content-Length cause read_body to error.
-      -- Browsers reloading the captcha page send HTTP/2 GET with no Content-Length,
-      -- so we skip body-reading in that case and fall through to re-serve the captcha.
-      -- Genuine captcha form submissions are POSTs with Content-Length set.
-      local can_read_body = not (ngx.req.http_version() >= 2 and ngx.var.http_content_length == nil)
+      -- when the body can't be read (see can_read_body), fall through to re-serve the captcha.
+      -- this is fine for browsers reloading the captcha page (HTTP/2 GET without content-length):
+      -- genuine captcha form submissions are POSTs with content-length set.
       local args, err
-      if can_read_body then
+      if can_read_body() then
         ngx.req.read_body()
         args, err = ngx.req.get_post_args()
       else
