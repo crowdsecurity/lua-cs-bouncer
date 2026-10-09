@@ -35,6 +35,19 @@ local APPSEC_TRANSFER_ENCODING_HEADER = "x-crowdsec-appsec-transfer-encoding"
 local REMEDIATION_API_KEY_HEADER = 'x-api-key'
 local METRICS_PERIOD = 900
 
+-- maps the BOUNCING_LOG_LEVEL config values to the ngx.log severity constants.
+-- names are spelled as in nginx's own `error_log` directive.
+local LOG_LEVELS = {
+  debug  = ngx.DEBUG,
+  info   = ngx.INFO,
+  notice = ngx.NOTICE,
+  warn   = ngx.WARN,
+  error  = ngx.ERR,
+  crit   = ngx.CRIT,
+  alert  = ngx.ALERT,
+  emerg  = ngx.EMERG,
+}
+
 local METHODS_WITH_BODY = {
   POST = true,
   PUT = true,
@@ -117,6 +130,10 @@ function csmod.init(configFile, userAgent)
   runtime.userAgent = userAgent
   runtime.cache = ngx.shared.crowdsec_cache
   runtime.fallback = runtime.conf["FALLBACK_REMEDIATION"]
+  -- severity used for the "denied" line emitted on every bounced request.
+  -- config.loadConfig() already rejected unknown names, so the lookup cannot miss;
+  -- the fallback keeps us safe if the bouncer is initialised with a hand-built conf table.
+  runtime.bouncing_log_level = LOG_LEVELS[runtime.conf["BOUNCING_LOG_LEVEL"]] or ngx.ALERT
 
   if runtime.conf["ENABLED"] == "false" then
     return "Disabled", nil
@@ -915,7 +932,7 @@ function csmod.Allow(ip)
 
   if not ok then
       if remediation == "ban" then
-        ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."' (by " .. flag.Flags[remediationSource] .. ")")
+        ngx.log(runtime.bouncing_log_level, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."' (by " .. flag.Flags[remediationSource] .. ")")
         ban.apply(ret_code)
         return
       end
@@ -956,7 +973,7 @@ function csmod.Allow(ip)
               if forcible then
                 ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
               end
-              ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."'")
+              ngx.log(runtime.bouncing_log_level, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."'")
               captcha.apply()
               return
           end
