@@ -1,4 +1,5 @@
 local utils = require "plugins.crowdsec.utils"
+local template = require "plugins.crowdsec.template"
 
 
 local M = {_TYPE='module', _NAME='ban.funcs', _VERSION='1.0-0'}
@@ -64,7 +65,13 @@ function M.apply(...)
         ngx.header.content_type = "text/html"
         ngx.header.cache_control = "no-cache"
         ngx.status = status
-        ngx.say(M.template_str)
+
+        local template_data = {}
+        template_data["remote_addr"] = ngx.var.remote_addr
+        template_data["timestamp"] = os.date("%Y-%m-%d %H:%M:%S %z", ngx.time())
+        local view = template.compile(M.template_str, template_data)
+
+        ngx.say(view)
         ngx.exit(status)
         return
     end
