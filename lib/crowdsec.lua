@@ -949,6 +949,13 @@ function csmod.Allow(ip)
                   end
                 end
               end
+              -- a background request (fetch, XHR, service worker update) keeps the page the visitor
+              -- navigated to: this is where the visitor is sent back once the captcha is solved
+              local fetch_mode = ngx.var.http_sec_fetch_mode
+              if previous_uri ~= nil and state_id == flag.VERIFY_STATE and source == remediationSource
+                  and fetch_mode ~= nil and fetch_mode ~= "navigate" then
+                uri = previous_uri
+              end
               local succ, err, forcible = ngx.shared.crowdsec_cache:set("captcha_"..ip, uri , 60, bit.bor(flag.VERIFY_STATE, remediationSource))
               if not succ then
                 ngx.log(ngx.ERR, "failed to add key about captcha for ip '" .. ip .. "' in cache: "..err)
