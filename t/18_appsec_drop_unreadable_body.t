@@ -33,6 +33,8 @@ access_by_lua_block {
         -- Simulate an HTTP/2+ request so the bouncer treats the missing
         -- content-length as an unreadable body.
         ngx.req.http_version = function() return 2.0 end
+        -- lua-nginx-module 0.10.26 refuses to read such a body
+        ngx.config.ngx_lua_version = 10026
         cs.Allow(ngx.var.remote_addr)
 }
 

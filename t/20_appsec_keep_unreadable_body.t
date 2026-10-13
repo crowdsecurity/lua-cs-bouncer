@@ -34,6 +34,8 @@ access_by_lua_block {
         -- bouncer treat the body as unreadable; the request must still be
         -- forwarded since the option is disabled.
         ngx.req.http_version = function() return 2.0 end
+        -- lua-nginx-module 0.10.26 refuses to read such a body
+        ngx.config.ngx_lua_version = 10026
         cs.Allow(ngx.var.remote_addr)
 }
 
