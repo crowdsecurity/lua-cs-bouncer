@@ -688,6 +688,8 @@ function csmod.AppSecCheck(ip)
   if runtime.conf["APPSEC_FAILURE_ACTION"] == DENY then
     ok = false
     remediation = runtime.conf["FALLBACK_REMEDIATION"]
+    -- no status from the appsec: let the remediation use its own (RET_CODE for ban)
+    status_code = nil
   end
 
   local method = "GET"
