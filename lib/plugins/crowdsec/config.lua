@@ -1,10 +1,12 @@
 local config = {}
 
-local valid_params = {'ENABLED', 'ENABLE_INTERNAL', 'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'CAPTCHA_RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'APPSEC_URL', 'APPSEC_FAILURE_ACTION', 'ALWAYS_SEND_TO_APPSEC', 'APPSEC_DROP_UNREADABLE_BODY', 'SSL_VERIFY', 'USE_TLS_AUTH', 'TLS_CLIENT_CERT', 'TLS_CLIENT_KEY', 'SCENARIOS_CONTAINING', 'SCENARIOS_NOT_CONTAINING'}
+local valid_params = {'ENABLED', 'ENABLE_INTERNAL', 'API_URL', 'API_KEY', 'BOUNCING_ON_TYPE', 'MODE', 'SECRET_KEY', 'SITE_KEY', 'BAN_TEMPLATE_PATH' ,'CAPTCHA_TEMPLATE_PATH', 'REDIRECT_LOCATION', 'RET_CODE', 'CAPTCHA_RET_CODE', 'EXCLUDE_LOCATION', 'FALLBACK_REMEDIATION', 'CAPTCHA_PROVIDER', 'APPSEC_URL', 'APPSEC_FAILURE_ACTION', 'ALWAYS_SEND_TO_APPSEC', 'APPSEC_DROP_UNREADABLE_BODY', 'SSL_VERIFY', 'USE_TLS_AUTH', 'TLS_CLIENT_CERT', 'TLS_CLIENT_KEY', 'SCENARIOS_CONTAINING', 'SCENARIOS_NOT_CONTAINING', 'BOUNCING_LOG_LEVEL'}
 local valid_int_params = {'CACHE_EXPIRATION', 'CACHE_SIZE', 'REQUEST_TIMEOUT', 'UPDATE_FREQUENCY', 'CAPTCHA_EXPIRATION', 'APPSEC_CONNECT_TIMEOUT', 'APPSEC_SEND_TIMEOUT', 'APPSEC_PROCESS_TIMEOUT', 'STREAM_REQUEST_TIMEOUT'}
 -- CACHE_SIZE is not used in the code, but as is was valid parameter for the configuration file, not removing it now
 local valid_bouncing_on_type_values = {'ban', 'captcha', 'all'}
 local valid_truefalse_values = {'false', 'true'}
+-- nginx error_log severities, spelled as in the `error_log` directive.
+local valid_log_level_values = {'debug', 'info', 'notice', 'warn', 'error', 'crit', 'alert', 'emerg'}
 local default_values = {
     ['ENABLED'] = "true",
     ['ENABLE_INTERNAL'] = "false",
@@ -34,6 +36,7 @@ local default_values = {
     ['TLS_CLIENT_KEY'] = "",
     ['SCENARIOS_CONTAINING'] = "",
     ['SCENARIOS_NOT_CONTAINING'] = "",
+    ['BOUNCING_LOG_LEVEL'] = "alert",
 }
 
 
@@ -124,6 +127,12 @@ function config.loadConfig(file, default)
                 if not has_value({'stream', 'live'}, value) then
                 ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'stream' instead")
                 value = "stream"
+                end
+            elseif key == "BOUNCING_LOG_LEVEL" then
+                value = value:lower()
+                if not has_value(valid_log_level_values, value) then
+                    ngx.log(ngx.ERR, "unsupported value '" .. value .. "' for variable '" .. key .. "'. Using default value 'alert' instead")
+                    value = "alert"
                 end
             elseif key == "FALLBACK_REMEDIATION" then
                 if not has_value({'captcha', 'ban'}, value) then
