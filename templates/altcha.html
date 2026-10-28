@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">Vérification de sécurité</title>
+</head>
+<body style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; text-align: center; background: #f4f6f8;">
+
+    <p id="msg-instruction">Veuillez valider la vérification ci-dessous pour accéder au site.</p>
+
+    <form id="captcha-form" method="POST" action="/">
+        <altcha-widget id="captcha-widget" challengeurl="/altcha-challenge" name="altcha-response" auto="onload"></altcha-widget>
+        <br><br>
+        <button type="submit" id="btn-submit" style="padding: 5px 15px;">Ok</button>
+    </form>
+
+    <!-- Script de traduction (Exécuté AVANT le chargement du widget) -->
+    <script>
+        // Détection fiable de la langue principale
+        const userLangs = navigator.languages || [navigator.language || ''];
+        const primaryLang = (userLangs[0] || '').toLowerCase();
+        
+        // Est-ce que la PREMIÈRE langue préférée commence par 'fr' ?
+        const isFr = primaryLang.startsWith('fr');
+
+        // Met à jour la balise HTML lang pour être propre
+        document.documentElement.lang = isFr ? 'fr' : 'en';
+
+        // Mise à jour des textes
+        document.getElementById('page-title').textContent = isFr ? 'Vérification de sécurité' : 'Security verification';
+        document.getElementById('msg-instruction').textContent = isFr 
+            ? 'Veuillez valider la vérification ci-dessous pour accéder au site.' 
+            : 'Please complete the verification below to access the site.';
+
+        if (!isFr) {
+            const widget = document.getElementById('captcha-widget');
+            if (widget) {
+                widget.setAttribute('data-label', "I'm not a robot");
+                widget.setAttribute('data-verifying', "Verifying...");
+                widget.setAttribute('data-verified', "Verified");
+                widget.setAttribute('data-error', "Verification failed");
+                widget.setAttribute('data-expired', "Expired");
+            }
+        }
+    </script>
+
+    <!-- Chargement d'ALTCHA -->
+    <script type="module" src="/altcha.js"></script>
+
+    <!-- Auto-submit -->
+    <script type="module">
+        const widget = document.getElementById('captcha-widget');
+        const form = document.getElementById('captcha-form');
+
+        if (widget) {
+            widget.addEventListener('statechange', (event) => {
+                if (event.detail && event.detail.state === 'verified') {
+                    setTimeout(() => {
+                        form.submit();
+                    }, 300); 
+                }
+            });
+        }
+    </script>
+</body>
+</html>
