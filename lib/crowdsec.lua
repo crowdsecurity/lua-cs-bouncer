@@ -493,6 +493,10 @@ function csmod.SetupStream()
         ngx.log(ngx.ERR, "Failed to query the stream: " .. err)
       end
     end
+    if ngx.worker.exiting() then
+      ngx.log(ngx.INFO, "worker is exiting, not setting up stream timer")
+      return
+    end
     local ok, err = ngx.timer.at(runtime.conf["UPDATE_FREQUENCY"], SetupStreamTimer)
     if not ok then
       error("Failed to create the timer: " .. (err or "unknown"))
