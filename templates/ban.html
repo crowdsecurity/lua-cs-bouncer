@@ -17,6 +17,9 @@
             </svg>
             <h1 class="text-xl md:text-2xl lg:text-3xl xl:text-4xl"> CrowdSec Access Forbidden</h1>
             <p class="lg:text-xl md:text-lg"> You are unable to visit the website.</p>
+            <div class="ip-info text-sm">
+              Your IP <b><code>{{remote_addr}}</code></b> seems to be blocked, <a href="https://app.crowdsec.net/cti/{{remote_addr}}" id="ctiLink" target="_blank" style="text-decoration: underline;">check our CTI info</a> about it.
+            </div>
           </div>
           <div class="flex-col md:flex-row text-sm flex items-center">
             <p>
