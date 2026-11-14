@@ -97,6 +97,12 @@ local function is_always_send_to_appsec()
   return false
 end
 
+local function set_remediation_var(remediation)
+  if ngx.var.crowdsec_remediation ~= nil then
+    ngx.var.crowdsec_remediation = remediation
+  end
+end
+
 --- init function
 -- init function called by nginx in init_by_lua_block
 -- @param configFile path to the configuration file
@@ -918,16 +924,19 @@ function csmod.Allow(ip)
   if not ok then
       if remediation == "ban" then
         ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."' (by " .. flag.Flags[remediationSource] .. ")")
+        set_remediation_var("ban")
         ban.apply(ret_code)
         return
       end
       if remediation == "challenge" then
         if appsec_response ~= nil then
           ngx.log(ngx.DEBUG, "[Crowdsec] challenge '" .. ip .. "' (by " .. flag.Flags[remediationSource] .. ")")
+          set_remediation_var("challenge")
           challenge.apply(ret_code, appsec_response.body, appsec_response.headers, appsec_response.cookies)
           return
         else
           ngx.log(ngx.ERR, "[Crowdsec] challenge remediation for '" .. ip .. "' but no response data, falling back to ban")
+          set_remediation_var("ban")
           ban.apply(ret_code)
           return
         end
@@ -959,6 +968,7 @@ function csmod.Allow(ip)
                 ngx.log(ngx.ERR, "Lua shared dict (crowdsec cache) is full, please increase dict size in config")
               end
               ngx.log(ngx.ALERT, "[Crowdsec] denied '" .. ip .. "' with '"..remediation.."'")
+              set_remediation_var("captcha")
               captcha.apply()
               return
           end
